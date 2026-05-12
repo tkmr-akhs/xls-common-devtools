@@ -1,0 +1,29 @@
+VERSION 1.0 CLASS
+BEGIN
+  MultiUse = -1  'True
+END
+Attribute VB_Name = "TextFileService"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = False
+Attribute VB_Exposed = False
+Option Explicit
+
+' #############################################################################
+'!
+'! @brief
+'! TextFileEntity を生成するサービスの実装です。
+'!
+' #############################################################################
+
+Implements ITextFileService
+
+Public Function GetTextFileEntity(ByVal FilePath As String) As ITextFileEntity
+    Dim result As TextFileEntity
+    Set result = New TextFileEntity
+    Call result.Initialize(FilePath)
+    Set GetTextFileEntity = result
+End Function
+Private Function ITextFileService_GetTextFileEntity(ByVal FilePath As String) As ITextFileEntity
+    Set ITextFileService_GetTextFileEntity = GetTextFileEntity(FilePath)
+End Function

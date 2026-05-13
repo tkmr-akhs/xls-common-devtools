@@ -68,11 +68,6 @@
   - 影響: 呼び出し側の初期化漏れが早期に失敗せず、意図しない `Sheet1` / `ThisWorkbook` 起点の範囲や不安定な同一性文字列として扱われる可能性がある。
   - 対応案: `ToString` の診断用途を残すかを決めたうえで、通常利用の公開メンバーは `pCheckInit` に統一する。未初期化 `TransformAbsolute`、`Equals`、`GetIdentityString` のテストを追加する。
 
-- [ ] [bug] WorksheetRangeBounds の空範囲を Shift / Transform 系で維持する
-  - 詳細: 空範囲は `FinishRow = 0` や `FinishColumn = 0` で表現されるが、`Shift` で負方向へ移動すると `pFinishRow + Row` / `pFinishColumn + Column` が負値になり、`Initialize` の `pWellFormBounds` が「省略」と解釈して開始行・開始列へ補完する。
-  - 影響: 空範囲を移動しただけで 1 セルまたは通常範囲へ変わり、`GetUsedRangeBounds` や `UserInputSheet.GetItemRange` の未検出結果を後続処理が実在範囲として扱う可能性がある。
-  - 対応案: 空範囲の内部表現と省略値 `G_OMIT_CELL_INDEX` を分離し、`Shift` / `Transform` / `TransformAbsolute` で空範囲を維持するテストを追加する。
-
 ## 中優先度
 
 - [ ] [bug] TextFileEntity のファイルモード・EOF・Close 契約を揃える
@@ -336,6 +331,10 @@
 
 ### 高優先度だったもの
 
+- [x] [bug] WorksheetRangeBounds の空範囲を Shift / Transform 系で維持する
+  - 詳細: 空範囲は `FinishRow = 0` や `FinishColumn = 0` で表現されるが、`Shift` で負方向へ移動すると `pFinishRow + Row` / `pFinishColumn + Column` が負値になり、`Initialize` の `pWellFormBounds` が「省略」と解釈して開始行・開始列へ補完していた。
+  - 最終対応: `Shift` では開始行・開始列だけをシフトし、`FinishRow` / `FinishColumn` が `0` の場合は空方向の番兵として `0` を維持するようにした。`0` 以外の終了位置はシフト後 1 未満または上限超過をエラーにする。
+  - 確認: `Test_WorksheetRangeBounds.bas` に行方向・列方向の空範囲を負方向へ `Shift` するテストを追加し、`CommonModules.xlsm` の `UnitTestMain` 全件 OK を確認済み。
 - [x] [bug] Lib_UnitTest でテスト単位の実行時エラーを ERR として記録する
   - 詳細: `pRunTestCore` は `Application.Run` の実行時エラーをテスト単位で捕捉していないため、テスト内で予期しないエラーが発生すると `UnitTestMain` 全体が中断し、そのテスト行も結果として記録されなかった。
   - 最終対応: テスト呼び出し用の一時ラッパーモジュールをランナー内部で生成し、ラッパー内の直接呼び出しで実行時エラーを捕捉するようにした。捕捉したエラーは対象テスト行へ `ERR` として記録し、`Err.Number`、`Err.Source`、`Err.Description` を Description に出す。アサート失敗の `NG`、正常終了の `OK` と状態を分けた。

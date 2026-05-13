@@ -703,6 +703,44 @@ Public Sub Test_Transform_ColumnEmptyRange_NegativeAddColumn_StaysEmpty(ByVal As
     Assert.EqualsNumeric 8, actual_bds.FinishRow
     Assert.EqualsNumeric 0, actual_bds.FinishColumn
 End Sub
+
+' -----------------------------------------------------------------------------
+' Shift empty range bounds
+' -----------------------------------------------------------------------------
+
+Public Sub Test_Shift_RowEmptyRange_NegativeRowShift_KeepsFinishRowZero(ByVal Assert As UnitTestAssert)
+    ' Arrange
+    Dim empty_bds As WorksheetRangeBounds
+    Set empty_bds = New_RangeBounds(Row:=5, Column:=2, FinishRow:=0, FinishColumn:=6)
+
+    ' Act
+    Dim actual_bds As WorksheetRangeBounds
+    Set actual_bds = empty_bds.Shift(Row:=-2)
+
+    ' Assert
+    Assert.IsTrue actual_bds.IsEmpty
+    Assert.EqualsNumeric 3, actual_bds.Row
+    Assert.EqualsNumeric 2, actual_bds.Column
+    Assert.EqualsNumeric 0, actual_bds.FinishRow
+    Assert.EqualsNumeric 6, actual_bds.FinishColumn
+End Sub
+
+Public Sub Test_Shift_ColumnEmptyRange_NegativeColumnShift_KeepsFinishColumnZero(ByVal Assert As UnitTestAssert)
+    ' Arrange
+    Dim empty_bds As WorksheetRangeBounds
+    Set empty_bds = New_RangeBounds(Row:=3, Column:=7, FinishRow:=8, FinishColumn:=0)
+
+    ' Act
+    Dim actual_bds As WorksheetRangeBounds
+    Set actual_bds = empty_bds.Shift(Column:=-2)
+
+    ' Assert
+    Assert.IsTrue actual_bds.IsEmpty
+    Assert.EqualsNumeric 3, actual_bds.Row
+    Assert.EqualsNumeric 5, actual_bds.Column
+    Assert.EqualsNumeric 8, actual_bds.FinishRow
+    Assert.EqualsNumeric 0, actual_bds.FinishColumn
+End Sub
 ' -----------------------------------------------------------------------------
 ' Intersect
 ' -----------------------------------------------------------------------------

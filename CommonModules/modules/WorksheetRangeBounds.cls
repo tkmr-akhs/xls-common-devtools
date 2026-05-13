@@ -578,16 +578,26 @@ Public Function Shift(Optional ByVal Row As Long = 0, Optional ByVal Column As L
     Dim new_f_row As Long, new_f_col As Long
     new_s_row = pRow + Row
     new_s_col = pColumn + Column
-    new_f_row = pFinishRow + Row
-    new_f_col = pFinishColumn + Column
+    If pFinishRow = 0 Then
+        new_f_row = 0
+    Else
+        new_f_row = pFinishRow + Row
+    End If
+    If pFinishColumn = 0 Then
+        new_f_col = 0
+    Else
+        new_f_col = pFinishColumn + Column
+    End If
     
     If new_s_row < 1 Then Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "シフト後の行が、1 未満になります。(row: " & pRow & ", shift: " & Row & ")"
     If new_s_col < 1 Then Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "シフト後の列が、1 未満になります。(col: " & pColumn & ", shift: " & Column & ")"
+    If new_f_row <> 0 And new_f_row < 1 Then Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "シフト後の行が、1 未満になります。(row: " & pFinishRow & ", shift: " & Row & ")"
+    If new_f_col <> 0 And new_f_col < 1 Then Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "シフト後の列が、1 未満になります。(col: " & pFinishColumn & ", shift: " & Column & ")"
     If G_ROW_MAX < new_s_row Then Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "シフト後の行が、" & G_ROW_MAX & " を超過します。(row: " & pRow & ", shift: " & Row & ")"
     If G_ROW_MAX < new_f_row Then Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "シフト後の行が、" & G_ROW_MAX & " を超過します。(row: " & pFinishRow & ", shift: " & Row & ")"
-    If G_COL_MAX < new_s_col Then Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "シフト後の列が、" & G_COL_MAX & " を超過します。(row: " & pColumn & ", shift: " & Column & ")"
-    If G_COL_MAX < new_f_col Then Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "シフト後の列が、" & G_COL_MAX & " を超過します。(row: " & pFinishColumn & ", shift: " & Column & ")"
-    
+    If G_COL_MAX < new_s_col Then Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "シフト後の列が、" & G_COL_MAX & " を超過します。(col: " & pColumn & ", shift: " & Column & ")"
+    If G_COL_MAX < new_f_col Then Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "シフト後の列が、" & G_COL_MAX & " を超過します。(col: " & pFinishColumn & ", shift: " & Column & ")"
+
     Dim result_value As WorksheetRangeBounds
     Set result_value = New WorksheetRangeBounds
     

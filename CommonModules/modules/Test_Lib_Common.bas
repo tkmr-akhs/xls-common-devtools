@@ -238,13 +238,19 @@ Public Sub Test_RangeAddressShapeFunctions_ExpectedValues(ByVal Assert As UnitTe
     If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
 End Sub
 
-Public Sub Test_RangeAddressShapeFunctions_MultiRangeForBounds_RaisesError(ByVal Assert As UnitTestAssert)
+Public Sub Test_RangeAddressShapeFunctions_MultiRange_ReturnsFalse(ByVal Assert As UnitTestAssert)
     On Error Resume Next
 
-    ' Act
-    Dim actual_value As Boolean
-    actual_value = IsArea("A1,B2")
+    ' Act / Assert
+    Assert.IsTrue IsMultiRange("A1,B2")
+    Assert.IsFalse IsArea("A1,B2")
+    Assert.IsFalse IsCell("A1,B2")
+    Assert.IsFalse IsEntireRow("A1,B2")
+    Assert.IsFalse IsEntireColumn("A1,B2")
+    Assert.IsFalse IsOneRow("A1,B2")
+    Assert.IsFalse IsOneColumn("A1,B2")
+    Assert.IsFalse IsOneRowArea("A1,B2")
+    Assert.IsFalse IsOneColumnArea("A1,B2")
 
-    ' Assert
-    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
 End Sub

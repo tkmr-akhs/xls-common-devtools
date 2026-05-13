@@ -2823,8 +2823,13 @@ End Function
 '*
 '* @details
 '* この共通モジュールでは Area を「単一セルを除く、連続した複数セル範囲」として扱います。
-'* 複数選択範囲は WorksheetRangeBounds で表現できないためエラーになります。
+'* 非矩形の複数選択範囲は False を返します。
 Public Function IsArea(ByVal AddressString As String) As Boolean
+    If IsMultiRange(AddressString) Then
+        IsArea = False
+        Exit Function
+    End If
+
     Dim range_bounds As WorksheetRangeBounds
     Set range_bounds = New_RangeBoundsFromAddress(AddressString)
 
@@ -2838,7 +2843,13 @@ End Function
 '*
 '* @details
 '* Range アドレスが Cell (例: A1) かどうかをチェックします。
+'* 非矩形の複数選択範囲は False を返します。
 Public Function IsCell(ByVal AddressString As String) As Boolean
+    If IsMultiRange(AddressString) Then
+        IsCell = False
+        Exit Function
+    End If
+
     Dim range_bounds As WorksheetRangeBounds
     Set range_bounds = New_RangeBoundsFromAddress(AddressString)
 
@@ -2852,7 +2863,13 @@ End Function
 '*
 '* @details
 '* Range アドレスが行全体 (例: 1:2) かどうかをチェックします。
+'* 非矩形の複数選択範囲は False を返します。
 Public Function IsEntireRow(ByVal AddressString As String) As Boolean
+    If IsMultiRange(AddressString) Then
+        IsEntireRow = False
+        Exit Function
+    End If
+
     Dim range_bounds As WorksheetRangeBounds
     Set range_bounds = New_RangeBoundsFromAddress(AddressString)
 
@@ -2866,7 +2883,13 @@ End Function
 '*
 '* @details
 '* Range アドレスが列全体 (例: A:B) かどうかをチェックします。
+'* 非矩形の複数選択範囲は False を返します。
 Public Function IsEntireColumn(ByVal AddressString As String) As Boolean
+    If IsMultiRange(AddressString) Then
+        IsEntireColumn = False
+        Exit Function
+    End If
+
     Dim range_bounds As WorksheetRangeBounds
     Set range_bounds = New_RangeBoundsFromAddress(AddressString)
 
@@ -2880,7 +2903,13 @@ End Function
 '*
 '* @details
 '* 単一セルも 1 行形状として True になります。
+'* 非矩形の複数選択範囲は False を返します。
 Public Function IsOneRow(ByVal AddressString As String) As Boolean
+    If IsMultiRange(AddressString) Then
+        IsOneRow = False
+        Exit Function
+    End If
+
     Dim range_bounds As WorksheetRangeBounds
     Set range_bounds = New_RangeBoundsFromAddress(AddressString)
 
@@ -2894,7 +2923,13 @@ End Function
 '*
 '* @details
 '* 単一セルも 1 列形状として True になります。
+'* 非矩形の複数選択範囲は False を返します。
 Public Function IsOneColumn(ByVal AddressString As String) As Boolean
+    If IsMultiRange(AddressString) Then
+        IsOneColumn = False
+        Exit Function
+    End If
+
     Dim range_bounds As WorksheetRangeBounds
     Set range_bounds = New_RangeBoundsFromAddress(AddressString)
 
@@ -2908,7 +2943,13 @@ End Function
 '*
 '* @details
 '* A1:B1 や 1:1 は True、A1 は Cell のため False になります。
+'* 非矩形の複数選択範囲は False を返します。
 Public Function IsOneRowArea(ByVal AddressString As String) As Boolean
+    If IsMultiRange(AddressString) Then
+        IsOneRowArea = False
+        Exit Function
+    End If
+
     Dim range_bounds As WorksheetRangeBounds
     Set range_bounds = New_RangeBoundsFromAddress(AddressString)
 
@@ -2922,7 +2963,13 @@ End Function
 '*
 '* @details
 '* A1:A2 や A:A は True、A1 は Cell のため False になります。
+'* 非矩形の複数選択範囲は False を返します。
 Public Function IsOneColumnArea(ByVal AddressString As String) As Boolean
+    If IsMultiRange(AddressString) Then
+        IsOneColumnArea = False
+        Exit Function
+    End If
+
     Dim range_bounds As WorksheetRangeBounds
     Set range_bounds = New_RangeBoundsFromAddress(AddressString)
 

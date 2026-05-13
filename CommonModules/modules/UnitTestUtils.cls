@@ -86,7 +86,7 @@ Private Function pGetKey(ByVal Args As Variant) As String
     pGetKey = result_value
 End Function
 
-Private Function pGetKeyCore(ByVal ArgItem As Variant) As Variant
+Private Function pGetKeyCore(ByVal ArgItem As Variant) As String
     If IsObject(ArgItem) Then
         If ArgItem Is Nothing Then
             pGetKeyCore = "<Nothing>"
@@ -96,11 +96,19 @@ Private Function pGetKeyCore(ByVal ArgItem As Variant) As Variant
             pGetKeyCore = Hex(ObjPtr(ArgItem)) & "<" & TypeName(ArgItem) & ">"
         End If
     Else
-        If IsEmpty(ArgItem) Then
-            pGetKeyCore = "<Empty>"
-        Else
-            pGetKeyCore = pEscapeSpecial(ArgItem) & "<" & TypeName(ArgItem) & ">"
-        End If
+        pGetKeyCore = pGetPrimitiveKey(ArgItem)
+    End If
+End Function
+
+Private Function pGetPrimitiveKey(ByVal ArgItem As Variant) As String
+    If IsError(ArgItem) Then
+        pGetPrimitiveKey = "CVErr(" & CStr(CLng(ArgItem)) & ")<" & TypeName(ArgItem) & ">"
+    ElseIf IsNull(ArgItem) Then
+        pGetPrimitiveKey = "Null<" & TypeName(ArgItem) & ">"
+    ElseIf IsEmpty(ArgItem) Then
+        pGetPrimitiveKey = "<Empty>"
+    Else
+        pGetPrimitiveKey = pEscapeSpecial(CStr(ArgItem)) & "<" & TypeName(ArgItem) & ">"
     End If
 End Function
 

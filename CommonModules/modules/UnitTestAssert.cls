@@ -232,8 +232,13 @@ Private Sub pEqualsPrimitiveCore( _
     Dim actual_type As String
     actual_type = TypeName(ActualValue)
     
-    ExpectedValueString = CStr(ExpectedValue) & "<" & expect_type & ">"
-    ActualValueString = CStr(ActualValue) & "<" & actual_type & ">"
+    ExpectedValueString = pPrimitiveValueString(ExpectedValue)
+    ActualValueString = pPrimitiveValueString(ActualValue)
+    
+    If pIsSpecialPrimitive(ExpectedValue) Or pIsSpecialPrimitive(ActualValue) Then
+        CheckResult = pSpecialPrimitivesEqual(ExpectedValue, ActualValue)
+        Exit Sub
+    End If
     
     If expect_type = "String" And Not actual_type = "String" _
             Or Not expect_type = "String" And actual_type = "String" Then
@@ -259,8 +264,13 @@ Private Sub pEqualsPrimitiveNumericCore( _
         ByVal ExpectedValue As Variant, _
         ByVal ActualValue As Variant)
     
-    ExpectedValueString = CStr(ExpectedValue)
-    ActualValueString = CStr(ActualValue)
+    ExpectedValueString = pPrimitiveValueString(ExpectedValue)
+    ActualValueString = pPrimitiveValueString(ActualValue)
+    
+    If pIsSpecialPrimitive(ExpectedValue) Or pIsSpecialPrimitive(ActualValue) Then
+        CheckResult = False
+        Exit Sub
+    End If
     
     If ExpectedValue = ActualValue Then
         If pIsNumericType(TypeName(ExpectedValue)) And pIsNumericType(TypeName(ActualValue)) Then
@@ -272,6 +282,38 @@ Private Sub pEqualsPrimitiveNumericCore( _
         CheckResult = False
     End If
 End Sub
+
+Private Function pPrimitiveValueString(ByVal TargetValue As Variant) As String
+    If VBA.IsError(TargetValue) Then
+        pPrimitiveValueString = "CVErr(" & CStr(CLng(TargetValue)) & ")<" & TypeName(TargetValue) & ">"
+    ElseIf VBA.IsNull(TargetValue) Then
+        pPrimitiveValueString = "Null<" & TypeName(TargetValue) & ">"
+    ElseIf VBA.IsEmpty(TargetValue) Then
+        pPrimitiveValueString = "<Empty>"
+    Else
+        pPrimitiveValueString = CStr(TargetValue) & "<" & TypeName(TargetValue) & ">"
+    End If
+End Function
+
+Private Function pIsSpecialPrimitive(ByVal TargetValue As Variant) As Boolean
+    pIsSpecialPrimitive = VBA.IsError(TargetValue) Or VBA.IsNull(TargetValue) Or VBA.IsEmpty(TargetValue)
+End Function
+
+Private Function pSpecialPrimitivesEqual(ByVal ExpectedValue As Variant, ByVal ActualValue As Variant) As Boolean
+    If VBA.IsError(ExpectedValue) Or VBA.IsError(ActualValue) Then
+        If VBA.IsError(ExpectedValue) And VBA.IsError(ActualValue) Then
+            pSpecialPrimitivesEqual = CLng(ExpectedValue) = CLng(ActualValue)
+        Else
+            pSpecialPrimitivesEqual = False
+        End If
+    ElseIf VBA.IsNull(ExpectedValue) Or VBA.IsNull(ActualValue) Then
+        pSpecialPrimitivesEqual = VBA.IsNull(ExpectedValue) And VBA.IsNull(ActualValue)
+    ElseIf VBA.IsEmpty(ExpectedValue) Or VBA.IsEmpty(ActualValue) Then
+        pSpecialPrimitivesEqual = VBA.IsEmpty(ExpectedValue) And VBA.IsEmpty(ActualValue)
+    Else
+        pSpecialPrimitivesEqual = False
+    End If
+End Function
 
 Private Function pIsNumericType(ByVal TypeNameString As String) As Boolean
     Select Case TypeNameString
@@ -544,6 +586,25 @@ Private Sub pEqualsArrayCore( _
     ' ‚Ç‚¿‚ç‚©‚ª”z—ñ‚Å‚È‚¯‚ê‚ÎŽ¸”s
     If Not IsArray(ExpectedArray) Or Not IsArray(ActualArray) Then
         CheckResult = False
+        Exit Sub
+    End If
+    
+    Dim expect_is_empty As Boolean
+    expect_is_empty = IsEmptyArray(ExpectedArray)
+    
+    Dim actual_is_empty As Boolean
+    actual_is_empty = IsEmptyArray(ActualArray)
+    
+    If expect_is_empty Or actual_is_empty Then
+        CheckResult = expect_is_empty And actual_is_empty
+        If Not CheckResult Then
+            If expect_is_empty Then
+                ExpectedValueString = "empty array"
+            End If
+            If actual_is_empty Then
+                ActualValueString = "empty array"
+            End If
+        End If
         Exit Sub
     End If
     

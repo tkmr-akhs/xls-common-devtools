@@ -15,26 +15,26 @@
 
 ## 高優先度
 
-- [ ] [bug] WorksheetService の Excel エラー値文字列化を安全にする
-  - 詳細: `WorksheetService.pConvertErrorToString` は `Select Case ErrValue` と `Case CVErr(...)` で Excel エラー値を判定しており、`CVErr(...)` を含む Variant の直接比較で型不一致になる可能性がある。
-  - 詳細: `ReadCell(GetText:=True)` の `####` フォールバックでも `"" & TargetCell.Value` を使うため、対象セルがエラー値の場合に文字列化で落ち得る。
-  - 影響: `ReadCell`、`XLookup`、`pGetFormulaLiteral` など、Excel エラー値を読み取る・式へ埋め込む経路で、テスト対象ではなく基盤側の変換処理が失敗する。
-  - 対応案: `IsError` 分岐後は `WorksheetFunction.Error_Type` 相当の安定した判定に寄せ、7 種類の Excel エラー値を文字列へ変換するテストを追加する。
+- [ ] [bug] Lib_UnitTest でテスト単位の実行時エラーを NG として記録する
+  - 詳細: `pRunTestCore` は `Application.Run` の実行時エラーをテスト単位で捕捉していないため、テスト内で予期しないエラーが発生すると `UnitTestMain` 全体が中断し、そのテスト行も `NG` として記録されない。
+  - 影響: 1 件の壊れたテストで後続テストが実行されず、`UNIT_TEST_SHEET` だけを見る運用では失敗箇所や未実行範囲を見落とす可能性がある。
+  - 対応案: 各テスト実行を `On Error` で囲み、例外は対象行に `NG`、`Err.Source`、`Err.Description` を記録して次のテストへ進む。ランナー自体の致命的エラーとは扱いを分ける。
 
 - [ ] [bug] WorkbookService.ActivateWorksheet で対象ブックを先にアクティブ化する
   - 詳細: `WorkbookService.ActivateWorksheet` は `target_sheet.Activate` を直接呼ぶだけで、対象ブックを先にアクティブにしていない。
   - 影響: 対象シートがアクティブでない別ブックにある場合、`Worksheet.Activate` が失敗したり、呼び出し側が期待したブック・シートへ移動できない可能性がある。
   - 対応案: UI 操作用 API として対象ブック、対象シートのアクティブ化順序を明示し、非アクティブブック上のシートを指定したテストを追加する。
 
-- [ ] [bug] UnitTestUtils の引数キー生成で Null・CVErr を安全に扱う
-  - 詳細: `UnitTestUtils.pGetKeyCore` は非オブジェクト値を `pEscapeSpecial(ByVal Expression As String)` へ渡すため、`Null` や `CVErr(...)` を含む引数でキー生成自体が失敗し得る。
-  - 影響: テストダブルのスタブ値やスパイ記録で、Excel エラー値・Null を引数に取る API のテストを書けず、テスト基盤の例外が製品コードの失敗と混ざる。
-  - 対応案: `IsError`、`IsNull`、`IsEmpty` を文字列化より前に分岐し、特殊値ごとの安定したキー表現と型情報を固定する。`GetValue` / `HasValue` / `SetValue` の特殊値引数テストを追加する。
-
 - [ ] [bug] WorkbookService.CloseWorkbook の確認表示契約を守る
   - 詳細: `WorkbookService.CloseWorkbook` は `Force:=False` のとき確認画面を表示する契約だが、実装は `Workbooks(Book).Close(SaveChanges:=Not Force)` となっており、確認なしで保存して閉じる可能性がある。
   - 影響: 利用者が確認してから保存可否を判断する前提の処理で、意図しない変更をブックへ保存してしまう可能性がある。
   - 対応案: `Force:=False` では `SaveChanges` を省略して Excel の確認に委ねる、または確認を独自に行う。`Force:=True` の保存/破棄方針もインターフェイスコメントと合わせてテストで固定する。
+
+- [ ] [bug] WorksheetService の Excel エラー値文字列化を安全にする
+  - 詳細: `WorksheetService.pConvertErrorToString` は `Select Case ErrValue` と `Case CVErr(...)` で Excel エラー値を判定しており、`CVErr(...)` を含む Variant の直接比較で型不一致になる可能性がある。
+  - 詳細: `ReadCell(GetText:=True)` の `####` フォールバックでも `"" & TargetCell.Value` を使うため、対象セルがエラー値の場合に文字列化で落ち得る。
+  - 影響: `ReadCell`、`XLookup`、`pGetFormulaLiteral` など、Excel エラー値を読み取る・式へ埋め込む経路で、テスト対象ではなく基盤側の変換処理が失敗する。
+  - 対応案: `IsError` 分岐後は `WorksheetFunction.Error_Type` 相当の安定した判定に寄せ、7 種類の Excel エラー値を文字列へ変換するテストを追加する。
 
 - [ ] [bug] WorksheetService の通常数式コピーで相対参照を保持する
   - 詳細: `WorksheetService.CopyCell` / `CopyRange` の通常数式コピー分岐で `dst_cell = src_cell.FormulaR1C1` としており、`dst_cell.FormulaR1C1 = src_cell.FormulaR1C1` になっていない。
@@ -47,13 +47,6 @@
   - 影響: 読み取り API の呼び出しだけでシートの列幅が変わる可能性があり、表示形式の戻り値もロケール依存の読み書きで不整合になる。
   - 対応案: 列幅は `Double` で退避し、エラー時も復元する。`NumberFormat` の返却値は `NumberFormatLocal` に統一し、列幅保持とローカル表示形式のテストを追加する。
 
-- [ ] [bug] TextFileEntity のファイルモード・EOF・Close 契約を揃える
-  - 詳細: `OpenFile` の `pAsAppend` 分岐で `If pGetReadLock And pGetReadLock Then` となっており、読み取りロック指定時に `Open` 文を実行しないまま `pIsOpen = True` へ進む可能性がある。`pGetWriteLock` との組み合わせ判定の誤記に見える。
-  - 詳細: `IsEndOfFile` は `Output` / `Append` で開いた書き込み用ファイルでも `EOF(pFileDesc)` を呼ぶ一方、`TextFileEntityTestDouble.IsEndOfFile` は `Not pIsOpen Or pAsWrite` の場合に True を返しており、実装とテストダブルの契約がずれている。
-  - 詳細: `TextFileEntity` は `OpenFile` で `FreeFile` により開いたファイルを、`CloseFile` が明示的に呼ばれた場合だけ閉じる。`Class_Terminate` での保険がなく、未オープン状態の close などを `Debug.Print` で扱う箇所もある。
-  - 影響: 追記モード、ロック指定、書き込み用ファイルの EOF 判定、明示 Close 漏れが、実ファイルとテストダブルで異なる結果やファイルハンドル残りにつながる。
-  - 対応案: `Input` / `Output` / `Append` と読み取り・書き込みロック、`CloseFile`、`Class_Terminate` の契約を表で仕様化する。実装とテストダブルに、各モード、Close 後、Append + lock、明示 Close 漏れのテストを追加する。
-
 - [ ] [bug] WorksheetService.Find の Excel Find 状態依存をなくす
   - 詳細: `Range.Find` で `After`、`SearchOrder`、`SearchDirection`、`SearchFormat` を明示していない。Excel の検索ダイアログや直前の `Find` 設定が残っていると、同じ引数でも結果が変わり得る。
   - 詳細: 検索設定を戻すためのダミー `Find` は検索結果が 0 件のとき実行されず、成功時も `SearchFormat` を明示的に解除していない。
@@ -65,15 +58,34 @@
   - 影響: 対象シートがアクティブでない状態では `Range.Activate` が失敗したり、呼び出し側が期待した範囲が選択されない可能性がある。
   - 対応案: UI 操作用 API として対象ブック、対象シート、対象範囲のアクティブ化順序を明示し、非アクティブブック/非アクティブシートからの呼び出しをテストする。
 
-- [ ] [bug] UnitTestAssert で Null・CVErr・Empty を安全に比較する
-  - 詳細: `pEqualsPrimitiveCore` / `pEqualsPrimitiveNumericCore` は `CStr(ExpectedValue)` / `CStr(ActualValue)` と `ExpectedValue = ActualValue` を先に実行するため、`Null` や `CVErr(...)` を含む比較で Assert 自身が型不一致や Null の不正使用で落ちる。
-  - 影響: テスト対象が Excel エラー値、Null、Empty を返す API の回帰テストを書けず、Assert の例外がテスト対象の失敗と混ざる。
-  - 対応案: `IsError`、`IsNull`、`IsEmpty` を通常値比較の前に分岐し、エラー値同士のコード比較、Null 同士、Empty 同士、片側だけ特殊値のテストを追加する。
+- [ ] [bug] WorksheetService の配列数式コピーでコピー元を破壊しない
+  - 詳細: `WorksheetService.pCopyCellCore` は配列数式コピー時に `src_cell = formula_str` でコピー元セルを通常数式へ一時変更し、後続処理が成功した場合だけ `src_cell.FormulaArray = formula_str` で戻している。
+  - 影響: `Application.ConvertFormula`、コピー先への代入、配列数式の再設定でエラーが発生すると、コピー処理の失敗だけでコピー元の配列数式が壊れる可能性がある。読み取り・コピー系 API として副作用が大きい。
+  - 対応案: コピー元セルを書き換えずに相対参照を変換する方法へ変更する。やむを得ず一時変更する場合はエラー時も必ず復元するガードを置き、コピー先失敗時にコピー元が維持されるテストを追加する。
+
+- [ ] [bug] WorksheetService.GetUsedRangeBounds の Find 書式条件依存をなくす
+  - 詳細: `pGetLastRowCore` / `pGetLastColumnCore` / `pGetFirstRowCore` / `pGetFirstColumnCore` は `Range.Find(What:="*")` で `SearchFormat:=False` を明示していない。Excel の検索ダイアログなどで書式検索条件が残っていると、値があるセルでも UsedRange の先頭・末尾検出から漏れる可能性がある。
+  - 影響: `GetUsedRangeBounds`、`CopyRange`、`UserInputSheet.GetItemRange` など使用範囲に依存する処理が、利用者の直前の検索状態で空範囲や狭い範囲を返し得る。
+  - 対応案: UsedRange 検出用の全 `Find` に `SearchFormat:=False` を明示し、検索書式条件が残っている状態で先頭/末尾行列を正しく検出するテストを追加する。
 
 - [ ] [bug] WorksheetRangeBounds の未初期化状態を全公開メンバーで拒否する
   - 詳細: `WorksheetRangeBounds.TransformAbsolute` は `pCheckInit` を呼ばず、未初期化インスタンスでも既定値から新しい範囲を返し得る。`GetIdentityString` / `Equals` も `ToString` の `UNINITIALIZED(...)` 表記に寄るため、未初期化状態をキーや比較に流せてしまう。
   - 影響: 呼び出し側の初期化漏れが早期に失敗せず、意図しない `Sheet1` / `ThisWorkbook` 起点の範囲や不安定な同一性文字列として扱われる可能性がある。
   - 対応案: `ToString` の診断用途を残すかを決めたうえで、通常利用の公開メンバーは `pCheckInit` に統一する。未初期化 `TransformAbsolute`、`Equals`、`GetIdentityString` のテストを追加する。
+
+- [ ] [bug] WorksheetRangeBounds の空範囲を Shift / Transform 系で維持する
+  - 詳細: 空範囲は `FinishRow = 0` や `FinishColumn = 0` で表現されるが、`Shift` で負方向へ移動すると `pFinishRow + Row` / `pFinishColumn + Column` が負値になり、`Initialize` の `pWellFormBounds` が「省略」と解釈して開始行・開始列へ補完する。
+  - 影響: 空範囲を移動しただけで 1 セルまたは通常範囲へ変わり、`GetUsedRangeBounds` や `UserInputSheet.GetItemRange` の未検出結果を後続処理が実在範囲として扱う可能性がある。
+  - 対応案: 空範囲の内部表現と省略値 `G_OMIT_CELL_INDEX` を分離し、`Shift` / `Transform` / `TransformAbsolute` で空範囲を維持するテストを追加する。
+
+## 中優先度
+
+- [ ] [bug] TextFileEntity のファイルモード・EOF・Close 契約を揃える
+  - 詳細: `OpenFile` の `pAsAppend` 分岐で `If pGetReadLock And pGetReadLock Then` となっており、読み取りロック指定時に `Open` 文を実行しないまま `pIsOpen = True` へ進む可能性がある。`pGetWriteLock` との組み合わせ判定の誤記に見える。
+  - 詳細: `IsEndOfFile` は `Output` / `Append` で開いた書き込み用ファイルでも `EOF(pFileDesc)` を呼ぶ一方、`TextFileEntityTestDouble.IsEndOfFile` は `Not pIsOpen Or pAsWrite` の場合に True を返しており、実装とテストダブルの契約がずれている。
+  - 詳細: `TextFileEntity` は `OpenFile` で `FreeFile` により開いたファイルを、`CloseFile` が明示的に呼ばれた場合だけ閉じる。`Class_Terminate` での保険がなく、未オープン状態の close などを `Debug.Print` で扱う箇所もある。
+  - 影響: 追記モード、ロック指定、書き込み用ファイルの EOF 判定、明示 Close 漏れが、実ファイルとテストダブルで異なる結果やファイルハンドル残りにつながる。
+  - 対応案: `Input` / `Output` / `Append` と読み取り・書き込みロック、`CloseFile`、`Class_Terminate` の契約を表で仕様化する。実装とテストダブルに、各モード、Close 後、Append + lock、明示 Close 漏れのテストを追加する。
 
 - [ ] [bug] ObjectList / ObjectSet の特殊 Variant 値の扱いを固定する
   - 詳細: `ObjectList.pItemsEqual` はプリミティブ比較で `ItemObject1 = ItemObject2` を直接 Boolean に代入するため、`Null` や `CVErr(...)` で比較自体が失敗し得る。`ObjectSet` は `Null` / `CVErr(...)` / `Empty` を Dictionary キーとして渡す経路があり、`ConvertToStringArray` でも特殊値の文字列化方針がない。
@@ -84,11 +96,6 @@
   - 詳細: `DiffStringArray` は入力配列に対してすぐ `LBound` / `UBound` を呼ぶため、未初期化または空配列を渡すと差分結果ではなく実行時エラーになる。コメントでは `ChangeTypeArray` の下限を `OldArray` と揃えると読めるが、実装は常に `0 To ...` へ `ReDim` している。
   - 影響: 空ファイル、空行リスト、フィルタ結果 0 件の比較を共通 diff として扱えず、呼び出し側ごとに事前分岐が必要になる。下限を保つ前提の呼び出し側では添字ずれも起こり得る。
   - 対応案: 片側空、両側空、未初期化配列の扱いを仕様化し、出力配列の下限をコメントどおり維持するか、0 ベース固定としてコメントとテストを修正する。
-
-- [ ] [bug] Lib_UnitTest でテスト単位の実行時エラーを NG として記録する
-  - 詳細: `pRunTestCore` は `Application.Run` の実行時エラーをテスト単位で捕捉していないため、テスト内で予期しないエラーが発生すると `UnitTestMain` 全体が中断し、そのテスト行も `NG` として記録されない。
-  - 影響: 1 件の壊れたテストで後続テストが実行されず、`UNIT_TEST_SHEET` だけを見る運用では失敗箇所や未実行範囲を見落とす可能性がある。
-  - 対応案: 各テスト実行を `On Error` で囲み、例外は対象行に `NG`、`Err.Source`、`Err.Description` を記録して次のテストへ進む。ランナー自体の致命的エラーとは扱いを分ける。
 
 - [ ] [bug] ExcelBookAndSheetAddress のクォート判定を Excel の参照構文へ合わせる
   - 詳細: `ExcelBookAndSheetAddress` はスペース、`'`、`!`、`[`、`]`、括弧だけをクォート対象にしているが、`入力-確認`、`2026.05`、先頭が数字のシート名など、Excel 数式上はクォートが必要な名前でも未クォートのアドレスを返し得る。
@@ -119,44 +126,22 @@
   - 詳細: `ConcatArray`、`ConvertArray2dTo1d`、`pSortSwap` はオブジェクト要素を扱う場合の `Set` 代入方針が揃っていない。`IsContainsIn` もオブジェクト配列で同一性・`IEquatable`・`IDuplicateCheckable` のどれを使うか未定義。
   - 対応案: 値変換は上下限と整数性を変換前に判定し、配列ユーティリティはオブジェクト要素の保持・比較方針を `ObjectList` / `ObjectSet` と揃える。数値境界、昇順/降順、空配列、オブジェクト配列のテストを `Test_Lib_Common.bas` に追加する。
 
+- [ ] [bug] Lib_Common.GetMultiKey のキー衝突と特殊値変換を修正する
+  - 詳細: `GetMultiKey` は引数を `Variant` で受ける一方、内部の `pGetMultiKeyEscape(ByVal DictionaryKey As String)` で文字列へ暗黙変換してから連結するため、`1` と `"1"`、`True` と `"True"` のように型が異なる値が同じキーになり得る。
+  - 詳細: `Null` や `CVErr(...)` は文字列への暗黙変換で実行時エラーになり、複合キー生成そのものが失敗し得る。
+  - 影響: 複数引数を Dictionary キーにする呼び出し側で、値の型差による取り違えや、Excel エラー値・Null を含むデータでの失敗が起こる。
+  - 対応案: 値の型タグと特殊値表現を含むキー生成へ変更し、文字列・数値・Boolean・Empty・Null・CVErr を含む複合キーの衝突テストを追加する。
+
 - [ ] [bug] 状態管理系小クラスの戻り値・境界値をテスト可能にする
   - 詳細: `Counter.Initialize` は `If CountStep = 0 Then` で既存プロパティを確認しており、引数 `CountStepNumber:=0` を検出できない。
   - 詳細: `DebugInformation.pBuildMessageByIndex` は先頭 `*` を設定した直後に上書きしており、`FinishTask(TaskName:=...)` は対象タスクを見つけても戻り値を `True` にしていない。
   - 詳細: `ProgressStatus.SetForLoop` は `pTotalValue = FinishIndex` を直接代入して `TotalValue` プロパティの検証を通らず、`Application.StatusBar` と `DoEvents` への依存により進捗計算単体のテストが書きにくい。
   - 対応案: `Counter`、`DebugInformation`、`ProgressStatus` の境界値、戻り値、表示文字列生成をテストで固定する。`ProgressStatus` は進捗率・文言生成と StatusBar 書き込みを分ける。
 
-- [ ] [bug] WorksheetService の配列数式コピーでコピー元を破壊しない
-  - 詳細: `WorksheetService.pCopyCellCore` は配列数式コピー時に `src_cell = formula_str` でコピー元セルを通常数式へ一時変更し、後続処理が成功した場合だけ `src_cell.FormulaArray = formula_str` で戻している。
-  - 影響: `Application.ConvertFormula`、コピー先への代入、配列数式の再設定でエラーが発生すると、コピー処理の失敗だけでコピー元の配列数式が壊れる可能性がある。読み取り・コピー系 API として副作用が大きい。
-  - 対応案: コピー元セルを書き換えずに相対参照を変換する方法へ変更する。やむを得ず一時変更する場合はエラー時も必ず復元するガードを置き、コピー先失敗時にコピー元が維持されるテストを追加する。
-
-- [ ] [bug] WorksheetService.GetUsedRangeBounds の Find 書式条件依存をなくす
-  - 詳細: `pGetLastRowCore` / `pGetLastColumnCore` / `pGetFirstRowCore` / `pGetFirstColumnCore` は `Range.Find(What:="*")` で `SearchFormat:=False` を明示していない。Excel の検索ダイアログなどで書式検索条件が残っていると、値があるセルでも UsedRange の先頭・末尾検出から漏れる可能性がある。
-  - 影響: `GetUsedRangeBounds`、`CopyRange`、`UserInputSheet.GetItemRange` など使用範囲に依存する処理が、利用者の直前の検索状態で空範囲や狭い範囲を返し得る。
-  - 対応案: UsedRange 検出用の全 `Find` に `SearchFormat:=False` を明示し、検索書式条件が残っている状態で先頭/末尾行列を正しく検出するテストを追加する。
-
-- [ ] [bug] WorksheetRangeBounds の空範囲を Shift / Transform 系で維持する
-  - 詳細: 空範囲は `FinishRow = 0` や `FinishColumn = 0` で表現されるが、`Shift` で負方向へ移動すると `pFinishRow + Row` / `pFinishColumn + Column` が負値になり、`Initialize` の `pWellFormBounds` が「省略」と解釈して開始行・開始列へ補完する。
-  - 影響: 空範囲を移動しただけで 1 セルまたは通常範囲へ変わり、`GetUsedRangeBounds` や `UserInputSheet.GetItemRange` の未検出結果を後続処理が実在範囲として扱う可能性がある。
-  - 対応案: 空範囲の内部表現と省略値 `G_OMIT_CELL_INDEX` を分離し、`Shift` / `Transform` / `TransformAbsolute` で空範囲を維持するテストを追加する。
-
-- [ ] [bug] UnitTestAssert.EqualsArray で空配列・未初期化配列を安全に扱う
-  - 詳細: `pEqualsArrayCore` は `GetArrayBounds` の戻り配列に対してすぐ `UBound` を呼ぶ。`GetArrayBounds` は未初期化配列や空配列で境界取得に失敗すると、下限・上限配列を初期化しないまま返し得る。
-  - 影響: 空配列同士の比較、片側だけ空配列、未初期化配列の Assert が、テスト対象の失敗ではなく Assert 自身の実行時エラーになる可能性がある。
-  - 対応案: `GetArrayBounds` が「配列だが要素なし」を明示的に返せる契約にするか、`EqualsArray` 側で `IsEmptyArray` を先に分岐する。両側空、片側空、未初期化配列、0 要素配列のテストを追加する。
-
 - [ ] [bug] SplitMessage の PageSize 境界値を検証する
   - 詳細: `SplitMessage` は `PageSize` を検証せず、`PageSize <= 0` の場合に `pTakeString` が 1 文字も消費しないため、長い行を処理する `Do While` が進まない。さらに `pTakeString` の `LengthByte` は `Integer` で、`SplitMessage` の `Long` 引数より狭い。
   - 影響: メッセージ表示系の補助 API に不正なページサイズが渡ると処理が戻らない、または大きなページサイズで型変換エラーになる可能性がある。
   - 対応案: `PageSize >= 1` を入口で検証し、`pTakeString` の `LengthByte` を `Long` に揃える。`PageSize` が 0、負数、32767 超、マルチバイト境界のテストを追加する。
-
-## 中優先度
-
-- [ ] [bug] Lib_Common.GetMultiKey のキー衝突と特殊値変換を修正する
-  - 詳細: `GetMultiKey` は引数を `Variant` で受ける一方、内部の `pGetMultiKeyEscape(ByVal DictionaryKey As String)` で文字列へ暗黙変換してから連結するため、`1` と `"1"`、`True` と `"True"` のように型が異なる値が同じキーになり得る。
-  - 詳細: `Null` や `CVErr(...)` は文字列への暗黙変換で実行時エラーになり、複合キー生成そのものが失敗し得る。
-  - 影響: 複数引数を Dictionary キーにする呼び出し側で、値の型差による取り違えや、Excel エラー値・Null を含むデータでの失敗が起こる。
-  - 対応案: 値の型タグと特殊値表現を含むキー生成へ変更し、文字列・数値・Boolean・Empty・Null・CVErr を含む複合キーの衝突テストを追加する。
 
 - [ ] [spec] WorkbookService.OpenWorkbook の名称と実挙動を揃える
   - 詳細: `OpenWorkbook` は `Workbooks.Open` ではなく `Workbooks.Add(Template:=file_path)` でテンプレートから非表示ブックを作成している。コメントには元ファイルをロックしない旨があるが、API 名からは通常の open と誤解しやすい。
@@ -355,6 +340,21 @@
 ## 対応済み事項
 
 ### 高優先度だったもの
+
+- [x] [bug] UnitTestUtils の引数キー生成で Null・CVErr を安全に扱う
+  - 詳細: `UnitTestUtils.pGetKeyCore` は非オブジェクト値を `pEscapeSpecial(ByVal Expression As String)` へ渡すため、`Null` や `CVErr(...)` を含む引数でキー生成自体が失敗し得た。
+  - 最終対応: プリミティブ引数のキー生成を `pGetPrimitiveKey` へ分け、`CVErr(code)`、`Null`、`Empty` を文字列化より前に安定した型付きキーへ変換するようにした。
+  - 確認: `Test_UnitTestUtils.bas` に `Empty`、`Null`、複数 `CVErr` の引数キーと `HasValue(Null)` のテストを追加し、`CommonModules.xlsm` の `UnitTestMain` 全件 OK を確認済み。
+
+- [x] [bug] UnitTestAssert で Null・CVErr・Empty を安全に比較する
+  - 詳細: `pEqualsPrimitiveCore` / `pEqualsPrimitiveNumericCore` は `CStr(ExpectedValue)` / `CStr(ActualValue)` と `ExpectedValue = ActualValue` を先に実行するため、`Null` や `CVErr(...)` を含む比較で Assert 自身が型不一致や Null の不正使用で落ち得た。
+  - 最終対応: Assert の表示文字列生成と比較を特殊値分岐の後に行うようにし、`CVErr` は `CLng` で取得したエラーコード、`Null` と `Empty` は各値同士だけ一致する契約にした。`EqualsNumeric` では特殊値を数値一致扱いしないまま安全に失敗させる。
+  - 確認: `Test_UnitTestAssert.bas` を追加し、`Null`、`Empty`、同一/別コードの `CVErr`、`CVErr` と `Null`、`Null` と `Empty`、`EqualsNumeric(Null, Null)` のテストを追加した。`CommonModules.xlsm` の `UnitTestMain` 全件 OK を確認済み。
+
+- [x] [bug] UnitTestAssert.EqualsArray で空配列・未初期化配列を安全に扱う
+  - 詳細: `pEqualsArrayCore` は `GetArrayBounds` の戻り配列に対してすぐ `UBound` を呼ぶ。`GetArrayBounds` は未初期化配列や空配列で境界取得に失敗すると、下限・上限配列を初期化しないまま返し得た。
+  - 最終対応: `EqualsArray` 側で空配列・未初期化配列を `GetArrayBounds` 前に分岐し、両側空は一致、片側だけ空は不一致として扱うようにした。あわせて `GetArrayBounds` の次元探索で発生する正常終了用の `Err.Number = 9` を戻る前に消すよう修正した。
+  - 確認: `Test_UnitTestAssert.bas` に空 `Array()`、未初期化動的配列、片側空、`Null` / `CVErr` / `Empty` を含む配列のテストを追加し、`CommonModules.xlsm` の `UnitTestMain` 全件 OK を確認済み。
 
 - [x] [spec] `IsOneRowArea` / `IsOneColumnArea` の Cell / Area 判定契約を固定する
   - 詳細: `Area` を「単一セルを除く連続した複数セル範囲」、`Cell` を「単一セル範囲」と定義するため、`IsOneRowArea` / `IsOneColumnArea` が `A1` を `False` にすること自体は仕様どおりであり、バグではなかった。一方、`Lib_Common` と `WorksheetRangeBounds` の判定名・判定粒度を揃える必要があった。

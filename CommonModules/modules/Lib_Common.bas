@@ -1104,7 +1104,11 @@ Public Sub GetArrayBounds(ByRef LBoundArray() As Long, ByRef UBoundArray() As Lo
         On Error Resume Next
             lbound_num = LBound(TargetArray, dim_count + 1)
             ubound_num = UBound(TargetArray, dim_count + 1)
-            If Err.Number <> 0 Then Exit Do
+            If Err.Number <> 0 Then
+                Err.Clear
+                On Error GoTo 0
+                Exit Do
+            End If
         On Error GoTo 0
         
         ReDim Preserve result_l(0 To dim_count)

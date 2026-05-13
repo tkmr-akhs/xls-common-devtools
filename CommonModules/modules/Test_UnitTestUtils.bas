@@ -73,3 +73,63 @@ Public Sub Test_GetValue_MissingKey_RaisesErrorAndDoesNotAddKey(ByVal Assert As 
     Err.Clear
     Assert.EqualsNumeric 0, values.Count
 End Sub
+
+Public Sub Test_GetValue_WithSpecialPrimitiveArguments_ReturnsDistinctValues(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim test_util As UnitTestUtils
+    Set test_util = New UnitTestUtils
+
+    Dim values As Dictionary
+    Set values = New Dictionary
+
+    Dim empty_arg As Variant
+    Call test_util.SetValue(values, "empty-value", empty_arg)
+    Call test_util.SetValue(values, "null-value", Null)
+    Call test_util.SetValue(values, "div0-value", CVErr(xlErrDiv0))
+    Call test_util.SetValue(values, "na-value", CVErr(xlErrNA))
+
+    ' Act
+    Dim actual_empty As String
+    actual_empty = test_util.GetValue(values, empty_arg)
+
+    Dim actual_null As String
+    actual_null = test_util.GetValue(values, Null)
+
+    Dim actual_div0 As String
+    actual_div0 = test_util.GetValue(values, CVErr(xlErrDiv0))
+
+    Dim actual_na As String
+    actual_na = test_util.GetValue(values, CVErr(xlErrNA))
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Err.Clear
+    Assert.Equals "empty-value", actual_empty
+    Assert.Equals "null-value", actual_null
+    Assert.Equals "div0-value", actual_div0
+    Assert.Equals "na-value", actual_na
+    Assert.EqualsNumeric 4, values.Count
+End Sub
+
+Public Sub Test_HasValue_WithNullArgument_ReturnsTrue(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim test_util As UnitTestUtils
+    Set test_util = New UnitTestUtils
+
+    Dim values As Dictionary
+    Set values = New Dictionary
+    Call test_util.SetValue(values, "stored", Null)
+
+    ' Act
+    Dim actual_value As Boolean
+    actual_value = test_util.HasValue(values, Null)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Err.Clear
+    Assert.IsTrue actual_value
+End Sub

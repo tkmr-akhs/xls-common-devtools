@@ -42,6 +42,11 @@
   - 影響: 読み取り API の呼び出しだけでシートの列幅が変わる可能性があり、表示形式の戻り値もロケール依存の読み書きで不整合になる。
   - 対応案: 列幅は `Double` で退避し、エラー時も復元する。`NumberFormat` の返却値は `NumberFormatLocal` に統一し、列幅保持とローカル表示形式のテストを追加する。
 
+- [ ] [bug] WorksheetService.GetUsedRangeBounds の Find 書式条件依存をなくす
+  - 詳細: `pGetLastRowCore` / `pGetLastColumnCore` / `pGetFirstRowCore` / `pGetFirstColumnCore` は `Range.Find(What:="*")` で `SearchFormat:=False` を明示していない。Excel の検索ダイアログなどで書式検索条件が残っていると、値があるセルでも UsedRange の先頭・末尾検出から漏れる可能性がある。
+  - 影響: `GetUsedRangeBounds`、`CopyRange`、`UserInputSheet.GetItemRange` など使用範囲に依存する処理が、利用者の直前の検索状態で空範囲や狭い範囲を返し得る。
+  - 対応案: UsedRange 検出用の全 `Find` に `SearchFormat:=False` を明示し、検索書式条件が残っている状態で先頭/末尾行列を正しく検出するテストを追加する。
+
 - [ ] [bug] WorksheetService.Find の Excel Find 状態依存をなくす
   - 詳細: `Range.Find` で `After`、`SearchOrder`、`SearchDirection`、`SearchFormat` を明示していない。Excel の検索ダイアログや直前の `Find` 設定が残っていると、同じ引数でも結果が変わり得る。
   - 詳細: 検索設定を戻すためのダミー `Find` は検索結果が 0 件のとき実行されず、成功時も `SearchFormat` を明示的に解除していない。
@@ -58,15 +63,20 @@
   - 影響: `Application.ConvertFormula`、コピー先への代入、配列数式の再設定でエラーが発生すると、コピー処理の失敗だけでコピー元の配列数式が壊れる可能性がある。読み取り・コピー系 API として副作用が大きい。
   - 対応案: コピー元セルを書き換えずに相対参照を変換する方法へ変更する。やむを得ず一時変更する場合はエラー時も必ず復元するガードを置き、コピー先失敗時にコピー元が維持されるテストを追加する。
 
-- [ ] [bug] WorksheetService.GetUsedRangeBounds の Find 書式条件依存をなくす
-  - 詳細: `pGetLastRowCore` / `pGetLastColumnCore` / `pGetFirstRowCore` / `pGetFirstColumnCore` は `Range.Find(What:="*")` で `SearchFormat:=False` を明示していない。Excel の検索ダイアログなどで書式検索条件が残っていると、値があるセルでも UsedRange の先頭・末尾検出から漏れる可能性がある。
-  - 影響: `GetUsedRangeBounds`、`CopyRange`、`UserInputSheet.GetItemRange` など使用範囲に依存する処理が、利用者の直前の検索状態で空範囲や狭い範囲を返し得る。
-  - 対応案: UsedRange 検出用の全 `Find` に `SearchFormat:=False` を明示し、検索書式条件が残っている状態で先頭/末尾行列を正しく検出するテストを追加する。
-
 - [ ] [bug] WorksheetRangeBounds の未初期化状態を全公開メンバーで拒否する
   - 詳細: `WorksheetRangeBounds.TransformAbsolute` は `pCheckInit` を呼ばず、未初期化インスタンスでも既定値から新しい範囲を返し得る。`GetIdentityString` / `Equals` も `ToString` の `UNINITIALIZED(...)` 表記に寄るため、未初期化状態をキーや比較に流せてしまう。
   - 影響: 呼び出し側の初期化漏れが早期に失敗せず、意図しない `Sheet1` / `ThisWorkbook` 起点の範囲や不安定な同一性文字列として扱われる可能性がある。
   - 対応案: `ToString` の診断用途を残すかを決めたうえで、通常利用の公開メンバーは `pCheckInit` に統一する。未初期化 `TransformAbsolute`、`Equals`、`GetIdentityString` のテストを追加する。
+
+- [ ] [bug] ObjectList / ObjectSet の特殊 Variant 値の扱いを固定する
+  - 詳細: `ObjectList.pItemsEqual` はプリミティブ比較で `ItemObject1 = ItemObject2` を直接 Boolean に代入するため、`Null` や `CVErr(...)` で比較自体が失敗し得る。`ObjectSet` は `Null` / `CVErr(...)` / `Empty` を Dictionary キーとして渡す経路があり、`ConvertToStringArray` でも特殊値の文字列化方針がない。
+  - 影響: Excel Range から読んだ値や外部入力をそのまま基盤コレクションへ入れると、追加、存在判定、削除、重複除去、文字列化のどこで失敗するかが値によって変わる。
+  - 対応案: `Null`、`Empty`、`CVErr(...)` をサポートするか明示エラーにするかを決め、`ObjectList` / `ObjectSet` / `Enumerator` の取得・比較・文字列化テストを追加する。
+
+- [ ] [bug] ObjectList.Sort の等価要素と降順比較を修正する
+  - 詳細: `ObjectList.Sort` は `IComparable` でも降順時に `Not IsLessThan` を使うため、等価要素を「小さい」扱いし得る。
+  - 影響: 等価要素を含む並び替えで不要な入れ替えが発生し、安定性や比較契約に依存する処理の前提が崩れる可能性がある。
+  - 対応案: 昇順・降順とも「小さい」「大きい」「等価」を分けて判定し、等価要素を入れ替えないテストを追加する。
 
 ## 中優先度
 
@@ -76,11 +86,6 @@
   - 詳細: `TextFileEntity` は `OpenFile` で `FreeFile` により開いたファイルを、`CloseFile` が明示的に呼ばれた場合だけ閉じる。`Class_Terminate` での保険がなく、未オープン状態の close などを `Debug.Print` で扱う箇所もある。
   - 影響: 追記モード、ロック指定、書き込み用ファイルの EOF 判定、明示 Close 漏れが、実ファイルとテストダブルで異なる結果やファイルハンドル残りにつながる。
   - 対応案: `Input` / `Output` / `Append` と読み取り・書き込みロック、`CloseFile`、`Class_Terminate` の契約を表で仕様化する。実装とテストダブルに、各モード、Close 後、Append + lock、明示 Close 漏れのテストを追加する。
-
-- [ ] [bug] ObjectList / ObjectSet の特殊 Variant 値の扱いを固定する
-  - 詳細: `ObjectList.pItemsEqual` はプリミティブ比較で `ItemObject1 = ItemObject2` を直接 Boolean に代入するため、`Null` や `CVErr(...)` で比較自体が失敗し得る。`ObjectSet` は `Null` / `CVErr(...)` / `Empty` を Dictionary キーとして渡す経路があり、`ConvertToStringArray` でも特殊値の文字列化方針がない。
-  - 影響: Excel Range から読んだ値や外部入力をそのまま基盤コレクションへ入れると、追加、存在判定、削除、重複除去、文字列化のどこで失敗するかが値によって変わる。
-  - 対応案: `Null`、`Empty`、`CVErr(...)` をサポートするか明示エラーにするかを決め、`ObjectList` / `ObjectSet` / `Enumerator` の取得・比較・文字列化テストを追加する。
 
 - [ ] [bug] DiffStringArray の空配列入力と下限契約を修正する
   - 詳細: `DiffStringArray` は入力配列に対してすぐ `LBound` / `UBound` を呼ぶため、未初期化または空配列を渡すと差分結果ではなく実行時エラーになる。コメントでは `ChangeTypeArray` の下限を `OldArray` と揃えると読めるが、実装は常に `0 To ...` へ `ReDim` している。
@@ -104,11 +109,6 @@
   - 詳細: `CounterSet.GetCounter` / `RemoveCounter` は `pDict(CounterObjectName)` を直接読み取っており、存在しない名前を指定すると `Scripting.Dictionary` が Empty 値を持つキーを新規作成してから `Set` 代入エラーになる。
   - 影響: 不存在取得が単なる失敗ではなく内部状態変更を伴うため、エラー捕捉後の後続処理やテストダブルの記録内容が実際とずれる。
   - 対応案: 取得前に `Exists` で存在確認し、不存在時は各クラスの明示的なエラーとして再送出する。`CounterSet` 欠落キー時に Count が増えないことを固定するテストを追加する。
-
-- [ ] [bug] ObjectList.Sort の等価要素と降順比較を修正する
-  - 詳細: `ObjectList.Sort` は `IComparable` でも降順時に `Not IsLessThan` を使うため、等価要素を「小さい」扱いし得る。
-  - 影響: 等価要素を含む並び替えで不要な入れ替えが発生し、安定性や比較契約に依存する処理の前提が崩れる可能性がある。
-  - 対応案: 昇順・降順とも「小さい」「大きい」「等価」を分けて判定し、等価要素を入れ替えないテストを追加する。
 
 - [ ] [bug] Lib_Common の値変換・配列・ソート系ユーティリティを整備する
   - 詳細: `SortArray` は再帰呼び出しで `Descending` を渡しておらず、比較関数名も `psortlessthan` / `pSortIsLessThan` で不一致になっている。昇順・降順の判定も期待と逆方向に見える。

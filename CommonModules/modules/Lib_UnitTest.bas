@@ -18,6 +18,12 @@ Private Const C_COL_END As Long = 4
 Private Const C_COL_BTN As Long = 5
 Private Const C_COL_MBTN As Long = 6
 Private Const C_SUB_MAIN As String = "UnitTestMain"
+Private Const C_RESULT_OK As String = "OK"
+Private Const C_RESULT_NG As String = "NG"
+Private Const C_RESULT_ERR As String = "ERR"
+Private Const C_RUNTIME_RUNNER_MODULE As String = "UnitTestRuntimeRunner"
+Private Const C_RUNTIME_RUNNER_FUNCTION As String = "Run"
+Private Const C_VBEXT_CT_STDMODULE As Long = 1
 Private Const C_COLOR_RESET_BG As Long = &H404040
 Private Const C_COLOR_RESET_FG As Long = &HC0C0C0
 
@@ -49,6 +55,8 @@ Public Sub UnitTestMain()
     On Error GoTo ON_ERROR
 
     Call app_state.DisableUpdates(StopEvents:=False)
+    Call pRemoveRuntimeRunnerModule
+    Call pEnsureRuntimeRunnerModule
 
     ' テスト番号の取得
     Dim test_idx As Long: test_idx = 0
@@ -80,6 +88,7 @@ Public Sub UnitTestMain()
         Call pRunTestCore(result_sheet, result_sheet.Cells(test_idx, C_COL_MOD), result_sheet.Cells(test_idx, C_COL_SUB), test_idx)
     End If
 
+    Call pRemoveRuntimeRunnerModule
     Call app_state.Restore
     On Error GoTo 0
     Exit Sub
@@ -92,6 +101,7 @@ ON_ERROR:
     Dim err_help_context As Long: err_help_context = Err.HelpContext
 
     On Error Resume Next
+    Call pRemoveRuntimeRunnerModule
     Call app_state.Restore
     On Error GoTo 0
 
@@ -212,30 +222,136 @@ Private Sub pRunAllTest(ByVal ResultSheet As Worksheet)
 End Sub
 
 Private Sub pRunTestCore(ByVal ResultSheet As Worksheet, ByVal TestModName As String, ByVal TestSubName As String, ByVal RowIndex As Long)
-    ' Assert オブジェクトを準備する
     Dim assert_obj As UnitTestAssert: Set assert_obj = New UnitTestAssert
-    
-    ' テスト サブ プロシージャを実行する
-    Application.Run pBuildWorkbookMacroName(TestModName & "." & TestSubName), assert_obj
-    
-    ' 実行結果を書き出す
-    Call pWriteResult(ResultSheet, RowIndex, TestModName, TestSubName, assert_obj)
+    Dim run_result As Variant
+
+    On Error GoTo RUNNER_ERROR
+    Call pWriteRuntimeRunnerModule(TestModName, TestSubName)
+    run_result = Application.Run(pBuildWorkbookMacroName(C_RUNTIME_RUNNER_MODULE & "." & C_RUNTIME_RUNNER_FUNCTION), assert_obj)
+    On Error GoTo 0
+
+    If CBool(run_result(0)) Then
+        Call pWriteRuntimeErrorResult(ResultSheet, RowIndex, TestModName, TestSubName, CLng(run_result(1)), CStr(run_result(2)), CStr(run_result(3)))
+    Else
+        Call pWriteResult(ResultSheet, RowIndex, TestModName, TestSubName, assert_obj)
+    End If
+    Exit Sub
+
+RUNNER_ERROR:
+    Dim err_num As Long: err_num = Err.Number
+    Dim err_source As String: err_source = Err.Source
+    Dim err_desc As String: err_desc = Err.Description
+    Err.Clear
+    On Error GoTo 0
+
+    Call pWriteRunnerErrorResult(ResultSheet, RowIndex, TestModName, TestSubName, err_num, err_source, err_desc)
 End Sub
+
+Private Function pEnsureRuntimeRunnerModule() As Object
+    Dim vb_proj As Object: Set vb_proj = ThisWorkbook.VBProject
+
+    On Error Resume Next
+    Set pEnsureRuntimeRunnerModule = vb_proj.VBComponents.Item(C_RUNTIME_RUNNER_MODULE)
+    If Err.Number <> 0 Then
+        Err.Clear
+        Set pEnsureRuntimeRunnerModule = Nothing
+    End If
+    On Error GoTo 0
+
+    If pEnsureRuntimeRunnerModule Is Nothing Then
+        Set pEnsureRuntimeRunnerModule = vb_proj.VBComponents.Add(C_VBEXT_CT_STDMODULE)
+        pEnsureRuntimeRunnerModule.Name = C_RUNTIME_RUNNER_MODULE
+    End If
+End Function
+
+Private Sub pRemoveRuntimeRunnerModule()
+    Dim vb_proj As Object: Set vb_proj = ThisWorkbook.VBProject
+    Dim runner_comp As Object
+
+    On Error Resume Next
+    Set runner_comp = vb_proj.VBComponents.Item(C_RUNTIME_RUNNER_MODULE)
+    If Err.Number <> 0 Then
+        Err.Clear
+        Set runner_comp = Nothing
+    End If
+    On Error GoTo 0
+
+    If Not runner_comp Is Nothing Then
+        vb_proj.VBComponents.Remove runner_comp
+    End If
+End Sub
+
+Private Sub pWriteRuntimeRunnerModule(ByVal TestModName As String, ByVal TestSubName As String)
+    Dim runner_comp As Object: Set runner_comp = pEnsureRuntimeRunnerModule()
+    Dim runner_code As Object: Set runner_code = runner_comp.CodeModule
+
+    If runner_code.CountOfLines > 0 Then
+        runner_code.DeleteLines 1, runner_code.CountOfLines
+    End If
+
+    runner_code.AddFromString pBuildRuntimeRunnerCode(TestModName, TestSubName)
+End Sub
+
+Private Function pBuildRuntimeRunnerCode(ByVal TestModName As String, ByVal TestSubName As String) As String
+    pBuildRuntimeRunnerCode = _
+            "Option Explicit" & vbCrLf & _
+            "Option Base 0" & vbCrLf & _
+            vbCrLf & _
+            "Public Function " & C_RUNTIME_RUNNER_FUNCTION & "(ByVal AssertObject As UnitTestAssert) As Variant" & vbCrLf & _
+            "    On Error GoTo ON_ERROR" & vbCrLf & _
+            "    Call " & TestModName & "." & TestSubName & "(AssertObject)" & vbCrLf & _
+            "    " & C_RUNTIME_RUNNER_FUNCTION & " = Array(False, 0, """", """")" & vbCrLf & _
+            "    Exit Function" & vbCrLf & _
+            "ON_ERROR:" & vbCrLf & _
+            "    " & C_RUNTIME_RUNNER_FUNCTION & " = Array(True, Err.Number, Err.Source, Err.Description)" & vbCrLf & _
+            "End Function" & vbCrLf
+End Function
 
 Private Sub pWriteResult(ByVal ResultSheet As Worksheet, ByVal RowIndex As Long, ByVal ModuleName As String, ByVal TestSubName As String, ByVal AssertObject As UnitTestAssert)
     ResultSheet.Cells(RowIndex, C_COL_MOD).Value = ModuleName
     ResultSheet.Cells(RowIndex, C_COL_SUB).Value = TestSubName
-        ResultSheet.Cells(RowIndex, C_COL_DESC).Value = AssertObject.ResultMessage
+    ResultSheet.Cells(RowIndex, C_COL_DESC).Value = AssertObject.ResultMessage
     If AssertObject.IsFailed Then
-        ' failed
-        ResultSheet.Cells(RowIndex, C_COL_OKNG).Value = "NG"
-        ResultSheet.Cells(RowIndex, C_COL_OKNG).Interior.Color = RGB(255, 128, 128)
-        ResultSheet.Cells(RowIndex, C_COL_OKNG).Font.Color = RGB(64, 64, 64)
+        Call pWriteResultStatus(ResultSheet, RowIndex, C_RESULT_NG, RGB(255, 128, 128))
     Else
-        ' passed
-        ResultSheet.Cells(RowIndex, C_COL_OKNG).Value = "OK"
-        ResultSheet.Cells(RowIndex, C_COL_OKNG).Interior.Color = RGB(128, 255, 128)
-        ResultSheet.Cells(RowIndex, C_COL_OKNG).Font.Color = RGB(64, 64, 64)
+        Call pWriteResultStatus(ResultSheet, RowIndex, C_RESULT_OK, RGB(128, 255, 128))
     End If
 End Sub
 
+Private Sub pWriteRuntimeErrorResult( _
+        ByVal ResultSheet As Worksheet, _
+        ByVal RowIndex As Long, _
+        ByVal ModuleName As String, _
+        ByVal TestSubName As String, _
+        ByVal ErrorNumber As Long, _
+        ByVal ErrorSource As String, _
+        ByVal ErrorDescription As String)
+
+    ResultSheet.Cells(RowIndex, C_COL_MOD).Value = ModuleName
+    ResultSheet.Cells(RowIndex, C_COL_SUB).Value = TestSubName
+    ResultSheet.Cells(RowIndex, C_COL_DESC).Value = _
+            "Runtime error [&H" & Hex(ErrorNumber) & "] @<" & ErrorSource & "> """ & ErrorDescription & """"
+    Call pWriteResultStatus(ResultSheet, RowIndex, C_RESULT_ERR, RGB(255, 192, 0))
+End Sub
+
+Private Sub pWriteRunnerErrorResult( _
+        ByVal ResultSheet As Worksheet, _
+        ByVal RowIndex As Long, _
+        ByVal ModuleName As String, _
+        ByVal TestSubName As String, _
+        ByVal ErrorNumber As Long, _
+        ByVal ErrorSource As String, _
+        ByVal ErrorDescription As String)
+
+    ResultSheet.Cells(RowIndex, C_COL_MOD).Value = ModuleName
+    ResultSheet.Cells(RowIndex, C_COL_SUB).Value = TestSubName
+    ResultSheet.Cells(RowIndex, C_COL_DESC).Value = _
+            "Runner error [&H" & Hex(ErrorNumber) & "] @<" & ErrorSource & "> """ & ErrorDescription & """"
+    Call pWriteResultStatus(ResultSheet, RowIndex, C_RESULT_ERR, RGB(255, 192, 0))
+End Sub
+
+Private Sub pWriteResultStatus(ByVal ResultSheet As Worksheet, ByVal RowIndex As Long, ByVal ResultText As String, ByVal BackgroundColor As Long)
+    ResultSheet.Cells(RowIndex, C_COL_OKNG).Value = ResultText
+    ResultSheet.Cells(RowIndex, C_COL_OKNG).Interior.Color = BackgroundColor
+    ResultSheet.Cells(RowIndex, C_COL_OKNG).Font.Color = RGB(64, 64, 64)
+End Sub

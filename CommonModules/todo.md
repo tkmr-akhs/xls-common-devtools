@@ -15,11 +15,6 @@
 
 ## 高優先度
 
-- [ ] [bug] Lib_UnitTest でテスト単位の実行時エラーを NG として記録する
-  - 詳細: `pRunTestCore` は `Application.Run` の実行時エラーをテスト単位で捕捉していないため、テスト内で予期しないエラーが発生すると `UnitTestMain` 全体が中断し、そのテスト行も `NG` として記録されない。
-  - 影響: 1 件の壊れたテストで後続テストが実行されず、`UNIT_TEST_SHEET` だけを見る運用では失敗箇所や未実行範囲を見落とす可能性がある。
-  - 対応案: 各テスト実行を `On Error` で囲み、例外は対象行に `NG`、`Err.Source`、`Err.Description` を記録して次のテストへ進む。ランナー自体の致命的エラーとは扱いを分ける。
-
 - [ ] [bug] WorkbookService.ActivateWorksheet で対象ブックを先にアクティブ化する
   - 詳細: `WorkbookService.ActivateWorksheet` は `target_sheet.Activate` を直接呼ぶだけで、対象ブックを先にアクティブにしていない。
   - 影響: 対象シートがアクティブでない別ブックにある場合、`Worksheet.Activate` が失敗したり、呼び出し側が期待したブック・シートへ移動できない可能性がある。
@@ -340,6 +335,11 @@
 ## 対応済み事項
 
 ### 高優先度だったもの
+
+- [x] [bug] Lib_UnitTest でテスト単位の実行時エラーを ERR として記録する
+  - 詳細: `pRunTestCore` は `Application.Run` の実行時エラーをテスト単位で捕捉していないため、テスト内で予期しないエラーが発生すると `UnitTestMain` 全体が中断し、そのテスト行も結果として記録されなかった。
+  - 最終対応: テスト呼び出し用の一時ラッパーモジュールをランナー内部で生成し、ラッパー内の直接呼び出しで実行時エラーを捕捉するようにした。捕捉したエラーは対象テスト行へ `ERR` として記録し、`Err.Number`、`Err.Source`、`Err.Description` を Description に出す。アサート失敗の `NG`、正常終了の `OK` と状態を分けた。
+  - 確認: 公開 API 追加が必要になるため恒久回帰テストは追加しない。一時プローブで実行時エラーがダイアログ停止せず `ERR` 記録になることを確認し、プローブ撤去後に `CommonModules.xlsm` の `UnitTestMain` 全件 OK を確認済み。
 
 - [x] [bug] UnitTestUtils の引数キー生成で Null・CVErr を安全に扱う
   - 詳細: `UnitTestUtils.pGetKeyCore` は非オブジェクト値を `pEscapeSpecial(ByVal Expression As String)` へ渡すため、`Null` や `CVErr(...)` を含む引数でキー生成自体が失敗し得た。

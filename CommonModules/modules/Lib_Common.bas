@@ -106,23 +106,23 @@ Private Const C_A1_TOKEN_COLUMN As Long = 3
 '        End If
 '    Next row_item
 '
-'    Dim result() As Variant
-'    ReDim result(0 To rows_list.Count - 1, 0 To max_col - 1)
+'    Dim result_value() As Variant
+'    ReDim result_value(0 To rows_list.Count - 1, 0 To max_col - 1)
 '
 '    Dim row_idx As Long
 '    Dim col_idx As Long
-'    For row_idx = 0 To UBound(result, 1) Step 1
-'        For col_idx = 0 To UBound(result, 2) Step 1
+'    For row_idx = 0 To UBound(result_value, 1) Step 1
+'        For col_idx = 0 To UBound(result_value, 2) Step 1
 '            Set cols_list = rows_list.Item(row_idx)
 '            If col_idx < cols_list.Count Then
-'                result(row_idx, col_idx) = cols_list.Item(col_idx)
+'                result_value(row_idx, col_idx) = cols_list.Item(col_idx)
 '            Else
-'                result(row_idx, col_idx) = PadWith
+'                result_value(row_idx, col_idx) = PadWith
 '            End If
 '        Next col_idx
 '    Next row_idx
 '
-'    TEXTSPLIT = result
+'    TEXTSPLIT = result_value
 'End Function
 
 ''* 新しい Excel で存在するワークシート関数 TEXTJOIN の独自実装。
@@ -139,13 +139,13 @@ Private Const C_A1_TOKEN_COLUMN As Long = 3
 ''*
 ''* @see https://support.microsoft.com/ja-jp/office/textjoin-%E9%96%A2%E6%95%B0-357b449a-ec91-49d0-80c3-0e8fc845691c
 'Function TEXTJOIN(ByVal Delimiter As String, ByVal IgnoreEmpty As Boolean, ByVal Expression1 As Variant, ParamArray Expressions() As Variant) As Variant
-'    Dim result As String
+'    Dim result_value As String
 '    Dim is_first As Boolean
 '
 '    is_first = True
 '
 '    On Error Resume Next
-'    Call pTextJoinCore(result, is_first, Delimiter, Expression1, IgnoreEmpty)
+'    Call pTextJoinCore(result_value, is_first, Delimiter, Expression1, IgnoreEmpty)
 '    If Err.Number <> 0 Then
 '        TEXTJOIN = CVErr(xlErrNA)
 '        Exit Function
@@ -153,14 +153,14 @@ Private Const C_A1_TOKEN_COLUMN As Long = 3
 '
 '    Dim param_item As Variant
 '    For Each param_item In Expressions
-'        Call pTextJoinCore(result, is_first, Delimiter, param_item, IgnoreEmpty)
+'        Call pTextJoinCore(result_value, is_first, Delimiter, param_item, IgnoreEmpty)
 '        If Err.Number <> 0 Then
 '            TEXTJOIN = CVErr(xlErrNA)
 '            Exit Function
 '        End If
 '    Next param_item
 '
-'    TEXTJOIN = result
+'    TEXTJOIN = result_value
 'End Function
 
 'Sub pTextJoinCore(ByRef ResultString As String, ByRef IsFirst As Boolean, Delimiter As String, Expression As Variant, IgnoreEmpty As Boolean)
@@ -173,10 +173,10 @@ Private Const C_A1_TOKEN_COLUMN As Long = 3
 ''    ElseIf IsArray(Expression) Then
 ''        ' Expression が配列の場合
 ''        If LBound(Expression) <= UBound(Expression) Then
-''            Dim idx As Long
-''            For idx = LBound(Expression) To UBound(Expression)
-''                Call pTextJoinItemCore(ResultString, IsFirst, Delimiter, Expression(idx), IgnoreEmpty)
-''            Next idx
+''            Dim item_idx As Long
+''            For item_idx = LBound(Expression) To UBound(Expression)
+''                Call pTextJoinItemCore(ResultString, IsFirst, Delimiter, Expression(item_idx), IgnoreEmpty)
+''            Next item_idx
 ''        ElseIf Not IgnoreEmpty Then
 ''            ResultString = ResultString & Delimiter
 ''        End If
@@ -327,10 +327,10 @@ Public Function New_RangeBounds( _
         Optional ByVal Sheet As String = "Sheet1", _
         Optional ByVal Book As String = "") As WorksheetRangeBounds
     
-    Dim result As WorksheetRangeBounds
-    Set result = New WorksheetRangeBounds
+    Dim result_value As WorksheetRangeBounds
+    Set result_value = New WorksheetRangeBounds
     
-    Call result.Initialize( _
+    Call result_value.Initialize( _
             Row:=Row, _
             Column:=Column, _
             FinishRow:=FinishRow, _
@@ -338,7 +338,7 @@ Public Function New_RangeBounds( _
             Sheet:=Sheet, _
             Book:=Book)
     
-    Set New_RangeBounds = result
+    Set New_RangeBounds = result_value
 End Function
 
 '* Excel アドレス文字列から WorksheetRangeBounds インスタンスを新規作成します。
@@ -349,11 +349,11 @@ End Function
 '* @details
 '* New_ 系の処理は薄いファクトリに留め、実処理は WorksheetRangeBounds.InitializeFromAddress に委譲します。
 Public Function New_RangeBoundsFromAddress(ByVal AddressString As String) As WorksheetRangeBounds
-    Dim result As WorksheetRangeBounds
-    Set result = New WorksheetRangeBounds
-    Call result.InitializeFromAddress(AddressString)
+    Dim result_value As WorksheetRangeBounds
+    Set result_value = New WorksheetRangeBounds
+    Call result_value.InitializeFromAddress(AddressString)
 
-    Set New_RangeBoundsFromAddress = result
+    Set New_RangeBoundsFromAddress = result_value
 End Function
 
 '* UserInputSheet インスタンスを新規作成します。
@@ -365,10 +365,10 @@ End Function
 '* @details
 '* UserInputSheet インスタンスを新規作成します。
 Public Function New_InputSheet(ByVal Sheet As String, Optional ByVal Book As String = "") As UserInputSheet
-    Dim result As UserInputSheet
-    Set result = New UserInputSheet
-    Call result.Initialize(Sheet, Book:=Book)
-    Set New_InputSheet = result
+    Dim result_value As UserInputSheet
+    Set result_value = New UserInputSheet
+    Call result_value.Initialize(Sheet, Book:=Book)
+    Set New_InputSheet = result_value
 End Function
 
 ' #############################################################################
@@ -528,16 +528,16 @@ End Function
 '* ワークシート上のボタンを、コンポーネント名を指定して削除します。
 Public Sub DeleteButton(ByVal TargetSheet As Worksheet, ByVal Name As String)
 
-    Dim shp As Shape
+    Dim shape_obj As Shape
     Dim is_deleted As Boolean: is_deleted = False
     
-    For Each shp In TargetSheet.Shapes
-        If shp.Name = Name Then
-            shp.Delete
+    For Each shape_obj In TargetSheet.Shapes
+        If shape_obj.Name = Name Then
+            shape_obj.Delete
             is_deleted = True
             Exit For
         End If
-    Next shp
+    Next shape_obj
     
     If Not is_deleted Then
         Err.Raise vbObjectError + 1, "Sub DeleteButton", "ボタンが見つかりませんでした。(" & Name & ")"
@@ -552,17 +552,17 @@ End Sub
 '* @details
 '* ワークシート上のボタンを、すべて削除します。
 Public Sub ClearButton(ByVal TargetSheet As Worksheet)
-    Dim idx As Long
+    Dim item_idx As Long
     ' 後ろから削除しないとループ中に変更が起きた際に不具合が出ることがあるので
     ' For i = Shapes.Count To 1 Step -1 の形が安全です
-    For idx = TargetSheet.Shapes.Count To 1 Step -1
+    For item_idx = TargetSheet.Shapes.Count To 1 Step -1
         
-        If TargetSheet.Shapes(idx).OnAction <> "" Then
+        If TargetSheet.Shapes(item_idx).OnAction <> "" Then
             ' OnActionが設定されている → 「図形ボタン」と判断して削除
-            TargetSheet.Shapes(idx).Delete
+            TargetSheet.Shapes(item_idx).Delete
         End If
         
-    Next idx
+    Next item_idx
     
 End Sub
 
@@ -639,21 +639,21 @@ End Sub
 '* ファイルシステムで使用できない特殊文字を全角文字に置換します。
 '* 以下の文字が置換されます: `\`, `/`, `:`, `*`, `?`, `"`, `<`, `>`, `|`。
 Public Function ReplaceSpecialCharacterOnFileSystemPath(ByVal Path As String) As Variant
-    Dim result As String
+    Dim result_value As String
     
-    result = Path
+    result_value = Path
     
-    result = Replace(result, "\", "＼")
-    result = Replace(result, "/", "／")
-    result = Replace(result, ":", "：")
-    result = Replace(result, "*", "＊")
-    result = Replace(result, "?", "？")
-    result = Replace(result, """", "″")
-    result = Replace(result, "<", "＜")
-    result = Replace(result, ">", "＞")
-    result = Replace(result, "|", "｜")
+    result_value = Replace(result_value, "\", "＼")
+    result_value = Replace(result_value, "/", "／")
+    result_value = Replace(result_value, ":", "：")
+    result_value = Replace(result_value, "*", "＊")
+    result_value = Replace(result_value, "?", "？")
+    result_value = Replace(result_value, """", "″")
+    result_value = Replace(result_value, "<", "＜")
+    result_value = Replace(result_value, ">", "＞")
+    result_value = Replace(result_value, "|", "｜")
     
-    ReplaceSpecialCharacterOnFileSystemPath = result
+    ReplaceSpecialCharacterOnFileSystemPath = result_value
 End Function
 
 '* パスを結合します。
@@ -667,21 +667,21 @@ End Function
 '* 指定された複数の文字列をパス区切り文字で結合します。
 '* 追加のパス文字列を可変長引数として渡すことができます。
 Public Function JoinPath(ByVal Path1 As String, ByVal Path2 As String, ParamArray Paths() As Variant) As String
-    Dim result As String
+    Dim result_value As String
     
-    result = pJoinPathCore(Path1, Path2)
+    result_value = pJoinPathCore(Path1, Path2)
     
     If UBound(Paths) = -1 Then
-        JoinPath = result
+        JoinPath = result_value
         Exit Function
     End If
     
-    Dim idx As Long
-    For idx = LBound(Paths) To UBound(Paths)
-        result = pJoinPathCore(result, Paths(idx))
-    Next idx
+    Dim item_idx As Long
+    For item_idx = LBound(Paths) To UBound(Paths)
+        result_value = pJoinPathCore(result_value, Paths(item_idx))
+    Next item_idx
     
-    JoinPath = result
+    JoinPath = result_value
 End Function
 
 Private Function pJoinPathCore(ByVal Path1 As String, ByVal Path2 As String) As String
@@ -746,7 +746,7 @@ Public Function GetLeafFromPath(ByVal Path As String, Optional ByVal BaseName As
         End If
     End If
     
-    Dim last_sep As Integer
+    Dim last_sep As Long
     last_sep = InStrRev(Path, G_FS_PATH_SEP)
     
     Dim leaf_str As String
@@ -761,7 +761,7 @@ Public Function GetLeafFromPath(ByVal Path As String, Optional ByVal BaseName As
         Exit Function
     End If
     
-    Dim last_period As Integer
+    Dim last_period As Long
     last_period = InStrRev(leaf_str, ".")
     
     Dim base_name As String, file_ext As String
@@ -838,15 +838,15 @@ Public Function ConvertStringToCharArray(ByVal Expression As String) As String()
     
     If result_ubound < 0 Then Exit Function
     
-    Dim result() As String
-    ReDim result(0 To result_ubound)
+    Dim result_value() As String
+    ReDim result_value(0 To result_ubound)
     
     Dim char_idx As Long
     For char_idx = 0 To result_ubound
-        result(char_idx) = Mid(Expression, char_idx + 1, 1)
+        result_value(char_idx) = Mid(Expression, char_idx + 1, 1)
     Next char_idx
     
-    ConvertStringToCharArray = result
+    ConvertStringToCharArray = result_value
 End Function
 
 '* String() 型の配列を Variant() 型の配列に変換します。
@@ -857,16 +857,16 @@ End Function
 '* @details
 '* String 型の配列を Variant 型に変換します。各要素の内容はそのまま維持されます。
 Public Function ConvertArrayStringToVariant(ByRef StringArray() As String) As Variant()
-    Dim result() As Variant
-    Dim idx As Long
+    Dim result_value() As Variant
+    Dim item_idx As Long
     
-    ReDim result(LBound(StringArray) To UBound(StringArray))
+    ReDim result_value(LBound(StringArray) To UBound(StringArray))
     
-    For idx = LBound(StringArray) To UBound(StringArray)
-        result(idx) = StringArray(idx)
-    Next idx
+    For item_idx = LBound(StringArray) To UBound(StringArray)
+        result_value(item_idx) = StringArray(item_idx)
+    Next item_idx
     
-    ConvertArrayStringToVariant = result
+    ConvertArrayStringToVariant = result_value
 End Function
 
 '* Variant() 型の配列を String() 型の配列に変換します。
@@ -877,16 +877,16 @@ End Function
 '* @details
 '* Variant 型の配列を String 型に変換します。各要素の内容はそのまま維持されます。
 Public Function ConvertArrayVariantToString(ByRef VariantArray() As Variant) As String()
-    Dim result() As String
-    Dim idx As Long
+    Dim result_value() As String
+    Dim item_idx As Long
     
-    ReDim result(LBound(VariantArray) To UBound(VariantArray))
+    ReDim result_value(LBound(VariantArray) To UBound(VariantArray))
     
-    For idx = LBound(VariantArray) To UBound(VariantArray)
-        result(idx) = VariantArray(idx)
-    Next idx
+    For item_idx = LBound(VariantArray) To UBound(VariantArray)
+        result_value(item_idx) = VariantArray(item_idx)
+    Next item_idx
     
-    ConvertArrayVariantToString = result
+    ConvertArrayVariantToString = result_value
 End Function
 
 '* Boolean 型の値を文字列に変換します。
@@ -1095,7 +1095,7 @@ Public Sub GetArrayBounds(ByRef LBoundArray() As Long, ByRef UBoundArray() As Lo
     Dim result_l() As Long
     Dim result_u() As Long
     
-    Dim dim_count As Integer
+    Dim dim_count As Long
     dim_count = 0
     
     Do
@@ -1157,14 +1157,14 @@ Public Sub SortArray(ByRef TargetArray As Variant, Optional ByVal Descending As 
 End Sub
 Private Sub pSortArrayCore(ByRef TargetArray As Variant, ByVal MinIndex As Long, ByVal MaxIndex As Long, ByVal Descending As Boolean)
     If MinIndex >= MaxIndex Then Exit Sub
-    Dim idx As Long
+    Dim item_idx As Long
     Dim pos_lng As Long: pos_lng = MinIndex
     
     Call pSortSwap(TargetArray(MinIndex), TargetArray(Int((MinIndex + MaxIndex) \ 2)))
-    For idx = MinIndex + 1 To MaxIndex
-        If psortlessthan(TargetArray(idx), TargetArray(MinIndex), Descending) Then
+    For item_idx = MinIndex + 1 To MaxIndex
+        If psortlessthan(TargetArray(item_idx), TargetArray(MinIndex), Descending) Then
             pos_lng = pos_lng + 1
-            Call pSortSwap(TargetArray(idx), TargetArray(pos_lng))
+            Call pSortSwap(TargetArray(item_idx), TargetArray(pos_lng))
         End If
     Next
     Call pSortSwap(TargetArray(MinIndex), TargetArray(pos_lng))
@@ -1205,7 +1205,7 @@ End Function
 '* 複数の配列を結合して 1 つの配列を返します。
 '* 引数が配列でない場合は長さ 1 の配列として扱われます。
 Public Function ConcatArray(ByVal Array1 As Variant, ByVal Array2 As Variant, ParamArray OtherArrays() As Variant) As Variant()
-    Dim result() As Variant
+    Dim result_value() As Variant
     Dim arr_length As Long
         
     arr_length = pGetArrayLengthCore(Array1)
@@ -1226,39 +1226,39 @@ Public Function ConcatArray(ByVal Array1 As Variant, ByVal Array2 As Variant, Pa
     End If
     
     'If IsArray(Array1) And Not IsEmptyArray(Array1) Then
-    '    ReDim result(LBound(Array1) To LBound(Array1) + arr_length - 1)
+    '    ReDim result_value(LBound(Array1) To LBound(Array1) + arr_length - 1)
     'Else
-        ReDim result(0 To arr_length - 1)
+        ReDim result_value(0 To arr_length - 1)
     'End If
     
     Dim result_idx As Long
-    result_idx = LBound(result)
+    result_idx = LBound(result_value)
     
-    Call pConcatArrayCore(result, result_idx, Array1)
-    Call pConcatArrayCore(result, result_idx, Array2)
+    Call pConcatArrayCore(result_value, result_idx, Array1)
+    Call pConcatArrayCore(result_value, result_idx, Array2)
     
     If UBound(OtherArrays) <> -1 Then
         For param_idx = LBound(OtherArrays) To UBound(OtherArrays)
             param_item = OtherArrays(param_idx)
-            Call pConcatArrayCore(result, result_idx, param_item)
+            Call pConcatArrayCore(result_value, result_idx, param_item)
         Next param_idx
     End If
     
-    ConcatArray = result
+    ConcatArray = result_value
 End Function
 
 Private Function pGetArrayLengthCore(ByVal TargetArray As Variant) As Long
-    Dim result As Long
+    Dim result_value As Long
     
     If IsEmptyArray(TargetArray) Then
-        result = 0
+        result_value = 0
     ElseIf IsArray(TargetArray) Then
-        result = UBound(TargetArray) - LBound(TargetArray) + 1
+        result_value = UBound(TargetArray) - LBound(TargetArray) + 1
     Else
-        result = 1
+        result_value = 1
     End If
     
-    pGetArrayLengthCore = result
+    pGetArrayLengthCore = result_value
 End Function
 
 Private Sub pConcatArrayCore(ByRef ResultArray() As Variant, ByRef CurrentIndex As Long, ByVal TargetArray As Variant)
@@ -1266,12 +1266,12 @@ Private Sub pConcatArrayCore(ByRef ResultArray() As Variant, ByRef CurrentIndex 
         Exit Sub
     End If
     
-    Dim idx As Long
+    Dim item_idx As Long
     If IsArray(TargetArray) Then
-        For idx = LBound(TargetArray) To UBound(TargetArray)
-            ResultArray(CurrentIndex) = TargetArray(idx)
+        For item_idx = LBound(TargetArray) To UBound(TargetArray)
+            ResultArray(CurrentIndex) = TargetArray(item_idx)
             CurrentIndex = CurrentIndex + 1
-        Next idx
+        Next item_idx
     Else
         ResultArray(CurrentIndex) = TargetArray
         CurrentIndex = CurrentIndex + 1
@@ -1293,19 +1293,19 @@ Public Function IsEmptyArray(ByVal TargetArray As Variant) As Boolean
         Exit Function
     End If
     
-    Dim result As Boolean
-    result = False
+    Dim result_value As Boolean
+    result_value = False
     
     Err.Clear
     On Error Resume Next
-    result = UBound(TargetArray) < LBound(TargetArray)
+    result_value = UBound(TargetArray) < LBound(TargetArray)
     If Err.Number <> 0 Then
-        result = True
+        result_value = True
         Err.Clear
     End If
     On Error GoTo 0
     
-    IsEmptyArray = result
+    IsEmptyArray = result_value
 End Function
 
 '* 配列の列挙子を取得します。
@@ -1331,10 +1331,10 @@ End Function
 '* Loop
 '* @endcode
 Public Function GetArrayEnumerator(ByVal TargetArray As Variant, Optional ByVal Descending As Boolean = False, Optional ByVal IsReadOnly As Boolean = False) As IEnumerator
-    Dim result As Enumerator
-    Set result = New Enumerator
-    Call result.Initialize(TargetArray, Descending:=Descending, IsReadOnly:=IsReadOnly)
-    Set GetArrayEnumerator = result
+    Dim result_value As Enumerator
+    Set result_value = New Enumerator
+    Call result_value.Initialize(TargetArray, Descending:=Descending, IsReadOnly:=IsReadOnly)
+    Set GetArrayEnumerator = result_value
 End Function
 
 ' #############################################################################
@@ -1350,9 +1350,9 @@ Public Function FormatIDName( _
         ByVal IDNumber As Integer, _
         ByVal Name As String, _
         Optional ByVal NumFormat As String = "00", _
-        Optional ByVal sep As String = ".") As Variant
+        Optional ByVal Separator As String = ".") As Variant
     
-    FormatIDName = Format(IDNumber, NumFormat) & sep & Name
+    FormatIDName = Format(IDNumber, NumFormat) & Separator & Name
 End Function
 
 '* 複数キーを辞書で使用するために、キーを連結して返します。
@@ -1365,10 +1365,10 @@ End Function
 '* 指定された複数のキーを連結し、1 つの文字列として返します。
 '* キーに使用される区切り文字はタブ文字 (`vbTab`) です。
 Public Function GetMultiKey(ByVal DictionaryKey1 As Variant, ParamArray DictionaryKeys() As Variant) As String
-    Dim result As String
+    Dim result_value As String
     
     ' 一つ目のキーで初期化
-    result = pGetMultiKeyEscape(CStr(DictionaryKey1))
+    result_value = pGetMultiKeyEscape(CStr(DictionaryKey1))
     
     ' 他関数に ParamArray を引数で渡すために Variant 型に明示的に変換する
     Dim key_arr As Variant
@@ -1378,10 +1378,10 @@ Public Function GetMultiKey(ByVal DictionaryKey1 As Variant, ParamArray Dictiona
     Set key_enum = GetArrayEnumerator(key_arr)
     Do While key_enum.MoveNext()
         ' 残りのキーを連結
-        result = result & vbTab & pGetMultiKeyEscape(CStr(key_enum.Current))
+        result_value = result_value & vbTab & pGetMultiKeyEscape(CStr(key_enum.Current))
     Loop
     
-    GetMultiKey = result
+    GetMultiKey = result_value
 End Function
 Private Function pGetMultiKeyEscape(ByVal DictionaryKey As String) As String
     pGetMultiKeyEscape = Replace(Replace(DictionaryKey, "\", "\\"), vbTab, "\t")
@@ -1727,18 +1727,18 @@ Public Function ReplaceMulti(ByVal Expression As String, ByVal Find1 As String, 
     Call pReplaceMultiCore(result_list, Find1, Replace1)
     
     If LBound(FindReplacePairs) <= UBound(FindReplacePairs) Then
-        Dim idx As Long
-        For idx = LBound(FindReplacePairs) To UBound(FindReplacePairs) - 1 Step 2
-            Call pReplaceMultiCore(result_list, FindReplacePairs(idx), FindReplacePairs(idx + 1))
-        Next idx
+        Dim item_idx As Long
+        For item_idx = LBound(FindReplacePairs) To UBound(FindReplacePairs) - 1 Step 2
+            Call pReplaceMultiCore(result_list, FindReplacePairs(item_idx), FindReplacePairs(item_idx + 1))
+        Next item_idx
     End If
     
     ReplaceMulti = result_list.ConvertToStringArray()
 End Function
 
 Private Sub pReplaceMultiCore(ByRef ResultList As ObjectList, ByVal FindString As String, ByVal Replaces As Variant)
-    Dim result As ObjectList
-    Set result = New ObjectList
+    Dim result_value As ObjectList
+    Set result_value = New ObjectList
     
     Dim enum_obj As IEnumerator
     Set enum_obj = ResultList.GetEnumerator()
@@ -1748,14 +1748,14 @@ Private Sub pReplaceMultiCore(ByRef ResultList As ObjectList, ByVal FindString A
         If IsArray(Replaces) Then
             Dim replace_item As Variant
             For Each replace_item In Replaces
-                Call result.Add(Replace(current_item, FindString, replace_item))
+                Call result_value.Add(Replace(current_item, FindString, replace_item))
             Next replace_item
         Else
-            Call result.Add(Replace(current_item, FindString, Replaces))
+            Call result_value.Add(Replace(current_item, FindString, Replaces))
         End If
     Loop
     
-    Set ResultList = result
+    Set ResultList = result_value
 End Sub
 
 '* 改行記号をエスケープします。
@@ -1769,11 +1769,11 @@ End Sub
 Public Function EscapeLineSeparator(ByVal Expression As String, Optional ByVal EscSeqChar As String = "") As String
     If EscSeqChar = "" Then EscSeqChar = "\"
     
-    Dim result As String
-    result = Replace(Expression, EscSeqChar, EscSeqChar & EscSeqChar)
-    result = Replace(result, vbCr, EscSeqChar & "r")
-    result = Replace(result, vbLf, EscSeqChar & "n")
-    EscapeLineSeparator = result
+    Dim result_value As String
+    result_value = Replace(Expression, EscSeqChar, EscSeqChar & EscSeqChar)
+    result_value = Replace(result_value, vbCr, EscSeqChar & "r")
+    result_value = Replace(result_value, vbLf, EscSeqChar & "n")
+    EscapeLineSeparator = result_value
 End Function
 
 '* 改行記号のエスケープを解除します。
@@ -1785,34 +1785,34 @@ End Function
 '* @details
 '* エスケープされた改行記号 (`\n`, `\r`) を元の改行記号 (`vbCr`, `vbLf`) に戻します。
 Public Function UnescapeLineSeparator(ByVal Expression As String, Optional ByVal EscSeqChar As String = "\") As String
-    Dim result As String
-    Dim idx As Long
+    Dim result_value As String
+    Dim item_idx As Long
     Dim str_len As Long
     Dim cur_char As String
     
     str_len = Len(Expression)
-    idx = 1
-    result = ""
+    item_idx = 1
+    result_value = ""
     
-    Do While idx <= str_len
-        cur_char = Mid$(Expression, idx, 1)
+    Do While item_idx <= str_len
+        cur_char = Mid$(Expression, item_idx, 1)
         
         If cur_char = EscSeqChar Then
             ' エスケープシーケンスの開始
-            If idx < str_len Then
+            If item_idx < str_len Then
                 Dim next_char As String
-                next_char = Mid$(Expression, idx + 1, 1)
+                next_char = Mid$(Expression, item_idx + 1, 1)
                 
                 Select Case next_char
                     Case "n"
-                        result = result & vbLf
-                        idx = idx + 2
+                        result_value = result_value & vbLf
+                        item_idx = item_idx + 2
                     Case "r"
-                        result = result & vbCr
-                        idx = idx + 2
+                        result_value = result_value & vbCr
+                        item_idx = item_idx + 2
                     Case Else
-                        result = result & next_char
-                        idx = idx + 2
+                        result_value = result_value & next_char
+                        item_idx = item_idx + 2
                 End Select
             Else
                 ' 文字列の最後にエスケープ文字がある場合
@@ -1820,12 +1820,12 @@ Public Function UnescapeLineSeparator(ByVal Expression As String, Optional ByVal
             End If
         Else
             ' エスケープ文字でない場合はそのまま追加
-            result = result & cur_char
-            idx = idx + 1
+            result_value = result_value & cur_char
+            item_idx = item_idx + 1
         End If
     Loop
     
-    UnescapeLineSeparator = result
+    UnescapeLineSeparator = result_value
 End Function
 
 '* 改行記号で文字列を分割して配列を返します。
@@ -1868,18 +1868,18 @@ End Function
 '* @details
 '* 指定された文字列リストを区切り文字で連結し、単一の文字列として返します。
 Public Function JoinStringList(ByVal SourceList As ObjectList, Optional ByVal Delimiter As String = " ") As String
-    Dim result As String
+    Dim result_value As String
     
     If SourceList.Count = 0 Then Exit Function
     
-    result = SourceList.Item(0)
+    result_value = SourceList.Item(0)
     
-    Dim idx As Long
-    For idx = 1 To SourceList.Count - 1
-        result = result & Delimiter & SourceList.Item(idx)
-    Next idx
+    Dim item_idx As Long
+    For item_idx = 1 To SourceList.Count - 1
+        result_value = result_value & Delimiter & SourceList.Item(item_idx)
+    Next item_idx
     
-    JoinStringList = result
+    JoinStringList = result_value
 End Function
 
 '* String が格納された ObjectSet を、Delimiter で区切って一つの String にします。
@@ -1891,18 +1891,18 @@ End Function
 '* @details
 '* 指定された文字列セットを区切り文字で連結し、単一の文字列として返します。
 Public Function JoinStringSet(ByVal SourceSet As ObjectSet, Optional ByVal Delimiter As String = " ") As String
-    Dim result As String
+    Dim result_value As String
     
     If SourceSet.Count = 0 Then Exit Function
     
-    result = SourceSet.Item(0)
+    result_value = SourceSet.Item(0)
     
-    Dim idx As Long
-    For idx = 1 To SourceSet.Count - 1
-        result = result & Delimiter & SourceSet.Item(idx)
-    Next idx
+    Dim item_idx As Long
+    For item_idx = 1 To SourceSet.Count - 1
+        result_value = result_value & Delimiter & SourceSet.Item(item_idx)
+    Next item_idx
     
-    JoinStringSet = result
+    JoinStringSet = result_value
 End Function
 
 '* メッセージ文字列をページに分割して表示する MsgBox です。
@@ -1944,15 +1944,15 @@ Public Function SplitMessage(ByVal MessageString As String, Optional ByVal PageS
     Dim line_str As Variant 'String
     Dim taken_str As String
     Dim rem_str As String
-    Dim result() As String
-    Dim idx As Long
+    Dim result_value() As String
+    Dim item_idx As Long
     
     Set msgs_list = New ObjectList
     
     If MessageString = "" Then
-        ReDim result(0 To 0)
-        result(0) = ""
-        SplitMessage = result
+        ReDim result_value(0 To 0)
+        result_value(0) = ""
+        SplitMessage = result_value
         Exit Function
     End If
     
@@ -1988,38 +1988,38 @@ Public Function SplitMessage(ByVal MessageString As String, Optional ByVal PageS
     
     If LenB(StrConv(msg_str, vbFromUnicode)) > 0 Then Call msgs_list.Add(msg_str)
     
-    ReDim result(0 To msgs_list.Count - 1)
-    For idx = LBound(result) To UBound(result)
-        result(idx) = msgs_list.Item(idx)
-    Next idx
+    ReDim result_value(0 To msgs_list.Count - 1)
+    For item_idx = LBound(result_value) To UBound(result_value)
+        result_value(item_idx) = msgs_list.Item(item_idx)
+    Next item_idx
     
-    SplitMessage = result
+    SplitMessage = result_value
 End Function
 
 Private Sub pTakeString( _
         ByRef TakenString As String, _
         ByRef RemainingString As String, _
         ByVal Expression As String, _
-        ByVal LengthByte As Integer)
+        ByVal LengthByte As Long)
     
-    Dim char As String
-    Dim idx As Long
-    Dim result As String
+    Dim char_text As String
+    Dim item_idx As Long
+    Dim result_value As String
     Dim total_bytes As Long
     Dim current_bytes As Long
 
-    For idx = 1 To Len(Expression)
-        char = Mid(Expression, idx, 1)
-        current_bytes = LenB(StrConv(char, vbFromUnicode))
+    For item_idx = 1 To Len(Expression)
+        char_text = Mid(Expression, item_idx, 1)
+        current_bytes = LenB(StrConv(char_text, vbFromUnicode))
         
         If total_bytes + current_bytes > LengthByte Then Exit For
         
-        result = result + char
+        result_value = result_value + char_text
         total_bytes = total_bytes + current_bytes
-    Next idx
+    Next item_idx
     
-    TakenString = result
-    RemainingString = Mid(Expression, idx)
+    TakenString = result_value
+    RemainingString = Mid(Expression, item_idx)
 End Sub
 
 '* 文字列の前後の半角空白、タブ、改行記号を削除します。
@@ -2038,8 +2038,8 @@ Public Function Strip( _
         Optional ByVal IgnoreTail As Boolean = False, _
         Optional ByVal RemoveFullWidthSpace As Boolean = False) As String
     
-    Dim head_pos As Integer
-    Dim tail_pos As Integer
+    Dim head_pos As Long
+    Dim tail_pos As Long
     Dim test_char As String
     
     head_pos = 1
@@ -2079,25 +2079,25 @@ Public Function Strip( _
 End Function
 
 Private Function pIsWhitespace(ByVal Character As String, ByVal IncludeFullWidthSpace As Boolean) As Boolean
-    Dim result As Boolean
+    Dim result_value As Boolean
     
     If Character = " " Then
-        result = True
+        result_value = True
     ElseIf Character = vbTab Then
-        result = True
+        result_value = True
     ElseIf Character = vbCrLf Then
-        result = True
+        result_value = True
     ElseIf Character = vbCr Then
-        result = True
+        result_value = True
     ElseIf Character = vbLf Then
-        result = True
+        result_value = True
     ElseIf (Character = "　" And IncludeFullWidthSpace) Then
-        result = True
+        result_value = True
     Else
-        result = False
+        result_value = False
     End If
     
-    pIsWhitespace = result
+    pIsWhitespace = result_value
 End Function
 
 '* 文字列が指定の文字列で始まるかを判定します。
@@ -2184,19 +2184,19 @@ End Function
 '* @details
 '* 最低 2 つの引数を指定し、それに加えて可変長引数として任意の個数の数値を指定できます。
 Public Function MaxLng(ByVal Number1 As Long, ByVal Number2 As Long, ParamArray Numbers() As Variant) As Long
-    Dim result As Long
+    Dim result_value As Long
     
-    result = Number1
-    If result < Number2 Then result = Number2
+    result_value = Number1
+    If result_value < Number2 Then result_value = Number2
     
     If UBound(Numbers) <> -1 Then
-        Dim idx As Long
-        For idx = LBound(Numbers) To UBound(Numbers)
-            If result < Numbers(idx) Then result = Numbers(idx)
-        Next idx
+        Dim item_idx As Long
+        For item_idx = LBound(Numbers) To UBound(Numbers)
+            If result_value < Numbers(item_idx) Then result_value = Numbers(item_idx)
+        Next item_idx
     End If
     
-    MaxLng = result
+    MaxLng = result_value
 End Function
 
 '* 引数として渡された Double 型の値のうち、最大のものを返します。
@@ -2209,19 +2209,19 @@ End Function
 '* @details
 '* 最低 2 つの引数を指定し、それに加えて可変長引数として任意の個数の数値を指定できます。
 Public Function MaxDbl(ByVal Number1 As Double, ByVal Number2 As Double, ParamArray Numbers() As Variant) As Double
-    Dim result As Double
+    Dim result_value As Double
     
-    result = Number1
-    If result < Number2 Then result = Number2
+    result_value = Number1
+    If result_value < Number2 Then result_value = Number2
     
     If UBound(Numbers) <> -1 Then
-        Dim idx As Long
-        For idx = LBound(Numbers) To UBound(Numbers)
-            If result < Numbers(idx) Then result = Numbers(idx)
-        Next idx
+        Dim item_idx As Long
+        For item_idx = LBound(Numbers) To UBound(Numbers)
+            If result_value < Numbers(item_idx) Then result_value = Numbers(item_idx)
+        Next item_idx
     End If
     
-    MaxDbl = result
+    MaxDbl = result_value
 End Function
 
 '* 引数として渡された Long 型の値のうち、最小のものを返します。
@@ -2234,19 +2234,19 @@ End Function
 '* @details
 '* 最低 2 つの引数を指定し、それに加えて可変長引数として任意の個数の数値を指定できます。
 Public Function MinLng(ByVal Number1 As Long, ByVal Number2 As Long, ParamArray Numbers() As Variant) As Long
-    Dim result As Long
+    Dim result_value As Long
     
-    result = Number1
-    If Number2 < result Then result = Number2
+    result_value = Number1
+    If Number2 < result_value Then result_value = Number2
     
     If UBound(Numbers) <> -1 Then
-        Dim idx As Long
-        For idx = LBound(Numbers) To UBound(Numbers)
-            If Numbers(idx) < result Then result = Numbers(idx)
-        Next idx
+        Dim item_idx As Long
+        For item_idx = LBound(Numbers) To UBound(Numbers)
+            If Numbers(item_idx) < result_value Then result_value = Numbers(item_idx)
+        Next item_idx
     End If
     
-    MinLng = result
+    MinLng = result_value
 End Function
 
 '* 引数として渡された Double 型の値のうち、最小のものを返します。
@@ -2259,19 +2259,19 @@ End Function
 '* @details
 '* 最低 2 つの引数を指定し、それに加えて可変長引数として任意の個数の数値を指定できます。
 Public Function MinDbl(ByVal Number1 As Double, ByVal Number2 As Double, ParamArray Numbers() As Variant) As Double
-    Dim result As Double
+    Dim result_value As Double
     
-    result = Number1
-    If Number2 < result Then result = Number2
+    result_value = Number1
+    If Number2 < result_value Then result_value = Number2
     
     If UBound(Numbers) <> -1 Then
-        Dim idx As Long
-        For idx = LBound(Numbers) To UBound(Numbers)
-            If Numbers(idx) < result Then result = Numbers(idx)
-        Next idx
+        Dim item_idx As Long
+        For item_idx = LBound(Numbers) To UBound(Numbers)
+            If Numbers(item_idx) < result_value Then result_value = Numbers(item_idx)
+        Next item_idx
     End If
     
-    MinDbl = result
+    MinDbl = result_value
 End Function
 
 ' #############################################################################
@@ -2290,8 +2290,8 @@ End Function
 Public Function LongToBin(ByVal LongValue As Long) As String
     Dim high_bit As String
     Dim long_value As Long
-    Dim idx As Integer
-    Dim result As String
+    Dim item_idx As Long
+    Dim result_value As String
     
     If 0 <= LongValue Then
         high_bit = "0"
@@ -2301,14 +2301,14 @@ Public Function LongToBin(ByVal LongValue As Long) As String
         long_value = LongValue And &H7FFFFFFF
     End If
     
-    For idx = 1 To 31
-        result = (long_value Mod 2) & result
+    For item_idx = 1 To 31
+        result_value = (long_value Mod 2) & result_value
         long_value = long_value \ 2
-    Next idx
+    Next item_idx
     
-    result = high_bit & result
+    result_value = high_bit & result_value
     
-    LongToBin = result
+    LongToBin = result_value
 End Function
 
 'Sub Test_BitShift()
@@ -2338,13 +2338,13 @@ End Function
 '    'Debug.Print "left"
 '    'Debug.Print test_value & "(" & LongToBin(test_value) & ")"
 '
-'    Dim idx As Long
-'    For idx = 33 To -33 Step -1
-'        'Debug.Print LongToBin(BitLeft(test_value, idx)) & " | " & idx
+'    Dim item_idx As Long
+'    For item_idx = 33 To -33 Step -1
+'        'Debug.Print LongToBin(BitLeft(test_value, item_idx)) & " | " & item_idx
 '    Next
 '    'Debug.Print "right (arithmetic)"
-'    For idx = 0 To 33
-'        'Debug.Print LongToBin(BitRight(test_value, idx, Arithmetic:=True)) & " | " & idx
+'    For item_idx = 0 To 33
+'        'Debug.Print LongToBin(BitRight(test_value, item_idx, Arithmetic:=True)) & " | " & item_idx
 '    Next
 'End Sub
 
@@ -2392,7 +2392,7 @@ Public Function BitLeft(ByVal TargetValue As Long, ByVal ShiftCount As Long) As 
     
     ' 以降、シフト数が 1 ～ 30 の計算
     
-    Dim result As Long
+    Dim result_value As Long
    
    ' 桁あふれ対策のマスクを準備
    ' 他言語でいう「&HFFFFFFFF >> (ShiftCount + 1)」と同じ値を得るための処理
@@ -2402,7 +2402,7 @@ Public Function BitLeft(ByVal TargetValue As Long, ByVal ShiftCount As Long) As 
     
     ' シフト処理
     ' 他言語でいう「TargetValue << ShiftCount」を 2 の累乗を掛けることで模擬
-    result = (TargetValue And mask_value) * (2 ^ ShiftCount)
+    result_value = (TargetValue And mask_value) * (2 ^ ShiftCount)
     
     ' 最上位ビット取得用マスクを準備
     ' 他言語でいう「&H1& << (32 - ShiftCount)」と同じ値を得るための処理
@@ -2413,10 +2413,10 @@ Public Function BitLeft(ByVal TargetValue As Long, ByVal ShiftCount As Long) As 
     ' 符号ビット (最上位ビット) の処理
     ' 0 でないなら符号ビットを立てる。
     If (TargetValue And high_bit_mask) <> 0 Then
-        result = result Or &H80000000
+        result_value = result_value Or &H80000000
     End If
     
-    BitLeft = result
+    BitLeft = result_value
 End Function
 
 '* ビット右シフト演算を行う関数。
@@ -2476,24 +2476,24 @@ Public Function BitRight(ByVal TargetValue As Long, ByVal ShiftCount As Long, Op
     
     ' 以降、シフト数が 1 ～ 30 の計算
     
-    Dim result As Long
+    Dim result_value As Long
     ' まずは符号ビットを倒す
-    result = TargetValue And &H7FFFFFFF
+    result_value = TargetValue And &H7FFFFFFF
     
     ' 1 個シフト
     ' 整数の範囲内で 2 で 1 回割ることで、右シフトを模擬
-    result = result \ 2
+    result_value = result_value \ 2
     
     ' 符号ビットを 1 個シフト
     ' 符号ビットが 1 (つまり負) のときに、第 2 ビット目を立てることで模擬
     If TargetValue < 0 Then
-        result = result Or &H40000000
+        result_value = result_value Or &H40000000
     End If
     
     ' 残りのシフト
     ' 整数の範囲内で、2 の (ShiftCount - 1) 乗 で割ることで、右シフトを模擬
     ' (シフト数が 1 のときは無駄な処理になるが、1 以外の時に不要な比較をするのとどちらが良いか…)
-    result = result \ (2 ^ (ShiftCount - 1))
+    result_value = result_value \ (2 ^ (ShiftCount - 1))
     
     If Arithmetic And TargetValue < 0 Then
         ' 他言語でいう「&HFFFFFFFF << (32 - ShiftCount - 1)」と同じ値を得るための処理
@@ -2501,10 +2501,10 @@ Public Function BitRight(ByVal TargetValue As Long, ByVal ShiftCount As Long, Op
         sign_mask = Not ((2& ^ (32 - ShiftCount)) - 1)
         
         ' 論理シフトのせいで 0 になっている部分を 1 で埋める
-        result = result Or sign_mask
+        result_value = result_value Or sign_mask
     End If
     
-    BitRight = result
+    BitRight = result_value
 End Function
 
 '* Long 型の値を符号なし整数として比較する関数。
@@ -2607,14 +2607,14 @@ Public Function AddUnsignLong(ByVal ValueA As Long, ByVal ValueB As Long) As Lon
     
     add_result_h = add_result_h * 65536
     
-    Dim result As Long
-    result = add_result_h + add_result_l
+    Dim result_value As Long
+    result_value = add_result_h + add_result_l
     
     If high_bit Then
-        result = result Or &H80000000
+        result_value = result_value Or &H80000000
     End If
     
-    AddUnsignLong = result
+    AddUnsignLong = result_value
 End Function
 
 Private Sub pSeparateUnsignLong(ByRef HighPart As Long, ByRef LowPart As Long, ByVal TargetValue As Long)
@@ -2638,13 +2638,13 @@ Private Sub pSeparateUnsignLong(ByRef HighPart As Long, ByRef LowPart As Long, B
 End Sub
 
 Private Sub pAddUnsignLongCore(ByRef ResultValue As Long, ByRef CarryBit As Long, ByVal ValueA As Long, ByVal ValueB As Long)
-    Dim result As Long
-    result = ValueA + ValueB
-    If 65535 < result Then
-        ResultValue = result - 65536
+    Dim result_value As Long
+    result_value = ValueA + ValueB
+    If 65535 < result_value Then
+        ResultValue = result_value - 65536
         CarryBit = 1
     Else
-        ResultValue = result
+        ResultValue = result_value
         CarryBit = 0
     End If
 End Sub
@@ -2669,14 +2669,14 @@ Public Function SubtractUnsignLong(ByVal ValueA As Long, ByVal ValueB As Long) A
         Exit Function
     End If
     
-    Dim result As Long
+    Dim result_value As Long
     Dim lng_1 As Long
     Dim lng_2 As Long
     
     If 0 <= ValueA Then
         If 0 <= ValueB Then
             ' 両方正の時は普通に計算する。
-            result = ValueA - ValueB
+            result_value = ValueA - ValueB
         Else
             ' A が正、B が負のとき
             'Debug.Print "Function SubtractUnsignLong: 想定外 (A が正、B が負)"
@@ -2687,15 +2687,15 @@ Public Function SubtractUnsignLong(ByVal ValueA As Long, ByVal ValueB As Long) A
             On Error Resume Next
             lng_1 = ValueA - C_LONG_MIN
             lng_2 = C_LONG_MAX - ValueB
-            result = AddUnsignLong(lng_1, lng_2)
-            result = AddUnsignLong(result, 1)
+            result_value = AddUnsignLong(lng_1, lng_2)
+            result_value = AddUnsignLong(result_value, 1)
         Else
             ' 両方負の時は普通に計算する。
-            result = ValueA - ValueB
+            result_value = ValueA - ValueB
         End If
     End If
     
-    SubtractUnsignLong = CLng(result)
+    SubtractUnsignLong = CLng(result_value)
 End Function
 
 '* 指定された値が整数 (Integer 型) に変換可能かを判定します。
@@ -3086,33 +3086,33 @@ Public Function RangeAddress( _
         is_cell_range = False
     End If
     
-    Dim result As String
-    result = ExcelBookAndSheetAddress(BookName, SheetName)
+    Dim result_value As String
+    result_value = ExcelBookAndSheetAddress(BookName, SheetName)
     
     Select Case AddressType
      Case "A1"
         If is_cell_range Then
-            result = result & pA1columnAddressCore(StartColumn, IsAbsoluteStartColumn, ReferenceColumn) & pA1RowAddressCore(StartRow, IsAbsoluteStartRow, ReferenceRow)
+            result_value = result_value & pA1columnAddressCore(StartColumn, IsAbsoluteStartColumn, ReferenceColumn) & pA1RowAddressCore(StartRow, IsAbsoluteStartRow, ReferenceRow)
         Else
             If is_row_range Then
-                result = result & pA1RowAddressCore(StartRow, IsAbsoluteStartRow, ReferenceRow) & ":" & pA1RowAddressCore(FinishRow, IsAbsoluteFinishRow, ReferenceRow)
+                result_value = result_value & pA1RowAddressCore(StartRow, IsAbsoluteStartRow, ReferenceRow) & ":" & pA1RowAddressCore(FinishRow, IsAbsoluteFinishRow, ReferenceRow)
             ElseIf is_col_range Then
-                result = result & pA1columnAddressCore(StartColumn, IsAbsoluteStartColumn, ReferenceColumn) & ":" & pA1columnAddressCore(FinishColumn, IsAbsoluteStartColumn, ReferenceColumn)
+                result_value = result_value & pA1columnAddressCore(StartColumn, IsAbsoluteStartColumn, ReferenceColumn) & ":" & pA1columnAddressCore(FinishColumn, IsAbsoluteStartColumn, ReferenceColumn)
             Else
-                result = result & pA1columnAddressCore(StartColumn, IsAbsoluteStartColumn, ReferenceColumn) & pA1RowAddressCore(StartRow, IsAbsoluteStartRow, ReferenceRow) & _
+                result_value = result_value & pA1columnAddressCore(StartColumn, IsAbsoluteStartColumn, ReferenceColumn) & pA1RowAddressCore(StartRow, IsAbsoluteStartRow, ReferenceRow) & _
                         ":" & pA1columnAddressCore(FinishColumn, IsAbsoluteFinishColumn, ReferenceColumn) & pA1RowAddressCore(FinishRow, IsAbsoluteFinishRow, ReferenceRow)
             End If
         End If
      Case "R1C1"
         If is_cell_range Then
-            result = result & "R" & pR1C1AddressCore(StartRow, IsAbsoluteStartRow) & "C" & pR1C1AddressCore(StartColumn, IsAbsoluteStartColumn)
+            result_value = result_value & "R" & pR1C1AddressCore(StartRow, IsAbsoluteStartRow) & "C" & pR1C1AddressCore(StartColumn, IsAbsoluteStartColumn)
         Else
             If is_row_range Then
-                result = result & "R" & pR1C1AddressCore(StartRow, IsAbsoluteStartRow) & "C:R" & pR1C1AddressCore(FinishRow, IsAbsoluteFinishRow) & "C"
+                result_value = result_value & "R" & pR1C1AddressCore(StartRow, IsAbsoluteStartRow) & "C:R" & pR1C1AddressCore(FinishRow, IsAbsoluteFinishRow) & "C"
             ElseIf is_col_range Then
-                result = result & "RC" & pR1C1AddressCore(StartColumn, IsAbsoluteStartColumn) & ":RC" & pR1C1AddressCore(FinishColumn, IsAbsoluteFinishColumn)
+                result_value = result_value & "RC" & pR1C1AddressCore(StartColumn, IsAbsoluteStartColumn) & ":RC" & pR1C1AddressCore(FinishColumn, IsAbsoluteFinishColumn)
             Else
-                result = result & "R" & pR1C1AddressCore(StartRow, IsAbsoluteStartRow) & "C" & pR1C1AddressCore(StartColumn, IsAbsoluteStartColumn) & _
+                result_value = result_value & "R" & pR1C1AddressCore(StartRow, IsAbsoluteStartRow) & "C" & pR1C1AddressCore(StartColumn, IsAbsoluteStartColumn) & _
                         ":" & "R" & pR1C1AddressCore(FinishRow, IsAbsoluteFinishRow) & "C" & pR1C1AddressCore(FinishColumn, IsAbsoluteFinishColumn)
             End If
         End If
@@ -3121,7 +3121,7 @@ Public Function RangeAddress( _
         Exit Function
     End Select
     
-    RangeAddress = result
+    RangeAddress = result_value
 End Function
 
 Private Function pA1columnAddressCore(ByVal ColumnIndex As Long, ByVal IsAbsolute As Boolean, ByVal ReferenceColumn As Long) As String
@@ -3224,16 +3224,16 @@ End Function
 '* 指定された列番号を基に、Excel の A1 形式の列名を生成します。
 '* 列番号が負または 0 の場合、エラーになります。
 Public Function ExcelA1ColumnAddress(ByVal ColumnIndex As Long) As String
-    Dim result As String
+    Dim result_value As String
     Dim temp_num As Long
     
     Do While ColumnIndex > 0
         temp_num = (ColumnIndex - 1) Mod 26
-        result = Chr(temp_num + 65) & result
+        result_value = Chr(temp_num + 65) & result_value
         ColumnIndex = (ColumnIndex - 1) \ 26
     Loop
     
-    ExcelA1ColumnAddress = result
+    ExcelA1ColumnAddress = result_value
 End Function
 
 '* Excel のアドレス表記から各情報を取り出します。
@@ -3452,21 +3452,21 @@ Private Sub pSplitA1AddressToken( _
 End Sub
 
 Private Function pA1ColumnIndex(ByVal ColumnAddress As String, ByVal OriginalAddressString As String) As Long
-    Dim result As Long
+    Dim result_value As Long
     Dim char_idx As Long
     For char_idx = 1 To Len(ColumnAddress)
         Dim char_code As Long
         char_code = Asc(Mid(ColumnAddress, char_idx, 1))
-        result = result * 26 + char_code - Asc("A") + 1
-        If G_COL_MAX < result Then
+        result_value = result_value * 26 + char_code - Asc("A") + 1
+        If G_COL_MAX < result_value Then
             Call pRaiseInvalidA1RangeAddress(OriginalAddressString)
         End If
     Next
 
-    If result < 1 Then
+    If result_value < 1 Then
         Call pRaiseInvalidA1RangeAddress(OriginalAddressString)
     End If
-    pA1ColumnIndex = result
+    pA1ColumnIndex = result_value
 End Function
 
 Private Function pA1RowIndex(ByVal RowAddress As String, ByVal OriginalAddressString As String) As Long
@@ -3474,12 +3474,12 @@ Private Function pA1RowIndex(ByVal RowAddress As String, ByVal OriginalAddressSt
         Call pRaiseInvalidA1RangeAddress(OriginalAddressString)
     End If
 
-    Dim result As Long
-    result = CLng(RowAddress)
-    If result < 1 Or G_ROW_MAX < result Then
+    Dim result_value As Long
+    result_value = CLng(RowAddress)
+    If result_value < 1 Or G_ROW_MAX < result_value Then
         Call pRaiseInvalidA1RangeAddress(OriginalAddressString)
     End If
-    pA1RowIndex = result
+    pA1RowIndex = result_value
 End Function
 
 Private Sub pRaiseInvalidA1RangeAddress(ByVal AddressString As String)
@@ -3496,8 +3496,8 @@ End Sub
 '* 指定された範囲の各セルの Value プロパティを文字列化して ObjectList に格納し、返します。
 '* IgnoreEmpty が True の場合、空のセルはリストに含まれません。
 Public Function ConvertRangeToStringList(ByVal TargetRange As WorksheetRangeBounds, Optional ByVal IgnoreEmpty As Boolean = False) As ObjectList
-    Dim result As ObjectList
-    Set result = New ObjectList
+    Dim result_value As ObjectList
+    Set result_value = New ObjectList
 
     Dim enum_obj As IEnumerator
     Set enum_obj = TargetRange.GetEnumerator(EnumerateType:="Cells")
@@ -3509,11 +3509,11 @@ Public Function ConvertRangeToStringList(ByVal TargetRange As WorksheetRangeBoun
         Call WsSrv.ReadCell(cell_item, cell_text)
 
         If Not IgnoreEmpty Or cell_text <> "" Then
-            Call result.Add(cell_text)
+            Call result_value.Add(cell_text)
         End If
     Loop
 
-    Set ConvertRangeToStringList = result
+    Set ConvertRangeToStringList = result_value
 End Function
 
 

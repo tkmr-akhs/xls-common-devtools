@@ -19,10 +19,10 @@ Option Explicit
 Implements ITextFileService
 
 Public Function GetTextFileEntity(ByVal FilePath As String) As ITextFileEntity
-    Dim result As TextFileEntity
-    Set result = New TextFileEntity
-    Call result.Initialize(FilePath)
-    Set GetTextFileEntity = result
+    Dim result_value As TextFileEntity
+    Set result_value = New TextFileEntity
+    Call result_value.Initialize(FilePath)
+    Set GetTextFileEntity = result_value
 End Function
 Private Function ITextFileService_GetTextFileEntity(ByVal FilePath As String) As ITextFileEntity
     Set ITextFileService_GetTextFileEntity = GetTextFileEntity(FilePath)

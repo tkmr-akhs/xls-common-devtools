@@ -146,7 +146,7 @@ Public Sub NotEqualsNumeric(ByVal ExpectedValue As Variant, ByVal ActualValue As
     pCallCount = pCallCount + 1
 End Sub
 
-Public Sub pEqualsCore( _
+Private Sub pEqualsCore( _
         ByRef CheckResult As Boolean, _
         ByRef ExpectedValueString As String, _
         ByRef ActualValueString As String, _
@@ -557,10 +557,10 @@ Private Sub pEqualsArrayCore( _
     Call GetArrayBounds(actual_lb_arr, actual_ub_arr, ActualArray)
     
     ' îzóÒÇÃéüå≥êîÇéZèo
-    Dim expect_dimension As Integer
+    Dim expect_dimension As Long
     expect_dimension = UBound(expect_lb_arr) - LBound(expect_lb_arr) + 1
     
-    Dim actual_dimension As Integer
+    Dim actual_dimension As Long
     actual_dimension = UBound(actual_lb_arr) - LBound(actual_lb_arr) + 1
     
     ' îzóÒÇÃéüå≥êîÇî‰är
@@ -572,54 +572,54 @@ Private Sub pEqualsArrayCore( _
     End If
     
     ' éüå≥Ç≤Ç∆ÇÃ LBound Ç®ÇÊÇ— UBound Çî‰är
-    Dim idx As Integer
-    For idx = LBound(expect_lb_arr) To UBound(expect_lb_arr)
-        If expect_lb_arr(idx) <> actual_lb_arr(idx) Then
-            ExpectedValueString = "lbound of dimension " & (idx + 1) & " is " & expect_lb_arr(idx)
-            ActualValueString = "lbound of dimension " & (idx + 1) & " is " & actual_lb_arr(idx)
+    Dim item_idx As Long
+    For item_idx = LBound(expect_lb_arr) To UBound(expect_lb_arr)
+        If expect_lb_arr(item_idx) <> actual_lb_arr(item_idx) Then
+            ExpectedValueString = "lbound of dimension " & (item_idx + 1) & " is " & expect_lb_arr(item_idx)
+            ActualValueString = "lbound of dimension " & (item_idx + 1) & " is " & actual_lb_arr(item_idx)
             CheckResult = False
             Exit Sub
         End If
         
-        If expect_ub_arr(idx) <> actual_ub_arr(idx) Then
-            ExpectedValueString = "ubound of dimension " & (idx + 1) & " is " & expect_ub_arr(idx)
-            ActualValueString = "ubound of dimension " & (idx + 1) & " is " & actual_ub_arr(idx)
+        If expect_ub_arr(item_idx) <> actual_ub_arr(item_idx) Then
+            ExpectedValueString = "ubound of dimension " & (item_idx + 1) & " is " & expect_ub_arr(item_idx)
+            ActualValueString = "ubound of dimension " & (item_idx + 1) & " is " & actual_ub_arr(item_idx)
             CheckResult = False
             Exit Sub
         End If
-    Next idx
+    Next item_idx
     
     ' expect Ç 1 éüå≥îzóÒÇ…Ç∑ÇÈ
     Dim expect_item As Variant
     Dim expect_arr() As Variant
-    idx = 0
+    item_idx = 0
     For Each expect_item In ExpectedArray
-        ReDim Preserve expect_arr(0 To idx)
+        ReDim Preserve expect_arr(0 To item_idx)
         If IsObject(expect_item) Then
-            Set expect_arr(idx) = expect_item
+            Set expect_arr(item_idx) = expect_item
         Else
-            expect_arr(idx) = expect_item
+            expect_arr(item_idx) = expect_item
         End If
-        idx = idx + 1
+        item_idx = item_idx + 1
     Next expect_item
     
     ' Ç∑Ç◊ÇƒÇÃóvëfÇ Equals Ç≈î‰är
     ' íçà”: îzóÒî‰ärÇÕå^Ç‡ä‹ÇﬂÇƒåµñßàÍívÇ∆Ç∑ÇÈÇΩÇﬂÅAIgnoreNumericType Ç…Ç©Ç©ÇÌÇÁÇ∏óvëfî‰ärÇ≈ÇÕêîílå^ç∑Çñ≥éãÇµÇ»Ç¢ÅB
     Dim actual_item As Variant
-    idx = 0
+    item_idx = 0
     For Each actual_item In ActualArray
         Dim check_result As Boolean
         Dim expect_str As String
         Dim actual_str As String
-        Call pEqualsCore(check_result, expect_str, actual_str, expect_arr(idx), actual_item, False)
+        Call pEqualsCore(check_result, expect_str, actual_str, expect_arr(item_idx), actual_item, False)
         If Not check_result Then
             ExpectedValueString = expect_str
             ActualValueString = actual_str
-            AdditionalInformation = "@" & idx
+            AdditionalInformation = "@" & item_idx
             Exit Sub
         End If
         
-        idx = idx + 1
+        item_idx = item_idx + 1
     Next actual_item
     
     CheckResult = True
@@ -648,10 +648,10 @@ End Sub
 '        Exit Function
 '    End If
 '
-'    Dim expect_dimension As Integer
+'    Dim expect_dimension As Long
 '    expect_dimension = pGetArrayDimension(ExpectedArray)
 '
-'    Dim actual_dimension As Integer
+'    Dim actual_dimension As Long
 '    actual_dimension = pGetArrayDimension(ActualArray)
 '
 '    If expect_dimension <> actual_dimension Then

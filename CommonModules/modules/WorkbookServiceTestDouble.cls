@@ -260,24 +260,24 @@ End Function
 '* AddWorksheet のスパイ兼スタブです。戻り値は Sheet か、省略されたときは "Sheet" & AddSheetCount となります。
 '*
 '* @details
-'* Call TUtl.SetValue(AddWorksheet_Results, result, Sheet, Book, SheetIndex, Before)
+'* Call TUtl.SetValue(AddWorksheet_Results, result_value, Sheet, Book, SheetIndex, Before)
 Public Function AddWorksheet( _
         Optional ByVal Sheet As String = "", _
         Optional ByVal Book As String = "", _
         Optional ByVal SheetIndex As Long = 0, _
         Optional ByVal Before As Boolean = False) As String
     
-    Dim result As String
+    Dim result_value As String
     If Sheet = "" Then
-        result = "Sheet" & AddSheetCount
+        result_value = "Sheet" & AddSheetCount
         AddSheetCount = AddSheetCount + 1
     Else
-        result = Sheet
+        result_value = Sheet
     End If
     
-    Call TUtl.SetValue(AddWorksheet_Results, result, Sheet, Book, SheetIndex, Before)
+    Call TUtl.SetValue(AddWorksheet_Results, result_value, Sheet, Book, SheetIndex, Before)
     
-    AddWorksheet = result
+    AddWorksheet = result_value
 End Function
 Private Function IWorkbookService_AddWorksheet( _
         Optional ByVal Sheet As String = "", _
@@ -304,7 +304,7 @@ End Sub
 '* CopyWorksheet のスパイ兼スタブです。戻り値は DestinationWorksheetName か、省略されたときは "Sheet" & CopySheetCount となります。
 '*
 '* @details
-'* Call TUtl.SetValue(CopyWorksheet_Results, result, SourceWorksheetName, SourceWorkbookName, DestinationWorksheetName, DestinationWorkbookName, SheetIndex, Before)
+'* Call TUtl.SetValue(CopyWorksheet_Results, result_value, SourceWorksheetName, SourceWorkbookName, DestinationWorksheetName, DestinationWorkbookName, SheetIndex, Before)
 Public Function CopyWorksheet( _
         Optional ByVal SourceWorksheetName As String = "", _
         Optional ByVal SourceWorkbookName As String = "", _
@@ -313,17 +313,17 @@ Public Function CopyWorksheet( _
         Optional ByVal SheetIndex As Long = 0, _
         Optional ByVal Before As Boolean = False) As String
     
-    Dim result As String
+    Dim result_value As String
     If DestinationWorksheetName = "" Then
-        result = "Sheet" & CopySheetCount
+        result_value = "Sheet" & CopySheetCount
         CopySheetCount = CopySheetCount + 1
     Else
-        result = DestinationWorksheetName
+        result_value = DestinationWorksheetName
     End If
     
-    Call TUtl.SetValue(CopyWorksheet_Results, result, SourceWorksheetName, SourceWorkbookName, DestinationWorksheetName, DestinationWorkbookName, SheetIndex, Before)
+    Call TUtl.SetValue(CopyWorksheet_Results, result_value, SourceWorksheetName, SourceWorkbookName, DestinationWorksheetName, DestinationWorkbookName, SheetIndex, Before)
     
-    CopyWorksheet = result
+    CopyWorksheet = result_value
 End Function
 Private Function IWorkbookService_CopyWorksheet( _
         Optional ByVal SourceWorksheetName As String = "", _
@@ -366,13 +366,13 @@ End Sub
 
 Private Function pBuildComponentNamesKey(ByVal ComponentNames As Variant) As String
     If IsArray(ComponentNames) Then
-        Dim result As String
+        Dim result_value As String
         Dim name_item As Variant
         For Each name_item In ComponentNames
-            If result <> "" Then result = result & ","
-            result = result & CStr(name_item)
+            If result_value <> "" Then result_value = result_value & ","
+            result_value = result_value & CStr(name_item)
         Next name_item
-        pBuildComponentNamesKey = result
+        pBuildComponentNamesKey = result_value
     Else
         pBuildComponentNamesKey = CStr(ComponentNames)
     End If

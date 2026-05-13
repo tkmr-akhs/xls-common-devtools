@@ -235,9 +235,9 @@ Public Function ReadLine() As String
     Call pCheckOpened
     If pAsWrite Then Err.Raise vbObjectError, "Class TextFileEntity", "‘‚«‚İ—p‚ÅŠJ‚¢‚Ä‚¢‚Ü‚·B(" & pFilePath & ")"
     
-    Dim result As String
-    Line Input #pFileDesc, result
-    ReadLine = result
+    Dim result_value As String
+    Line Input #pFileDesc, result_value
+    ReadLine = result_value
 End Function
 Private Function ITextFileEntity_ReadLine() As String
     ITextFileEntity_ReadLine = ReadLine()

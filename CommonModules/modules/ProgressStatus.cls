@@ -17,11 +17,11 @@ Option Base 0
 '!
 ' #############################################################################
 
-Const C_MSG_COMPLETE_BLOCK As String = "■"
-Const C_MSG_UNCOMPLETE_BLOCK As String = "□"
+Private Const C_MSG_COMPLETE_BLOCK As String = "■"
+Private Const C_MSG_UNCOMPLETE_BLOCK As String = "□"
 
 Private pTaskName As String
-Private pBlockCount As Integer
+Private pBlockCount As Long
 Private pStartValue As Double
 Private pTotalValue As Double
 Private pProcessedValue As Double
@@ -39,10 +39,10 @@ End Property
 
 '* ブロック数。(デフォルトは 5)
 '* 進捗バーのセグメント数です。
-Public Property Get BlockCount() As Integer
+Public Property Get BlockCount() As Long
     BlockCount = pBlockCount
 End Property
-Public Property Let BlockCount(ByVal NewValue As Integer)
+Public Property Let BlockCount(ByVal NewValue As Long)
     If NewValue < 1 Then
         Err.Raise Number:=vbObjectError + 1, Source:="Class ProgressStatus", Description:="ブロック数は正の整数である必要があります。(" & NewValue & ")"
         Exit Property
@@ -211,33 +211,33 @@ Private Sub pDisplayProgress(Optional ByVal Force As Boolean = False)
 End Sub
 
 Private Function pGetNextUpdate(ByVal ProgressPercent As Integer) As Integer
-    Dim result As Integer
+    Dim result_value As Long
     
-    result = (ProgressPercent \ pIntervalPercent + 1) * pIntervalPercent
+    result_value = (ProgressPercent \ pIntervalPercent + 1) * pIntervalPercent
     
-    If 100 < result Then
-        result = 100
+    If 100 < result_value Then
+        result_value = 100
     End If
     
-    pGetNextUpdate = result
+    pGetNextUpdate = result_value
 End Function
 
 Private Function pGetStatusString(ByVal ProgressRate As Double, ByVal ProgressPercent As Integer) As String
-    Dim result As String
-    Dim comp_blocks As Integer
-    Dim idx As Integer
+    Dim result_value As String
+    Dim comp_blocks As Long
+    Dim item_idx As Long
     
-    result = pTaskName & "[" & ProgressPercent & "%]"
+    result_value = pTaskName & "[" & ProgressPercent & "%]"
     
     comp_blocks = Int(pBlockCount * (ProgressRate + 0.0001))
-    For idx = 1 To comp_blocks
-        result = result & C_MSG_COMPLETE_BLOCK
-    Next idx
+    For item_idx = 1 To comp_blocks
+        result_value = result_value & C_MSG_COMPLETE_BLOCK
+    Next item_idx
     
     comp_blocks = pBlockCount - comp_blocks
-    For idx = 1 To comp_blocks
-        result = result & C_MSG_UNCOMPLETE_BLOCK
-    Next idx
+    For item_idx = 1 To comp_blocks
+        result_value = result_value & C_MSG_UNCOMPLETE_BLOCK
+    Next item_idx
     
-    pGetStatusString = result
+    pGetStatusString = result_value
 End Function

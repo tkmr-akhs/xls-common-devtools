@@ -8,18 +8,18 @@ Option Explicit
 '!
 ' #############################################################################
 
-Const C_SHEET_NAME As String = "UNIT_TEST_SHEET"
-Const C_NEW_BOOK As Boolean = False
-Const C_COL_MOD As Long = 1
-Const C_COL_SUB As Long = 2
-Const C_COL_OKNG As Long = 3
-Const C_COL_DESC As Long = 4
-Const C_COL_END As Long = 4
-Const C_COL_BTN As Long = 5
-Const C_COL_MBTN As Long = 6
-Const C_SUB_MAIN As String = "UnitTestMain"
-Const C_COLOR_RESET_BG As Long = &H404040
-Const C_COLOR_RESET_FG As Long = &HC0C0C0
+Private Const C_SHEET_NAME As String = "UNIT_TEST_SHEET"
+Private Const C_NEW_BOOK As Boolean = False
+Private Const C_COL_MOD As Long = 1
+Private Const C_COL_SUB As Long = 2
+Private Const C_COL_OKNG As Long = 3
+Private Const C_COL_DESC As Long = 4
+Private Const C_COL_END As Long = 4
+Private Const C_COL_BTN As Long = 5
+Private Const C_COL_MBTN As Long = 6
+Private Const C_SUB_MAIN As String = "UnitTestMain"
+Private Const C_COLOR_RESET_BG As Long = &H404040
+Private Const C_COLOR_RESET_FG As Long = &HC0C0C0
 
 
 '* ユニット テストのエントリ ポイントです。

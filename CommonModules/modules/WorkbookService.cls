@@ -431,7 +431,7 @@ Private Function IWorkbookService_Find( _
 End Function
 
 Private Sub pJoinRangeBoundsArray(ByRef ResultArray() As WorksheetRangeBounds, ByRef TmpArray() As WorksheetRangeBounds)
-    Dim idx As Long
+    Dim item_idx As Long
     Dim prev_ubound As Long
     If (Not (Not ResultArray)) = 0 Then
         If (Not (Not TmpArray)) = 0 Then
@@ -449,9 +449,9 @@ Private Sub pJoinRangeBoundsArray(ByRef ResultArray() As WorksheetRangeBounds, B
             ' óºï˚èâä˙âªçœÇ›
             prev_ubound = UBound(ResultArray)
             ReDim Preserve ResultArray(0 To (prev_ubound + UBound(TmpArray) + 1))
-            For idx = 0 To UBound(TmpArray)
-                Set ResultArray(prev_ubound + 1 + idx) = TmpArray(idx)
-            Next idx
+            For item_idx = 0 To UBound(TmpArray)
+                Set ResultArray(prev_ubound + 1 + item_idx) = TmpArray(item_idx)
+            Next item_idx
         End If
     End If
 End Sub

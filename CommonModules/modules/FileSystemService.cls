@@ -332,11 +332,11 @@ Public Function CreateDirectory(ByVal DirectoryPath As String, Optional ByVal Fo
             ' Force なら既存ファイルを消す
             If Force And IsFile(dir_path) Then Call RemoveFile(dir_path, Force:=True)
             ' ディレクトリを順に作成していく
-            Dim idx As Long
-            For idx = UBound(dir_arr) To LBound(dir_arr) Step -1
+            Dim item_idx As Long
+            For item_idx = UBound(dir_arr) To LBound(dir_arr) Step -1
                 Call pFSO.CreateFolder(dir_path)
-                dir_path = JoinPath(dir_path, dir_arr(idx))
-            Next idx
+                dir_path = JoinPath(dir_path, dir_arr(item_idx))
+            Next item_idx
             Call pFSO.CreateFolder(dir_path)
             CreateDirectory = True
         End If

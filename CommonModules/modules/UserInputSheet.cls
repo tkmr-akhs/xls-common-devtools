@@ -152,9 +152,9 @@ Public Function GetItemRange( _
     finish_row_idx = MinLng(finish_row_idx, used_range.FinishRow)
     
     ' åãâ ÇÃîÕàÕÇê∂ê¨
-    Dim result As WorksheetRangeBounds
-    Set result = remain_range.TransformAbsolute(Row:=found_cells(0).Row + 1, Column:=found_cells(0).Column, FinishRow:=finish_row_idx, FinishColumn:=found_cells(0).Column)
-    Set result = WsSrv.GetUsedRangeBounds(result, IgnoreEmpty:=True)
-    Set GetItemRange = result
+    Dim result_value As WorksheetRangeBounds
+    Set result_value = remain_range.TransformAbsolute(Row:=found_cells(0).Row + 1, Column:=found_cells(0).Column, FinishRow:=finish_row_idx, FinishColumn:=found_cells(0).Column)
+    Set result_value = WsSrv.GetUsedRangeBounds(result_value, IgnoreEmpty:=True)
+    Set GetItemRange = result_value
 End Function
 

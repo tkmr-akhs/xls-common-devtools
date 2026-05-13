@@ -116,10 +116,10 @@ Public Function FinishTask(Optional ByVal TaskName As String = "", Optional ByVa
         Exit Function
     End If
     
-    Dim idx As Long
-    For idx = pTaskStack.Count - 1 To target_idx Step -1
+    Dim item_idx As Long
+    For item_idx = pTaskStack.Count - 1 To target_idx Step -1
         Call pFinishTaskCore
-    Next idx
+    Next item_idx
 End Function
 
 Private Sub pFinishTaskCore()
@@ -136,17 +136,17 @@ End Sub
 '* @details
 '* 現在保持しているタスクとその位置情報を文字列形式でまとめて返します。
 Public Function BuildMessageLines(Optional ByVal LineSep As String = vbCrLf, Optional ByVal LocationOnly As Boolean = False) As String
-    Dim result As String
+    Dim result_value As String
     
-    result = pMessage
+    result_value = pMessage
     
-    Dim idx As Long
-    For idx = 0 To pTaskStack.Count - 1
-        result = Strip(result)
-        result = result & LineSep & pBuildMessageByIndex(idx, LocationOnly)
-    Next idx
+    Dim item_idx As Long
+    For item_idx = 0 To pTaskStack.Count - 1
+        result_value = Strip(result_value)
+        result_value = result_value & LineSep & pBuildMessageByIndex(item_idx, LocationOnly)
+    Next item_idx
     
-    BuildMessageLines = Strip(result)
+    BuildMessageLines = Strip(result_value)
 End Function
 
 '* 最後に開始されたタスクに関するメッセージを生成します。
@@ -165,16 +165,16 @@ Public Function BuildCurrentMessage(Optional ByVal LocationOnly As Boolean = Fal
 End Function
 
 Private Function pBuildMessageByIndex(ByVal ItemIndex As Long, ByVal LocationOnly As Boolean) As String
-    Dim result As String
+    Dim result_value As String
     
-    If Not LocationOnly Then result = result & pTaskStack.Item(ItemIndex)
+    If Not LocationOnly Then result_value = result_value & pTaskStack.Item(ItemIndex)
     
     Dim loc_str As String
     loc_str = pLocationStack.Item(ItemIndex)
-    If loc_str <> "" Then result = result & "@" & loc_str
+    If loc_str <> "" Then result_value = result_value & "@" & loc_str
     
-    If result <> "" Then pBuildMessageByIndex = "*" & result
+    If result_value <> "" Then pBuildMessageByIndex = "*" & result_value
     
-    pBuildMessageByIndex = result
+    pBuildMessageByIndex = result_value
 End Function
 

@@ -66,10 +66,10 @@ End Property
 '* 行数
 Public Property Get RowCount() As Long
     Call pCheckInit
-    Dim result As Long
-    result = pFinishRow - pRow + 1
-    If 0 < result Then
-        RowCount = result
+    Dim result_value As Long
+    result_value = pFinishRow - pRow + 1
+    If 0 < result_value Then
+        RowCount = result_value
     Else
         RowCount = 0
     End If
@@ -78,10 +78,10 @@ End Property
 '* 列数
 Public Property Get ColumnCount() As Long
     Call pCheckInit
-    Dim result As Long
-    result = pFinishColumn - pColumn + 1
-    If 0 < result Then
-        ColumnCount = result
+    Dim result_value As Long
+    result_value = pFinishColumn - pColumn + 1
+    If 0 < result_value Then
+        ColumnCount = result_value
     Else
         ColumnCount = 0
     End If
@@ -588,17 +588,17 @@ Public Function Shift(Optional ByVal Row As Long = 0, Optional ByVal Column As L
     If G_COL_MAX < new_s_col Then Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "シフト後の列が、" & G_COL_MAX & " を超過します。(row: " & pColumn & ", shift: " & Column & ")"
     If G_COL_MAX < new_f_col Then Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "シフト後の列が、" & G_COL_MAX & " を超過します。(row: " & pFinishColumn & ", shift: " & Column & ")"
     
-    Dim result As WorksheetRangeBounds
-    Set result = New WorksheetRangeBounds
+    Dim result_value As WorksheetRangeBounds
+    Set result_value = New WorksheetRangeBounds
     
-    Call result.Initialize( _
+    Call result_value.Initialize( _
             Row:=new_s_row, _
             Column:=new_s_col, _
             FinishRow:=new_f_row, _
             FinishColumn:=new_f_col, _
             Sheet:=pWorksheetName, Book:=pWorkbookName)
     
-    Set Shift = result
+    Set Shift = result_value
 End Function
 
 '* 2 つの範囲が重なる範囲を返します。
@@ -641,10 +641,10 @@ End Function
 '* このオブジェクトの複製を生成します。
 Public Function CopyObject() As WorksheetRangeBounds
     Call pCheckInit
-    Dim result As WorksheetRangeBounds
-    Set result = New WorksheetRangeBounds
-    Call result.Initialize(pRow, pColumn, pFinishRow, pFinishColumn, pWorksheetName, pWorkbookName)
-    Set CopyObject = result
+    Dim result_value As WorksheetRangeBounds
+    Set result_value = New WorksheetRangeBounds
+    Call result_value.Initialize(pRow, pColumn, pFinishRow, pFinishColumn, pWorksheetName, pWorkbookName)
+    Set CopyObject = result_value
 End Function
 
 '* アドレス表記文字列を得ます。
@@ -812,8 +812,8 @@ End Function
 '* この範囲の列挙子を得ます。
 Public Function GetEnumerator(Optional ByVal EnumerateType As String = "Rows", Optional ByVal ColumnDirection As Boolean = False) As IEnumerator
     Call pCheckInit
-    Dim result As WorksheetRangeBoundsEnumerator
-    Set result = New WorksheetRangeBoundsEnumerator
-    Call result.Initialize(Me, EnumType:=EnumerateType, ColumnDirection:=ColumnDirection)
-    Set GetEnumerator = result
+    Dim result_value As WorksheetRangeBoundsEnumerator
+    Set result_value = New WorksheetRangeBoundsEnumerator
+    Call result_value.Initialize(Me, EnumType:=EnumerateType, ColumnDirection:=ColumnDirection)
+    Set GetEnumerator = result_value
 End Function

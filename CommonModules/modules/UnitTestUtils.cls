@@ -75,15 +75,15 @@ Private Function pGetKey(ByVal Args As Variant) As String
     If IsEmpty(Args) Then Exit Function
     If UBound(Args) < LBound(Args) Then Exit Function
     
-    Dim result As String
-    result = pGetKeyCore(Args(LBound(Args)))
+    Dim result_value As String
+    result_value = pGetKeyCore(Args(LBound(Args)))
     
-    Dim idx As Long
-    For idx = LBound(Args) + 1 To UBound(Args)
-        result = result & "|" & pGetKeyCore(Args(idx))
-    Next idx
+    Dim item_idx As Long
+    For item_idx = LBound(Args) + 1 To UBound(Args)
+        result_value = result_value & "|" & pGetKeyCore(Args(item_idx))
+    Next item_idx
     
-    pGetKey = result
+    pGetKey = result_value
 End Function
 
 Private Function pGetKeyCore(ByVal ArgItem As Variant) As Variant

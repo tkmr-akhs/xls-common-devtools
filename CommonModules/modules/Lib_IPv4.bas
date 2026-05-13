@@ -63,7 +63,7 @@ Public Const G_IPV4_NW_RE As String = G_IPV4_ADDR_RE & "(|" & C_MASK_SEP_RE & G_
 '* 指定されたネットワークアドレスとマスク長を基に、マスク長が 1 短いネットワークアドレスを計算します。
 '* マスク長が 0 の場合や、指定されたアドレスがネットワークアドレスでない場合はエラーとなります。
 Public Function ExpandNetwork(ByVal NetworkAddressValue As Long, ByVal MaskLength As Integer) As Long
-    Dim result As Long
+    Dim result_value As Long
     Dim mask_value As Long
     
     If MaskLength = 0 Then
@@ -78,9 +78,9 @@ Public Function ExpandNetwork(ByVal NetworkAddressValue As Long, ByVal MaskLengt
     End If
     
     mask_value = ConvertFromMaskLength(MaskLength - 1)
-    result = GetNetworkAddress(NetworkAddressValue, mask_value)
+    result_value = GetNetworkAddress(NetworkAddressValue, mask_value)
     
-    ExpandNetwork = result
+    ExpandNetwork = result_value
 End Function
 
 '* より狭い (マスク長が 1 長い) ネットワークアドレス (サブネット) を取得します。
@@ -93,8 +93,8 @@ End Function
 '* 指定されたネットワークアドレスとマスク長を基に、マスク長が 1 長い 2 つのサブネットアドレスを計算します。
 '* マスク長が 32 に達している場合や、指定されたアドレスがネットワークアドレスでない場合はエラーとなります。
 Public Function NarrowNetwork(ByVal NetworkAddressValue As Long, ByVal MaskLength As Integer) As Long()
-    Dim result() As Long
-    ReDim result(0 To 1) As Long
+    Dim result_value() As Long
+    ReDim result_value(0 To 1) As Long
     Dim mask_value As Long
     
     If 29 < MaskLength And MaskLength < 33 Then
@@ -108,10 +108,10 @@ Public Function NarrowNetwork(ByVal NetworkAddressValue As Long, ByVal MaskLengt
         Exit Function
     End If
     
-    result(0) = NetworkAddressValue
-    result(1) = NetworkAddressValue Or GetMaskValue(MaskLength)
+    result_value(0) = NetworkAddressValue
+    result_value(1) = NetworkAddressValue Or GetMaskValue(MaskLength)
     
-    NarrowNetwork = result
+    NarrowNetwork = result_value
 End Function
 
 '* IP アドレスまたはネットワークアドレスを適切な形式に整形します。
@@ -128,15 +128,15 @@ End Function
 '* 末尾に "/32" を追加して、CIDR ノーテーションに準拠した形式に整形します。ネットワークマスクが既に
 '* 指定されている場合は、そのままの形式を返します。
 Public Function WellFormedAddress(ByVal AddressLike As String) As String
-    Dim result As String
+    Dim result_value As String
     
-    result = Replace(AddressLike, "_", "/")
+    result_value = Replace(AddressLike, "_", "/")
     
-    If result <> "" And result Like "?*.?*.?*.?*" And Not result Like "?*.?*.?*.?*/?*" Then
-        result = result & "/32"
+    If result_value <> "" And result_value Like "?*.?*.?*.?*" And Not result_value Like "?*.?*.?*.?*/?*" Then
+        result_value = result_value & "/32"
     End If
     
-    WellFormedAddress = result
+    WellFormedAddress = result_value
 End Function
 
 '* 「IP アドレス/マスク」という形式の文字列を解析し、値に変換します。
@@ -191,7 +191,7 @@ End Sub
 '* @details
 '* 指定された IP アドレス値とマスク値を基に、ネットワークアドレスであるかを確認します。
 Public Function IsNetwork(ByVal IpAddressValue As Long, ByVal MaskValue As Long) As Boolean
-    Dim result As Boolean
+    Dim result_value As Boolean
     Dim host_addr As Long
     
     host_addr = GetHostAddress(IpAddressValue, MaskValue)
@@ -207,14 +207,14 @@ End Function
 '' IP アドレスの形式を満たしているか (ドットデシマル形式になっているか) を確認します。
 ''
 'Function IsIpAddress(IpAddress As String) As Long
-'    Dim regex As New RegExp
-'    Dim matches As MatchCollection
+'    Dim regex_obj As New RegExp
+'    Dim match_collection As MatchCollection
 '
-'    regex.Pattern = "^" & IPV4_OCTET_RE & OCTET_SEP_RE & IPV4_OCTET_RE & OCTET_SEP_RE & IPV4_OCTET_RE & OCTET_SEP_RE & IPV4_OCTET_RE & "$"
-'    regex.Global = False
+'    regex_obj.Pattern = "^" & IPV4_OCTET_RE & OCTET_SEP_RE & IPV4_OCTET_RE & OCTET_SEP_RE & IPV4_OCTET_RE & OCTET_SEP_RE & IPV4_OCTET_RE & "$"
+'    regex_obj.Global = False
 '
-'    Set matches = regex.Execute(IpAddress)
-'    If 0 < matches.count Then
+'    Set match_collection = regex_obj.Execute(IpAddress)
+'    If 0 < match_collection.count Then
 '        IsIpAddress = True
 '    Else
 '        IsIpAddress = False
@@ -231,7 +231,7 @@ End Function
 '* 無効なマスク (途中に 0 を含む場合) では False を返します。
 Public Function IsValidMaskValue(ByVal MaskValue As Long) As Boolean
     Dim found_zero As Boolean
-    Dim idx As Integer
+    Dim item_idx As Integer
     
     If MaskValue > 0 Then
         ' 正の数は、先頭が 0 で、それ以降に 1 がある。
@@ -247,8 +247,8 @@ Public Function IsValidMaskValue(ByVal MaskValue As Long) As Boolean
     End If
     
     ' 32ビットすべてをチェック
-    For idx = 30 To 0 Step -1
-        If (MaskValue And (2& ^ idx)) <> 0 Then
+    For item_idx = 30 To 0 Step -1
+        If (MaskValue And (2& ^ item_idx)) <> 0 Then
             ' ビットが立っていたら
             If found_zero Then
                 ' すでに 0 が見つかっていたら
@@ -259,7 +259,7 @@ Public Function IsValidMaskValue(ByVal MaskValue As Long) As Boolean
             ' 初めて 0 が見つかった
             found_zero = True
         End If
-    Next idx
+    Next item_idx
     
     ' すべて 1
     IsValidMaskValue = True
@@ -298,39 +298,39 @@ End Function
 '* ドットデシマル形式の IP アドレス文字列を、Long 型の IP アドレス値に変換します。
 '* 不正な形式の場合、エラーが発生します。
 Public Function ConvertFromIpAddress(ByVal IpAddress As String) As Long
-    Dim regex As RegExp
-    Dim matches As MatchCollection
+    Dim regex_obj As RegExp
+    Dim match_collection As MatchCollection
     Dim match_item As Match
-    Dim idx As Integer
+    Dim item_idx As Integer
     Dim ipv4_re_obj As String
-    Dim octet As Long
+    Dim octet_value As Long
     Dim high_bit As Long
-    Dim result As Long
+    Dim result_value As Long
     
-    Set regex = New RegExp
+    Set regex_obj = New RegExp
     
-    regex.Pattern = "^" & G_IPV4_ADDR_RE & "$"
-    regex.Global = False
+    regex_obj.Pattern = "^" & G_IPV4_ADDR_RE & "$"
+    regex_obj.Global = False
         
-    Set matches = regex.Execute(IpAddress)
+    Set match_collection = regex_obj.Execute(IpAddress)
     
-    If 0 < matches.Count Then
-        Set match_item = matches(0)
+    If 0 < match_collection.Count Then
+        Set match_item = match_collection(0)
         If match_item.SubMatches.Count = 4 Then
-            octet = CInt(match_item.SubMatches(0))
+            octet_value = CInt(match_item.SubMatches(0))
             
             ' 桁あふれを防ぐ処置
-            If octet < 128 Then
+            If octet_value < 128 Then
                 high_bit = 0
             Else
-                octet = &H7F And octet
+                octet_value = &H7F And octet_value
                 high_bit = &H80000000
             End If
             
-            result = high_bit Or (octet * 16777216 + CLng(match_item.SubMatches(1)) * 65536 + CLng(match_item.SubMatches(2)) * 256 + CLng(match_item.SubMatches(3)))
+            result_value = high_bit Or (octet_value * 16777216 + CLng(match_item.SubMatches(1)) * 65536 + CLng(match_item.SubMatches(2)) * 256 + CLng(match_item.SubMatches(3)))
             
             ' 正常終了したら抜ける。
-            ConvertFromIpAddress = result
+            ConvertFromIpAddress = result_value
             Exit Function
         End If
     End If
@@ -347,14 +347,14 @@ End Function
 '* @details
 '* 指定された Long 型の IP アドレス値を、ドットデシマル形式の文字列に変換します。
 Public Function ConvertToIpAddress(ByVal IpAddressValue As Long) As String
-    Dim result As String
+    Dim result_value As String
     Dim ip_value As Long
-    Dim mask As Long
+    Dim mask_value As Long
     Dim high_bit As Long
     
     ' 下位 8 ビットだけ抜き出すマスクを作成する
-    mask = GetMaskValue(24, 32)
-    'mask = BitRight(&HFFFFFFFF, 24)
+    mask_value = GetMaskValue(24, 32)
+    'mask_value = BitRight(&HFFFFFFFF, 24)
     
     ' 最上位ビットだけ別処理
     If 0 <= IpAddressValue Then
@@ -366,21 +366,21 @@ Public Function ConvertToIpAddress(ByVal IpAddressValue As Long) As String
     End If
     
     ' 第 4 オクテット
-    result = ip_value And mask
+    result_value = ip_value And mask_value
     ip_value = ip_value \ 256
     
     ' 第 3 オクテット
-    result = "" & (ip_value And mask) & C_OCTET_SEP & result
+    result_value = "" & (ip_value And mask_value) & C_OCTET_SEP & result_value
     ip_value = ip_value \ 256
     
     ' 第 2 オクテット
-    result = "" & (ip_value And mask) & C_OCTET_SEP & result
+    result_value = "" & (ip_value And mask_value) & C_OCTET_SEP & result_value
     ip_value = ip_value \ 256
     
     ' 第 1 オクテット
-    result = "" & (high_bit Or ip_value) & C_OCTET_SEP & result
+    result_value = "" & (high_bit Or ip_value) & C_OCTET_SEP & result_value
     
-    ConvertToIpAddress = result
+    ConvertToIpAddress = result_value
 End Function
 
 '* マスク値を反転します。
@@ -423,7 +423,7 @@ End Function
 Public Function ConvertToMaskLength(ByVal MaskValue As Long) As Integer
     Dim found_zero As Boolean
     Dim mask_length As Integer
-    Dim idx As Integer
+    Dim item_idx As Integer
     
     If MaskValue > 0 Then
         Err.Raise vbObjectError + 1, Source:="Function ConvertToMaskLength", Description:="不正なマスク値です。(" & MaskValue & ")"
@@ -438,8 +438,8 @@ Public Function ConvertToMaskLength(ByVal MaskValue As Long) As Integer
     
     ' 32ビットすべてをチェック
     mask_length = 1
-    For idx = 30 To 0 Step -1
-        If (MaskValue And (2& ^ idx)) <> 0 Then
+    For item_idx = 30 To 0 Step -1
+        If (MaskValue And (2& ^ item_idx)) <> 0 Then
             If found_zero Then
                 Err.Raise vbObjectError + 1, Source:="ConvertToMaskLength", Description:="不正なマスク値です。(" & MaskValue & ")"
             End If
@@ -447,7 +447,7 @@ Public Function ConvertToMaskLength(ByVal MaskValue As Long) As Integer
         Else
             found_zero = True
         End If
-    Next idx
+    Next item_idx
     
     ConvertToMaskLength = mask_length
 End Function
@@ -462,7 +462,7 @@ End Function
 '* 開始ビットから終了ビットまでを 1 にし、それ以外を 0 にした 32 ビットのマスク値を作成します。
 '* 範囲外のビット指定の場合はエラーを発生させます。
 Public Function GetMaskValue(ByVal Start As Integer, Optional ByVal Finish As Integer = -1) As Long
-    Dim result As Long
+    Dim result_value As Long
     Dim start_idx As Long
     Dim high_bit As Long
     Dim bit_length As Integer
@@ -487,7 +487,7 @@ Public Function GetMaskValue(ByVal Start As Integer, Optional ByVal Finish As In
     
     bit_length = Finish - start_idx
     
-    result = (2& ^ bit_length - 1) * (2& ^ (32 - Finish)) Or high_bit
+    result_value = (2& ^ bit_length - 1) * (2& ^ (32 - Finish)) Or high_bit
     
-    GetMaskValue = result
+    GetMaskValue = result_value
 End Function

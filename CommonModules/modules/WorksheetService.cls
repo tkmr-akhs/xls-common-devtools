@@ -92,25 +92,25 @@ Private Function IWorksheetService_Find( _
 End Function
 
 Private Sub pAddItemToRangeBoundsArray(ByRef TargetArray() As WorksheetRangeBounds, ByVal TargetCell As Range)
-    Dim idx As Long
+    Dim item_idx As Long
     If (Not (Not TargetArray)) = 0 Then
-        idx = 0
+        item_idx = 0
         ReDim TargetArray(0 To 0)
     Else
-        idx = UBound(TargetArray) + 1
-        ReDim Preserve TargetArray(LBound(TargetArray) To idx)
+        item_idx = UBound(TargetArray) + 1
+        ReDim Preserve TargetArray(LBound(TargetArray) To item_idx)
     End If
-    Set TargetArray(idx) = New_RangeBounds(Row:=TargetCell.Row, Column:=TargetCell.Column, Sheet:=TargetCell.Worksheet.Name, Book:=TargetCell.Worksheet.Parent.Name)
+    Set TargetArray(item_idx) = New_RangeBounds(Row:=TargetCell.Row, Column:=TargetCell.Column, Sheet:=TargetCell.Worksheet.Name, Book:=TargetCell.Worksheet.Parent.Name)
 End Sub
 
 Public Sub Sort(ByVal RangeBounds As WorksheetRangeBounds, ParamArray SortKeyAndOrder() As Variant)
-    Call SortCore(RangeBounds, SortKeyAndOrder)
+    Call pSortCore(RangeBounds, SortKeyAndOrder)
 End Sub
 Private Sub IWorksheetService_Sort(ByVal RangeBounds As WorksheetRangeBounds, ParamArray SortKeyAndOrder() As Variant)
-    Call SortCore(RangeBounds, SortKeyAndOrder)
+    Call pSortCore(RangeBounds, SortKeyAndOrder)
 End Sub
 
-Private Sub SortCore(ByVal RangeBounds As WorksheetRangeBounds, ByVal SortKeyAndOrder As Variant)
+Private Sub pSortCore(ByVal RangeBounds As WorksheetRangeBounds, ByVal SortKeyAndOrder As Variant)
     If IsEmptyArray(SortKeyAndOrder) Then Exit Sub
     If (UBound(SortKeyAndOrder) - LBound(SortKeyAndOrder)) Mod 2 = 0 Then
         Err.Raise vbObjectError + 1, "Class WorksheetService", "SortKeyAndOrder の要素数が偶数ではありません。(奇数番目の要素は、ソートのキーとなる列の番号、偶数番目の要素は、xlAscending か xlDescending)"
@@ -125,14 +125,14 @@ Private Sub SortCore(ByVal RangeBounds As WorksheetRangeBounds, ByVal SortKeyAnd
     With target_sheet.Sort
         .SortFields.Clear
         
-        Dim idx As Long
-        For idx = LBound(SortKeyAndOrder) To UBound(SortKeyAndOrder) - 1 Step 2
-            If IsEmpty(SortKeyAndOrder(idx + 1)) Then
-                .SortFields.Add Key:=target_sheet.Cells(RangeBounds.Row, RangeBounds.Column + SortKeyAndOrder(idx) - 1)
+        Dim item_idx As Long
+        For item_idx = LBound(SortKeyAndOrder) To UBound(SortKeyAndOrder) - 1 Step 2
+            If IsEmpty(SortKeyAndOrder(item_idx + 1)) Then
+                .SortFields.Add Key:=target_sheet.Cells(RangeBounds.Row, RangeBounds.Column + SortKeyAndOrder(item_idx) - 1)
             Else
-                .SortFields.Add Key:=target_sheet.Cells(RangeBounds.Row, RangeBounds.Column + SortKeyAndOrder(idx) - 1), Order:=SortKeyAndOrder(idx + 1)
+                .SortFields.Add Key:=target_sheet.Cells(RangeBounds.Row, RangeBounds.Column + SortKeyAndOrder(item_idx) - 1), Order:=SortKeyAndOrder(item_idx + 1)
             End If
-        Next idx
+        Next item_idx
         
         .SetRange sort_range
         .Header = xlNo
@@ -362,14 +362,14 @@ Private Function pGetFormulaLiteral(ByVal Value As Variant) As String
 End Function
 
 Private Function pGetFormulaNumber(ByVal NumberValue As Double) As String
-    Dim result As String
-    result = LTrim$(Str$(NumberValue))
-    If Left$(result, 1) = "." Then
-        result = "0" & result
-    ElseIf Left$(result, 2) = "-." Then
-        result = "-0" & Mid$(result, 2)
+    Dim result_value As String
+    result_value = LTrim$(Str$(NumberValue))
+    If Left$(result_value, 1) = "." Then
+        result_value = "0" & result_value
+    ElseIf Left$(result_value, 2) = "-." Then
+        result_value = "-0" & Mid$(result_value, 2)
     End If
-    pGetFormulaNumber = result
+    pGetFormulaNumber = result_value
 End Function
 
 Private Function pTryConvertErrorStringToCVErr(ByVal Expression As String, ByRef ErrorValue As Variant) As Boolean
@@ -452,9 +452,9 @@ Public Function ReadRange(ByVal RangeBounds As WorksheetRangeBounds) As Variant(
     Set target_range = pGetRange(RangeBounds)
     
     If RangeBounds.IsCell Then
-        Dim result(1 To 1, 1 To 1) As Variant
-        result(1, 1) = target_range.Value
-        ReadRange = result
+        Dim result_value(1 To 1, 1 To 1) As Variant
+        result_value(1, 1) = target_range.Value
+        ReadRange = result_value
     Else
         ReadRange = target_range.Value
     End If
@@ -1208,22 +1208,22 @@ Public Sub ClearRange( _
         used_col = target_sheet.UsedRange.Columns(target_sheet.UsedRange.Columns.Count).Column
     End If
     
-    Dim idx As Long
-    For idx = RangeBounds.Row To MinLng(used_row, RangeBounds.FinishRow)
-        If target_sheet.Rows(idx).Hidden Then
+    Dim item_idx As Long
+    For item_idx = RangeBounds.Row To MinLng(used_row, RangeBounds.FinishRow)
+        If target_sheet.Rows(item_idx).Hidden Then
             ' 範囲内の非表示状態の行を処理
-            Set target_range = target_sheet.Range(target_sheet.Cells(idx, RangeBounds.Column), target_sheet.Cells(idx, RangeBounds.FinishColumn))
+            Set target_range = target_sheet.Range(target_sheet.Cells(item_idx, RangeBounds.Column), target_sheet.Cells(item_idx, RangeBounds.FinishColumn))
             Call pClearRangeCore(target_range, ClearAll, ClearContents, ClearNumberFormats, ClearColors, ClearComments, ClearHyperlinks)
         End If
-    Next idx
+    Next item_idx
     
-    For idx = RangeBounds.Column To MinLng(used_col, RangeBounds.FinishColumn)
-        If target_sheet.Columns(idx).Hidden Then
+    For item_idx = RangeBounds.Column To MinLng(used_col, RangeBounds.FinishColumn)
+        If target_sheet.Columns(item_idx).Hidden Then
             ' 範囲内の非表示状態の列を処理
-            Set target_range = target_sheet.Range(target_sheet.Cells(RangeBounds.Row, idx), target_sheet.Cells(RangeBounds.FinishRow, idx))
+            Set target_range = target_sheet.Range(target_sheet.Cells(RangeBounds.Row, item_idx), target_sheet.Cells(RangeBounds.FinishRow, item_idx))
             Call pClearRangeCore(target_range, ClearAll, ClearContents, ClearNumberFormats, ClearColors, ClearComments, ClearHyperlinks)
         End If
-    Next idx
+    Next item_idx
 End Sub
 Private Sub IWorksheetService_ClearRange( _
         ByVal RangeBounds As WorksheetRangeBounds, _

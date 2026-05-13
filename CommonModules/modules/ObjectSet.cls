@@ -98,24 +98,24 @@ Public Function ConvertToArray() As Variant()
         Exit Function
     End If
     
-    Dim result() As Variant
-    Dim idx As Long
+    Dim result_value() As Variant
+    Dim item_idx As Long
     
-    ReDim result(0 To pDict.Count - 1)
+    ReDim result_value(0 To pDict.Count - 1)
     
-    idx = LBound(result)
+    item_idx = LBound(result_value)
     Dim dict_key As Variant
     For Each dict_key In pDict
         If pIsObject Then
-            Set result(idx) = pDict(dict_key)
+            Set result_value(item_idx) = pDict(dict_key)
         Else
-            result(idx) = pDict(dict_key)
+            result_value(item_idx) = pDict(dict_key)
         End If
         
-        idx = idx + 1
+        item_idx = item_idx + 1
     Next dict_key
     
-    ConvertToArray = result
+    ConvertToArray = result_value
 End Function
 
 '* 集合を文字列の配列として返します。
@@ -129,33 +129,33 @@ Public Function ConvertToStringArray() As String()
         Exit Function
     End If
     
-    Dim result() As String
-    Dim idx As Long
+    Dim result_value() As String
+    Dim item_idx As Long
     Dim stringable_obj As IStringable
     
-    ReDim result(0 To pDict.Count - 1)
+    ReDim result_value(0 To pDict.Count - 1)
     
-    idx = LBound(result)
+    item_idx = LBound(result_value)
     Dim dict_key As Variant
     For Each dict_key In pDict
         If pIsObject Then
             If pDict(dict_key) Is Nothing Then
-                result(idx) = "Nothing"
+                result_value(item_idx) = "Nothing"
             Else
                 If pIsStringable Then
                     Set stringable_obj = pDict(dict_key)
-                    result(idx) = stringable_obj.ToString()
+                    result_value(item_idx) = stringable_obj.ToString()
                 Else
-                    result(idx) = TypeName(pDict(dict_key))
+                    result_value(item_idx) = TypeName(pDict(dict_key))
                 End If
             End If
         Else
-            result(idx) = pDict(dict_key)
+            result_value(item_idx) = pDict(dict_key)
         End If
-        idx = idx + 1
+        item_idx = item_idx + 1
     Next dict_key
     
-    ConvertToStringArray = result
+    ConvertToStringArray = result_value
 End Function
 
 '* 新しい要素を集合に追加します。
@@ -200,11 +200,11 @@ Public Sub AddArray(ByVal ItemArray As Variant, Optional ByVal ErrorIfExists As 
     
     Dim key_var As Variant
     Dim set_item_obj As IDuplicateCheckable
-    Dim ItemObject As Variant
-    
-    For Each ItemObject In ItemArray
-        Call Add(ItemObject, ErrorIfExists)
-    Next ItemObject
+    Dim item_obj As Variant
+
+    For Each item_obj In ItemArray
+        Call Add(item_obj, ErrorIfExists)
+    Next item_obj
 End Sub
 
 '* 他の集合の要素をこの集合に取り込みます。
@@ -215,11 +215,11 @@ End Sub
 '* @details
 '* 他の集合の要素をこの集合に取り込みます。オプションで、要素が既に存在する場合の挙動を指定できます。
 Public Sub AddOther(ByVal OtherSet As ObjectSet, Optional ByVal ErrorIfExists As Boolean = True)
-    Dim idx As Long
+    Dim item_idx As Long
     
-    For idx = 0 To OtherSet.Count - 1
-        Call Me.Add(OtherSet.Item(idx), ErrorIfExists:=ErrorIfExists)
-    Next idx
+    For item_idx = 0 To OtherSet.Count - 1
+        Call Me.Add(OtherSet.Item(item_idx), ErrorIfExists:=ErrorIfExists)
+    Next item_idx
 End Sub
 
 '* 他のリストの要素をこの集合に取り込みます。
@@ -230,11 +230,11 @@ End Sub
 '* @details
 '* 他のリストの要素をこの集合に取り込みます。オプションで、要素が既に存在する場合の挙動を指定できます。
 Public Sub AddList(ByVal OtherList As ObjectList, Optional ByVal ErrorIfExists As Boolean = True)
-    Dim idx As Long
+    Dim item_idx As Long
     
-    For idx = 0 To OtherList.Count - 1
-        Call Me.Add(OtherList.Item(idx), ErrorIfExists)
-    Next idx
+    For item_idx = 0 To OtherList.Count - 1
+        Call Me.Add(OtherList.Item(item_idx), ErrorIfExists)
+    Next item_idx
 End Sub
 
 '* この集合の複製を作成します。
@@ -244,15 +244,15 @@ End Sub
 '* @details
 '* この集合の複製を作成します。
 Public Function CopySet() As ObjectSet
-    Dim result As ObjectSet
-    Set result = New ObjectSet
+    Dim result_value As ObjectSet
+    Set result_value = New ObjectSet
     
     Dim key_var As Variant
     For Each key_var In pDict.Keys
-        Call result.Add(pDict(key_var))
+        Call result_value.Add(pDict(key_var))
     Next key_var
     
-    Set CopySet = result
+    Set CopySet = result_value
 End Function
 
 '* 指定されたインデックスの要素を削除します。
@@ -385,10 +385,10 @@ End Sub
 '* @details
 '* この集合の列挙子を得ます。
 Public Function GetEnumerator(Optional ByVal Descending As Boolean = False, Optional ByVal IsReadOnly As Boolean = False) As IEnumerator
-    Dim result As Enumerator
-    Set result = New Enumerator
-    Call result.Initialize(Me, Descending:=Descending, IsReadOnly:=IsReadOnly)
-    Set GetEnumerator = result
+    Dim result_value As Enumerator
+    Set result_value = New Enumerator
+    Call result_value.Initialize(Me, Descending:=Descending, IsReadOnly:=IsReadOnly)
+    Set GetEnumerator = result_value
 End Function
 
 Private Sub pInitializeItemType(ByVal ItemObject As Variant)

@@ -70,8 +70,8 @@ End Function
 '* @details
 '* 指定された名前のカウンターを削除し、削除されたカウンターオブジェクトを返します。
 Public Function RemoveCounter(ByVal CounterObjectName As String) As Counter
-    Dim result As Counter
-    Set result = pDict(CounterObjectName)
+    Dim result_value As Counter
+    Set result_value = pDict(CounterObjectName)
     Call pDict.Remove(CounterObjectName)
-    Set RemoveCounter = result
+    Set RemoveCounter = result_value
 End Function

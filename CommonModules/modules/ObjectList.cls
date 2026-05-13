@@ -21,7 +21,7 @@ Private Const C_CHUNK_SIZE As Integer = 16
 '!
 ' #############################################################################
 
-Private pDepth As Integer
+Private pDepth As Long
 Private pRootArray As ArrayObject
 Private pCount As Long
 Private pTypeName As String
@@ -51,17 +51,17 @@ End Property
 Public Function Item(ByVal ItemIndex As Long) As Variant
     Call pCheckIndex(ItemIndex)
 
-    Dim index_arr() As Integer
+    Dim index_arr() As Long
     Dim remain_index As Long
     Call pGetIndexArray(index_arr, remain_index, ItemIndex)
 
     Dim target_arr As ArrayObject
     Set target_arr = pRootArray
 
-    Dim idx As Integer
-    For idx = LBound(index_arr) To UBound(index_arr) - 1
-        Set target_arr = target_arr.Item(index_arr(idx))
-    Next idx
+    Dim item_idx As Long
+    For item_idx = LBound(index_arr) To UBound(index_arr) - 1
+        Set target_arr = target_arr.Item(index_arr(item_idx))
+    Next item_idx
 
     If pIsObject Then
         Set Item = target_arr.Item(index_arr(UBound(index_arr)))
@@ -91,10 +91,10 @@ Private Sub Class_Terminate()
     On Error Resume Next
     'Debug.Print "Terminate: ObjectList(0x" & Hex(ObjPtr(Me)) & ")"
 
-    Dim idx As Long
-    For idx = 0 To pRootArray.UpperBound - 1
-        Call pRootArray.Update(idx, Empty)
-    Next idx
+    Dim item_idx As Long
+    For item_idx = 0 To pRootArray.UpperBound - 1
+        Call pRootArray.Update(item_idx, Empty)
+    Next item_idx
 End Sub
 
 '* 指定されたインデックスの要素を更新します。
@@ -116,17 +116,17 @@ Public Sub Update(ByVal ItemIndex As Long, ByVal ItemObject As Variant)
 End Sub
 
 Private Sub pUpdateCore(ByVal ItemIndex As Long, ByVal ItemObject As Variant)
-    Dim index_arr() As Integer
+    Dim index_arr() As Long
     Dim remain_index As Long
     Call pGetIndexArray(index_arr, remain_index, ItemIndex)
 
     Dim target_arr As ArrayObject
     Set target_arr = pRootArray
 
-    Dim idx As Integer
-    For idx = LBound(index_arr) To UBound(index_arr) - 1
-        Set target_arr = target_arr.Item(index_arr(idx))
-    Next idx
+    Dim item_idx As Long
+    For item_idx = LBound(index_arr) To UBound(index_arr) - 1
+        Set target_arr = target_arr.Item(index_arr(item_idx))
+    Next item_idx
 
     Call target_arr.Update(index_arr(UBound(index_arr)), ItemObject)
 End Sub
@@ -142,20 +142,20 @@ Public Function ConvertToArray() As Variant()
         Exit Function
     End If
 
-    Dim result() As Variant
-    Dim idx As Long
+    Dim result_value() As Variant
+    Dim item_idx As Long
 
-    ReDim result(0 To pCount - 1)
+    ReDim result_value(0 To pCount - 1)
 
-    For idx = LBound(result) To UBound(result)
+    For item_idx = LBound(result_value) To UBound(result_value)
         If pIsObject Then
-            Set result(idx) = Item(idx)
+            Set result_value(item_idx) = Item(item_idx)
         Else
-            result(idx) = Item(idx)
+            result_value(item_idx) = Item(item_idx)
         End If
-    Next idx
+    Next item_idx
 
-    ConvertToArray = result
+    ConvertToArray = result_value
 End Function
 
 '* リストを文字列の配列として返します。
@@ -169,30 +169,30 @@ Public Function ConvertToStringArray() As String()
         Exit Function
     End If
 
-    Dim result() As String
-    Dim idx As Long
+    Dim result_value() As String
+    Dim item_idx As Long
     Dim stringable_obj As IStringable
 
-    ReDim result(0 To pCount - 1)
+    ReDim result_value(0 To pCount - 1)
 
-    For idx = LBound(result) To UBound(result)
+    For item_idx = LBound(result_value) To UBound(result_value)
         If pIsObject Then
-            If Item(idx) Is Nothing Then
-                result(idx) = "Nothing"
+            If Item(item_idx) Is Nothing Then
+                result_value(item_idx) = "Nothing"
             Else
-                If TypeOf Item(idx) Is IStringable Then
-                    Set stringable_obj = Item(idx)
-                    result(idx) = stringable_obj.ToString()
+                If TypeOf Item(item_idx) Is IStringable Then
+                    Set stringable_obj = Item(item_idx)
+                    result_value(item_idx) = stringable_obj.ToString()
                 Else
-                    result(idx) = TypeName(Item(idx))
+                    result_value(item_idx) = TypeName(Item(item_idx))
                 End If
             End If
         Else
-            result(idx) = Item(idx)
+            result_value(item_idx) = Item(item_idx)
         End If
-    Next idx
+    Next item_idx
 
-    ConvertToStringArray = result
+    ConvertToStringArray = result_value
 End Function
 
 '* 新しい要素をリストに追加します。
@@ -209,7 +209,7 @@ Public Sub Add(ByVal ItemObject As Variant)
     End If
 
     Dim new_arr As ArrayObject
-    Dim index_arr() As Integer
+    Dim index_arr() As Long
     Dim remain_index As Long
     Call pGetIndexArray(index_arr, remain_index, pCount)
     Call pExpandIfNeed(remain_index)
@@ -221,10 +221,10 @@ Public Sub Add(ByVal ItemObject As Variant)
         Set target_arr = pRootArray
     End If
 
-    Dim idx As Integer
-    For idx = LBound(index_arr) To UBound(index_arr) - 1
-        Set target_arr = pGetChildArray(target_arr, index_arr(idx))
-    Next idx
+    Dim item_idx As Long
+    For item_idx = LBound(index_arr) To UBound(index_arr) - 1
+        Set target_arr = pGetChildArray(target_arr, index_arr(item_idx))
+    Next item_idx
 
     Call target_arr.Update(index_arr(UBound(index_arr)), ItemObject)
 
@@ -255,11 +255,11 @@ End Sub
 '* @details
 '* 他のリストの要素をこのリストに取り込みます。
 Public Sub AddOther(ByVal OtherList As ObjectList)
-    Dim idx As Long
+    Dim item_idx As Long
 
-    For idx = 0 To OtherList.Count - 1
-        Call Me.Add(OtherList.Item(idx))
-    Next idx
+    For item_idx = 0 To OtherList.Count - 1
+        Call Me.Add(OtherList.Item(item_idx))
+    Next item_idx
 End Sub
 
 '* 他のセットの要素をこのリストに取り込みます。
@@ -269,11 +269,11 @@ End Sub
 '* @details
 '* 他のセットの要素をこのリストに取り込みます。
 Public Sub AddSet(ByVal OtherSet As ObjectSet)
-    Dim idx As Long
+    Dim item_idx As Long
 
-    For idx = 0 To OtherSet.Count - 1
-        Call Me.Add(OtherSet.Item(idx))
-    Next idx
+    For item_idx = 0 To OtherSet.Count - 1
+        Call Me.Add(OtherSet.Item(item_idx))
+    Next item_idx
 End Sub
 
 '* このリストの複製を生成します。
@@ -284,14 +284,14 @@ End Sub
 '* このリストの複製を生成します。
 '* リストの要素はもとのインスタンスがそのまま利用されます。(シャロー コピー)
 Public Function CopyList() As ObjectList
-    Dim idx As Long
+    Dim item_idx As Long
     Dim new_list As ObjectList
 
     Set new_list = New ObjectList
 
-    For idx = 0 To pCount - 1
-        Call new_list.Add(Item(idx))
-    Next idx
+    For item_idx = 0 To pCount - 1
+        Call new_list.Add(Item(item_idx))
+    Next item_idx
 
     Set CopyList = new_list
 End Function
@@ -304,7 +304,7 @@ End Function
 '* @details
 '* 指定されたインデックスの要素を削除します。
 Public Function Remove(ByVal ItemIndex As Long) As Variant
-    Dim idx As Long
+    Dim item_idx As Long
     Dim old_obj As Variant
 
     Call pCheckIndex(ItemIndex)
@@ -315,9 +315,9 @@ Public Function Remove(ByVal ItemIndex As Long) As Variant
         old_obj = Item(ItemIndex)
     End If
 
-    For idx = ItemIndex To pCount - 2
-        Call pUpdateCore(idx, Item(idx + 1))
-    Next idx
+    For item_idx = ItemIndex To pCount - 2
+        Call pUpdateCore(item_idx, Item(item_idx + 1))
+    Next item_idx
 
     Call pUpdateCore(pCount - 1, Empty)
 
@@ -349,16 +349,16 @@ End Sub
 '* - このリストの要素が IEquatable であれば、Equals の結果に基づいて処理します。
 '* - IEquotable かつ IDuplicateCheckable の場合は、IDuplicateCheckable としての扱いが優先されます。
 Public Function RemoveItem(ByVal ItemObject As Variant) As Boolean
-    Dim idx As Long
+    Dim item_idx As Long
     Dim is_removed As Boolean
 
     is_removed = False
-    Do While idx < pCount
-        If pCheckRemoveItem(Item(idx), ItemObject) Then
-            Call Remove(idx)
+    Do While item_idx < pCount
+        If pCheckRemoveItem(Item(item_idx), ItemObject) Then
+            Call Remove(item_idx)
             is_removed = True
         Else
-            idx = idx + 1
+            item_idx = item_idx + 1
         End If
     Loop
 
@@ -407,20 +407,20 @@ End Function
 '* @details
 '* このリストに重複して登録されている要素を削除します。
 Public Function RemoveDuplicate() As Boolean
-    Dim idx As Long
+    Dim item_idx As Long
     Dim search_idx As Long
     Dim is_removed As Boolean
 
     is_removed = False
-    Do While idx < pCount
+    Do While item_idx < pCount
         Dim search_item As Variant
         If pIsObject Then
-            Set search_item = Item(idx)
+            Set search_item = Item(item_idx)
         Else
-            search_item = Item(idx)
+            search_item = Item(item_idx)
         End If
 
-        search_idx = idx + 1
+        search_idx = item_idx + 1
         Do While search_idx < pCount
             If pItemsEqual(search_item, Item(search_idx)) Then
                 Call Remove(search_idx)
@@ -429,7 +429,7 @@ Public Function RemoveDuplicate() As Boolean
                 search_idx = search_idx + 1
             End If
         Loop
-        idx = idx + 1
+        item_idx = item_idx + 1
     Loop
 
     RemoveDuplicate = is_removed
@@ -502,13 +502,13 @@ Public Function GetIndexByItem(ByVal ItemObject As Variant, Optional ByVal Start
 End Function
 
 Private Function pGetIndexByItemCore(ByVal ItemObject As Variant, ByVal StartIndex As Long, ByVal IndexLimit As Long, ByVal IndexStep As Long) As Long
-    Dim idx As Long
-    For idx = StartIndex To IndexLimit Step IndexStep
-        If pItemsEqual(Me.Item(idx), ItemObject) Then
-            pGetIndexByItemCore = idx
+    Dim item_idx As Long
+    For item_idx = StartIndex To IndexLimit Step IndexStep
+        If pItemsEqual(Me.Item(item_idx), ItemObject) Then
+            pGetIndexByItemCore = item_idx
             Exit Function
         End If
-    Next idx
+    Next item_idx
 
     pGetIndexByItemCore = -1
 End Function
@@ -521,9 +521,9 @@ End Function
 '* @details
 '* 等しいものが含まれるかを確認します。
 Public Function Exists(ByVal ItemObject As Variant) As Boolean
-    Dim idx As Long
-    idx = pGetIndexByItemCore(ItemObject, 0, pCount - 1, 1)
-    If 0 <= idx Then
+    Dim item_idx As Long
+    item_idx = pGetIndexByItemCore(ItemObject, 0, pCount - 1, 1)
+    If 0 <= item_idx Then
         Exists = True
     Else
         Exists = False
@@ -545,14 +545,14 @@ Public Sub Sort(Optional ByVal Descending As Boolean = False)
 End Sub
 Private Sub pSortCore(ByVal MinIndex As Long, ByVal MaxIndex As Long, ByVal Descending As Boolean)
     If MinIndex >= MaxIndex Then Exit Sub ' MinIndex が MaxIndex 以降になる場合は関数を抜ける
-    Dim idx As Long
+    Dim item_idx As Long
     Dim pos_lng As Long: pos_lng = MinIndex
 
     Call Swap(MinIndex, Int((MinIndex + MaxIndex) \ 2)) '配列中央の値を基準値にして先頭と入れ替え
-    For idx = MinIndex + 1 To MaxIndex
-        If pIsLessThan(idx, MinIndex, Descending) Then ' MinIndex の要素を基準値として数値を比較していく
+    For item_idx = MinIndex + 1 To MaxIndex
+        If pIsLessThan(item_idx, MinIndex, Descending) Then ' MinIndex の要素を基準値として数値を比較していく
             pos_lng = pos_lng + 1 '基準値より小さい数があるごとにpを1つ進める
-            Call Swap(idx, pos_lng) 'Swap関数で入れ替えを行う。
+            Call Swap(item_idx, pos_lng) 'Swap関数で入れ替えを行う。
         End If
     Next
     Call Swap(MinIndex, pos_lng) 'Swap関数で入れ替え
@@ -561,31 +561,31 @@ Private Sub pSortCore(ByVal MinIndex As Long, ByVal MaxIndex As Long, ByVal Desc
     Call pSortCore(pos_lng + 1, MaxIndex, Descending) '基準値より大きいグループを再帰処理
 End Sub
 Private Function pIsLessThan(ByVal ItemIndex1 As Long, ByRef ItemIndex2 As Long, ByVal Descending As Boolean) As Variant
-    Dim result As Boolean
+    Dim result_value As Boolean
     If pIsComparable Then
         Dim comparable_obj As IComparable
         Set comparable_obj = Me.Item(ItemIndex1)
-        result = comparable_obj.IsLessThan(Me.Item(ItemIndex2))
+        result_value = comparable_obj.IsLessThan(Me.Item(ItemIndex2))
     ElseIf pIsDuplicateCheckable Then
         Dim objsetitem_obj1 As IDuplicateCheckable
         Dim objsetitem_obj2 As IDuplicateCheckable
         Set objsetitem_obj1 = Me.Item(ItemIndex1)
         Set objsetitem_obj2 = Me.Item(ItemIndex2)
-        result = objsetitem_obj1.GetKey() < objsetitem_obj2.GetKey()
+        result_value = objsetitem_obj1.GetKey() < objsetitem_obj2.GetKey()
     ElseIf pIsStringable Then
         Dim stringable_obj1 As IStringable
         Dim stringable_obj2 As IStringable
         Set stringable_obj1 = Me.Item(ItemIndex1)
         Set stringable_obj2 = Me.Item(ItemIndex2)
-        result = stringable_obj1.ToString() < stringable_obj2.ToString()
+        result_value = stringable_obj1.ToString() < stringable_obj2.ToString()
     Else
-        result = Me.Item(ItemIndex1) < Me.Item(ItemIndex2)
+        result_value = Me.Item(ItemIndex1) < Me.Item(ItemIndex2)
     End If
 
     If Descending Then
-        pIsLessThan = Not result
+        pIsLessThan = Not result_value
     Else
-        pIsLessThan = result
+        pIsLessThan = result_value
     End If
 End Function
 
@@ -617,10 +617,10 @@ End Sub
 '* @details
 '* このリストの列挙子を得ます。
 Public Function GetEnumerator(Optional ByVal Descending As Boolean = False, Optional ByVal IsReadOnly As Boolean = False) As IEnumerator
-    Dim result As Enumerator
-    Set result = New Enumerator
-    Call result.Initialize(Me, Descending:=Descending, IsReadOnly:=IsReadOnly)
-    Set GetEnumerator = result
+    Dim result_value As Enumerator
+    Set result_value = New Enumerator
+    Call result_value.Initialize(Me, Descending:=Descending, IsReadOnly:=IsReadOnly)
+    Set GetEnumerator = result_value
 End Function
 
 Private Sub pCheckIndex(ByVal ItemIndex As Long)
@@ -633,20 +633,20 @@ Private Sub pCheckIndex(ByVal ItemIndex As Long)
     End If
 End Sub
 
-Private Sub pGetIndexArray(ByRef IndexArray() As Integer, ByRef RemainIndex As Long, ByVal ItemIndex As Long)
-    Dim result() As Integer
-    ReDim result(0 To pDepth)
+Private Sub pGetIndexArray(ByRef IndexArray() As Long, ByRef RemainIndex As Long, ByVal ItemIndex As Long)
+    Dim result_value() As Long
+    ReDim result_value(0 To pDepth)
 
     Dim remain_index As Long
     remain_index = ItemIndex
 
-    Dim idx As Integer
-    For idx = pDepth To 0 Step -1
-        result(idx) = remain_index Mod C_CHUNK_SIZE
+    Dim item_idx As Long
+    For item_idx = pDepth To 0 Step -1
+        result_value(item_idx) = remain_index Mod C_CHUNK_SIZE
         remain_index = remain_index \ C_CHUNK_SIZE
-    Next idx
+    Next item_idx
 
-    IndexArray = result
+    IndexArray = result_value
     RemainIndex = remain_index
 End Sub
 

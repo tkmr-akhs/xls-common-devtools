@@ -164,13 +164,13 @@ End Function
 '* @details
 '*
 Public Sub Sort(ByVal RangeBounds As WorksheetRangeBounds, ParamArray SortKeyAndOrder() As Variant)
-    Call SortCore(RangeBounds, SortKeyAndOrder)
+    Call pSortCore(RangeBounds, SortKeyAndOrder)
 End Sub
 Private Sub IWorksheetService_Sort(ByVal RangeBounds As WorksheetRangeBounds, ParamArray SortKeyAndOrder() As Variant)
-    Call SortCore(RangeBounds, SortKeyAndOrder)
+    Call pSortCore(RangeBounds, SortKeyAndOrder)
 End Sub
 
-Private Sub SortCore(ByVal RangeBounds As WorksheetRangeBounds, ByVal SortKeyAndOrder As Variant)
+Private Sub pSortCore(ByVal RangeBounds As WorksheetRangeBounds, ByVal SortKeyAndOrder As Variant)
     Call TUtl.SetValue(Sort_Results, SortKeyAndOrder, RangeBounds)
 End Sub
 

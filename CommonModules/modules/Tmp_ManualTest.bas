@@ -1,4 +1,5 @@
 Attribute VB_Name = "Tmp_ManualTest"
+Option Explicit
 Public Sub ManualTestMain()
 '    Dim FSSrv As New IFileSystemService
 '    Debug.Print Join(FSSrv.GetFileList("C:\Users\kaosun\Desktop"), vbCrLf)

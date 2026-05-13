@@ -1069,3 +1069,119 @@ Public Sub Test_Count_When3x4Cells_Returns12(ByVal Assert As UnitTestAssert)
     Assert.EqualsNumeric 12, actual_c
 End Sub
 
+' -----------------------------------------------------------------------------
+' New_RangeBoundsFromAddress / shape properties
+' -----------------------------------------------------------------------------
+
+Public Sub Test_New_RangeBoundsFromAddress_CellAddress_InitializesIndexes(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBoundsFromAddress("'[Book.xlsm]Data Sheet'!$B$2:$C$3")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.EqualsNumeric 2, range_bounds.Row
+    Assert.EqualsNumeric 2, range_bounds.Column
+    Assert.EqualsNumeric 3, range_bounds.FinishRow
+    Assert.EqualsNumeric 3, range_bounds.FinishColumn
+    Assert.Equals "Book.xlsm", range_bounds.WorkbookName
+    Assert.Equals "Data Sheet", range_bounds.WorksheetName
+End Sub
+
+Public Sub Test_New_RangeBoundsFromAddress_RowRange_InitializesEntireRow(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBoundsFromAddress("1:3")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.IsTrue range_bounds.IsEntireRow
+    Assert.EqualsNumeric 1, range_bounds.Row
+    Assert.EqualsNumeric 1, range_bounds.Column
+    Assert.EqualsNumeric 3, range_bounds.FinishRow
+    Assert.EqualsNumeric G_COL_MAX, range_bounds.FinishColumn
+End Sub
+
+Public Sub Test_New_RangeBoundsFromAddress_ColumnRange_InitializesEntireColumn(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBoundsFromAddress("A:C")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.IsTrue range_bounds.IsEntireColumn
+    Assert.EqualsNumeric 1, range_bounds.Row
+    Assert.EqualsNumeric 1, range_bounds.Column
+    Assert.EqualsNumeric G_ROW_MAX, range_bounds.FinishRow
+    Assert.EqualsNumeric 3, range_bounds.FinishColumn
+End Sub
+
+Public Sub Test_New_RangeBoundsFromAddress_MultiRange_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBoundsFromAddress("A1,B2")
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+End Sub
+
+Public Sub Test_IsArea_WhenEmpty_ReturnsFalse(ByVal Assert As UnitTestAssert)
+    ' Arrange
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=2, Column:=2, FinishRow:=0, FinishColumn:=0)
+
+    ' Assert
+    Assert.IsTrue range_bounds.IsEmpty
+    Assert.IsFalse range_bounds.IsCell
+    Assert.IsFalse range_bounds.IsArea
+End Sub
+
+Public Sub Test_ShapeProperties_Cell_ReturnExpectedValues(ByVal Assert As UnitTestAssert)
+    ' Arrange
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=1, Column:=1)
+
+    ' Assert
+    Assert.IsTrue range_bounds.IsCell
+    Assert.IsFalse range_bounds.IsArea
+    Assert.IsTrue range_bounds.IsOneRow
+    Assert.IsTrue range_bounds.IsOneColumn
+    Assert.IsFalse range_bounds.IsOneRowArea
+    Assert.IsFalse range_bounds.IsOneColumnArea
+End Sub
+
+Public Sub Test_ShapeProperties_OneRowArea_ReturnExpectedValues(ByVal Assert As UnitTestAssert)
+    ' Arrange
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=1, Column:=1, FinishRow:=1, FinishColumn:=2)
+
+    ' Assert
+    Assert.IsFalse range_bounds.IsCell
+    Assert.IsTrue range_bounds.IsArea
+    Assert.IsTrue range_bounds.IsOneRow
+    Assert.IsFalse range_bounds.IsOneColumn
+    Assert.IsTrue range_bounds.IsOneRowArea
+    Assert.IsFalse range_bounds.IsOneColumnArea
+End Sub
+
+Public Sub Test_ShapeProperties_OneColumnArea_ReturnExpectedValues(ByVal Assert As UnitTestAssert)
+    ' Arrange
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=1, Column:=1, FinishRow:=2, FinishColumn:=1)
+
+    ' Assert
+    Assert.IsFalse range_bounds.IsCell
+    Assert.IsTrue range_bounds.IsArea
+    Assert.IsFalse range_bounds.IsOneRow
+    Assert.IsTrue range_bounds.IsOneColumn
+    Assert.IsFalse range_bounds.IsOneRowArea
+    Assert.IsTrue range_bounds.IsOneColumnArea
+End Sub

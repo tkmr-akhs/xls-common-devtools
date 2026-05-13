@@ -144,20 +144,20 @@ Public Property Get IsEntireColumn() As Boolean
     End If
 End Property
 
-'* 単一セルかどうか。「範囲でない」と同義です。
+'* 単一セルかどうか。Area でない非空範囲と同義です。
 Public Property Get IsCell() As Boolean
     Call pCheckInit
-    If pRow = pFinishRow And pColumn = pFinishColumn Then
+    If Not IsEmpty And pRow = pFinishRow And pColumn = pFinishColumn Then
         IsCell = True
     Else
         IsCell = False
     End If
 End Property
 
-'* 範囲かどうか。「単一セルでない」と同義です。
+'* Area かどうか。単一セルを除く、連続した複数セル範囲を Area として扱います。
 Public Property Get IsArea() As Boolean
     Call pCheckInit
-    If Not IsCell() Then
+    If Not IsEmpty And Not IsCell() Then
         IsArea = True
     Else
         IsArea = False
@@ -179,7 +179,7 @@ Public Property Get IsOneRow() As Boolean
     End If
 End Property
 
-'* 幅が 1 行の範囲 (A:A や A1:A2) かどうか。単一セルも True となります。
+'* 幅が 1 列の範囲 (A:A や A1:A2) かどうか。単一セルも True となります。
 Public Property Get IsOneColumn() As Boolean
     Call pCheckInit
     If IsEmpty Then
@@ -191,6 +191,26 @@ Public Property Get IsOneColumn() As Boolean
         IsOneColumn = True
     Else
         IsOneColumn = False
+    End If
+End Property
+
+'* 1 行だけで構成される Area かどうか。単一セルは False となります。
+Public Property Get IsOneRowArea() As Boolean
+    Call pCheckInit
+    If IsArea And IsOneRow Then
+        IsOneRowArea = True
+    Else
+        IsOneRowArea = False
+    End If
+End Property
+
+'* 1 列だけで構成される Area かどうか。単一セルは False となります。
+Public Property Get IsOneColumnArea() As Boolean
+    Call pCheckInit
+    If IsArea And IsOneColumn Then
+        IsOneColumnArea = True
+    Else
+        IsOneColumnArea = False
     End If
 End Property
 
@@ -376,6 +396,44 @@ Public Sub Initialize( _
     pWorksheetName = Sheet
     pWorkbookName = Book
     pIsInitialized = True
+End Sub
+
+'* Excel アドレス文字列から初期化します。
+'*
+'* @param AddressString 初期化に使用する Excel アドレス文字列。
+'*
+'* @details
+'* A1 形式の単一矩形範囲だけを扱います。複数範囲は WorksheetRangeBounds で表現できないためエラーになります。
+Public Sub InitializeFromAddress(ByVal AddressString As String)
+    If pIsInitialized Then Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "すでに初期化済みです。"
+
+    Dim folder_path As String
+    Dim book_name As String
+    Dim sheet_name As String
+    Dim cell_address As String
+    Call SplitExcelAddress(folder_path, book_name, sheet_name, cell_address, AddressString)
+
+    If folder_path <> "" Then
+        Err.Raise Number:=vbObjectError + 1, Source:="Class WorksheetRangeBounds", Description:="フォルダパス付きアドレスは扱えません。(" & AddressString & ")"
+    End If
+
+    Dim start_row As Long
+    Dim start_col As Long
+    Dim finish_row As Long
+    Dim finish_col As Long
+    Call SplitA1RangeAddress(start_row, start_col, finish_row, finish_col, cell_address)
+
+    If sheet_name = "" Then
+        sheet_name = "Sheet1"
+    End If
+
+    Call Initialize( _
+            Row:=start_row, _
+            Column:=start_col, _
+            FinishRow:=finish_row, _
+            FinishColumn:=finish_col, _
+            Sheet:=sheet_name, _
+            Book:=book_name)
 End Sub
 
 Private Function pGetDefaultWorkbookName() As String

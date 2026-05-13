@@ -31,11 +31,6 @@
   - 影響: テストダブルのスタブ値やスパイ記録で、Excel エラー値・Null を引数に取る API のテストを書けず、テスト基盤の例外が製品コードの失敗と混ざる。
   - 対応案: `IsError`、`IsNull`、`IsEmpty` を文字列化より前に分岐し、特殊値ごとの安定したキー表現と型情報を固定する。`GetValue` / `HasValue` / `SetValue` の特殊値引数テストを追加する。
 
-
-- [ ] [bug] `IsOneRowArea` / `IsOneColumnArea` が 1 セル範囲で `False` になる
-  - 詳細: コメントと戻り値説明は「1 行のみを含む範囲」「1 列のみを含む範囲」を True としているが、実装は `IsOneRowArea` で `1 < TestRange.Columns.Count`、`IsOneColumnArea` で `1 < TestRange.Rows.Count` を追加しているため、`A1` のような 1 セル範囲がどちらも `False` になる。
-  - 影響: 単一セルを 1 行範囲または 1 列範囲として扱う呼び出し側で、入力検証や分岐が誤って失敗する可能性がある。現状は共通モジュール内の利用箇所がないが、公開関数の契約として使うとバグが利用側へ漏れる。
-  - 対応案: コメント契約どおり `Rows.Count = 1`、`Columns.Count = 1` を判定条件にする。1 セルを除外する判定が必要なら別名の関数として切り出し、`A1`、`A1:B1`、`A1:A2`、`A1:B2` のテストで期待値を固定する。
 - [ ] [bug] WorkbookService.CloseWorkbook の確認表示契約を守る
   - 詳細: `WorkbookService.CloseWorkbook` は `Force:=False` のとき確認画面を表示する契約だが、実装は `Workbooks(Book).Close(SaveChanges:=Not Force)` となっており、確認なしで保存して閉じる可能性がある。
   - 影響: 利用者が確認してから保存可否を判断する前提の処理で、意図しない変更をブックへ保存してしまう可能性がある。
@@ -58,11 +53,6 @@
   - 詳細: `TextFileEntity` は `OpenFile` で `FreeFile` により開いたファイルを、`CloseFile` が明示的に呼ばれた場合だけ閉じる。`Class_Terminate` での保険がなく、未オープン状態の close などを `Debug.Print` で扱う箇所もある。
   - 影響: 追記モード、ロック指定、書き込み用ファイルの EOF 判定、明示 Close 漏れが、実ファイルとテストダブルで異なる結果やファイルハンドル残りにつながる。
   - 対応案: `Input` / `Output` / `Append` と読み取り・書き込みロック、`CloseFile`、`Class_Terminate` の契約を表で仕様化する。実装とテストダブルに、各モード、Close 後、Append + lock、明示 Close 漏れのテストを追加する。
-
-- [ ] [bug] Lib_Common.IsCell の未定義関数参照を修正する
-  - 詳細: `Lib_Common.IsCell` は複数範囲判定で `IsMulti(TestRange)` を呼んでいるが、共通モジュール内に存在する関数名は `IsMultiRange` である。
-  - 影響: `IsCell` を呼ぶ経路、またはプロジェクト全体のコンパイル確認で、`Sub または Function が定義されていません` になる可能性がある。Excel Range 判定ヘルパーを基盤 API として利用できない。
-  - 対応案: 呼び出し先を `IsMultiRange` に修正し、単一セル、複数範囲、通常範囲、行/列全体の判定テストを `Test_Lib_Common.bas` に追加する。
 
 - [ ] [bug] WorksheetService.Find の Excel Find 状態依存をなくす
   - 詳細: `Range.Find` で `After`、`SearchOrder`、`SearchDirection`、`SearchFormat` を明示していない。Excel の検索ダイアログや直前の `Find` 設定が残っていると、同じ引数でも結果が変わり得る。
@@ -188,11 +178,6 @@
   - 詳細: `TransformAbsolute`、`Transform` は `New_RangeBounds` ファクトリを呼ぶため、`Lib_Common` と `WorksheetRangeBounds` の相互依存ができている。`UserInputSheet.GetItemRange` では `TransformAbsolute` が「使用範囲の先頭列を取る」用途にも使われている。
   - 詳細: `Initialize` は `FinishRow` / `FinishColumn` を `G_ROW_MAX` / `G_COL_MAX` に丸める一方、開始 `Row` / `Column` が上限を超えた場合は丸めもエラー化もしない。`Count` の桁あふれは中優先度の `[req] WorksheetRangeBounds.Count のセル数桁あふれを防ぐ` に切り出す。
   - 対応案: 既定ブック名の補完は `New_RangeBounds` / `Constructor.bas` 側へ寄せ、`WorksheetRangeBounds` は渡された値の正規化と検証だけを担当する。開始行・開始列の上限超過、巨大範囲の `Count`、`Transform` 系の用途をテストで固定する。
-
-- [ ] [spec] Excel Range 判定ヘルパーの名前と判定粒度を整理する
-  - 詳細: `IsMultiRange`、`IsArea`、`IsCell`、`IsEntireRow`、`IsEntireColumn`、`IsOneRowArea`、`IsOneColumnArea` が `Range.Address` や `Rows.Count` / `Columns.Count` を直接見ているが、`WorksheetRangeBounds` 側にも `IsCell` / `IsArea` / `IsEntireRow` など似た判定がある。
-  - 影響: 呼び出し側が Excel `Range` と `WorksheetRangeBounds` のどちらの判定を使うべきか迷いやすく、セル 1 個や行/列全体の扱いを誤解しやすい。
-  - 対応案: Excel `Range` 用の判定は `Lib_ExcelRange` などへ分離し、`IsSingleCellRange` / `IsOneRowMultiColumnRange` のように境界が分かる名前を追加する。旧名は互換ラッパーとして残す。
 
 - [ ] [ref] Err.Raise の Source と説明文を診断しやすい表記へ揃える
   - 詳細: `ConvertStringToBoolean` のエラー `Source` が `Sub CreateBackupFile` になっている。`pA1columnAddressCore` は列インデックスの検証で「行インデックス」、`pA1RowAddressCore` は行インデックスの検証で「列インデックス」と表示する。
@@ -371,6 +356,17 @@
 
 ### 高優先度だったもの
 
+- [x] [spec] `IsOneRowArea` / `IsOneColumnArea` の Cell / Area 判定契約を固定する
+  - 詳細: `Area` を「単一セルを除く連続した複数セル範囲」、`Cell` を「単一セル範囲」と定義するため、`IsOneRowArea` / `IsOneColumnArea` が `A1` を `False` にすること自体は仕様どおりであり、バグではなかった。一方、`Lib_Common` と `WorksheetRangeBounds` の判定名・判定粒度を揃える必要があった。
+  - 最終対応: `WorksheetRangeBounds` に `IsOneRowArea` / `IsOneColumnArea` を追加し、`IsArea` は `Not IsEmpty And Not IsCell` に修正した。`Lib_Common` 側は `Range` 引数を廃止してアドレス文字列を受け取り、薄いファクトリ `New_RangeBoundsFromAddress` 経由で判定する形へ変更した。
+  - 確認: `Test_Lib_Common.bas` / `Test_WorksheetRangeBounds.bas` に `A1`、`A1:B1`、`A1:A2`、`A1:B2`、`1:1`、`A:A`、空範囲、複数範囲エラーのテストを追加し、`CommonModules.xlsm` へ import 後に `UnitTestMain` 全件 OK を確認済み。
+
+- [x] [bug] Lib_Common.IsCell の未定義関数参照を修正する
+  - 詳細: `Lib_Common.IsCell` は複数範囲判定で未定義の `IsMulti(TestRange)` を呼んでいた。
+  - 影響: `IsCell` を呼ぶ経路、またはプロジェクト全体のコンパイル確認で、`Sub または Function が定義されていません` になる可能性があった。
+  - 最終対応: `Lib_Common` の Excel Range 判定ヘルパーを `String` 引数へ変更し、`IsCell` は `WorksheetRangeBounds.InitializeFromAddress` で生成した `WorksheetRangeBounds.IsCell` へ委譲する形にした。これにより未定義 `IsMulti` 参照は解消した。
+  - 確認: `Test_Lib_Common.bas` に単一セル、複数範囲、通常範囲、行/列全体の判定テストを追加し、`CommonModules.xlsm` へ import 後に `UnitTestMain` 全件 OK を確認済み。
+
 - [x] [req] [ref] Enumerator に読み取り専用モードを追加する
   - 詳細: `Enumerator` は `ObjectList` / `ObjectSet` などの列挙中に `Update` / `Remove` を実行できるため、呼び出し元コレクションが持つ検証や dirty 管理を迂回できる。`TimeRangeCollection` のように列挙子を読み取り用途で公開したいコレクションでは、不変条件を壊す経路になる。
   - 最終対応: `Enumerator` に `Initialize` で設定する読み取り専用状態 `IsReadOnly` を追加し、読み取り専用時は `Update` / `Remove` と `IEnumerator` 経由の更新・削除を `Class Enumerator` の明示エラーにした。`ObjectList.GetEnumerator`、`ObjectSet.GetEnumerator`、`GetArrayEnumerator` から読み取り専用指定できるようにし、`IEnumerator` 契約にも `IsReadOnly` を追加した。`WorksheetRangeBoundsEnumerator` は常に読み取り専用として返すようにした。
@@ -470,6 +466,12 @@
   - 確認: `Test_WorksheetService.bas` に再発防止テストを追加し、`CommonModules.xlsm` へ import 後に `UnitTestMain` 全件 OK を確認済み。
 
 ### 中優先度だったもの
+
+- [x] [spec] Excel Range 判定ヘルパーの名前と判定粒度を整理する
+  - 詳細: `Lib_Common` の `IsMultiRange`、`IsArea`、`IsCell`、`IsEntireRow`、`IsEntireColumn`、`IsOneRowArea`、`IsOneColumnArea` は Excel `Range` を直接受けていたが、`WorksheetRangeBounds` 側にも似た判定があり、判定基準のずれが起きやすかった。
+  - 影響: 呼び出し側が Excel `Range` と `WorksheetRangeBounds` のどちらの判定を使うべきか迷いやすく、セル 1 個、空範囲、行/列全体、複数選択の扱いを誤解しやすかった。
+  - 最終対応: `Lib_Common` の判定ヘルパーはアドレス文字列引数へ破壊的変更し、単一矩形範囲の判定は `WorksheetRangeBounds` へ委譲する形にした。`SplitExcelAddress` を厳密化し、`SplitA1RangeAddress`、`WorksheetRangeBounds.InitializeFromAddress`、薄いファクトリ `New_RangeBoundsFromAddress` を追加した。複数範囲は `WorksheetRangeBounds` で表現できないため、`IsMultiRange` 以外では明示エラーにした。
+  - 確認: `Test_Lib_Common.bas` / `Test_WorksheetRangeBounds.bas` にアドレス分解、文字列判定、複数範囲エラー、空範囲 `IsArea=False` のテストを追加し、`CommonModules.xlsm` へ import 後に `UnitTestMain` 全件 OK を確認済み。
 
 - [x] [bug] WorkbookService の保存・シート操作・Excel 状態復元をまとめて修正する
   - 詳細: `pGetTargetSheetIndex` の `SheetIndex < 0` 分岐が `TargetBook.Worksheets.Count + 1 - SheetIndex` になっており、`SheetIndex:=-1` が末尾ではなく `Count + 2` になっていた。

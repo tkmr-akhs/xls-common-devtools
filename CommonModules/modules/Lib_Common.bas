@@ -37,6 +37,9 @@ Public Const G_FS_PATH_SEP As String = "\"
 
 Private Const C_LONG_MAX As Long = 2147483647#
 Private Const C_LONG_MIN As Long = -2147483648#
+Private Const C_A1_TOKEN_CELL As Long = 1
+Private Const C_A1_TOKEN_ROW As Long = 2
+Private Const C_A1_TOKEN_COLUMN As Long = 3
 
 ' #############################################################################
 '
@@ -336,6 +339,21 @@ Public Function New_RangeBounds( _
             Book:=Book)
     
     Set New_RangeBounds = result
+End Function
+
+'* Excel アドレス文字列から WorksheetRangeBounds インスタンスを新規作成します。
+'*
+'* @param AddressString 初期化に使用する Excel アドレス文字列。
+'* @return 新しい WorksheetRangeBounds インスタンス
+'*
+'* @details
+'* New_ 系の処理は薄いファクトリに留め、実処理は WorksheetRangeBounds.InitializeFromAddress に委譲します。
+Public Function New_RangeBoundsFromAddress(ByVal AddressString As String) As WorksheetRangeBounds
+    Dim result As WorksheetRangeBounds
+    Set result = New WorksheetRangeBounds
+    Call result.InitializeFromAddress(AddressString)
+
+    Set New_RangeBoundsFromAddress = result
 End Function
 
 '* UserInputSheet インスタンスを新規作成します。
@@ -2781,99 +2799,134 @@ End Function
 ' Excel アドレス関連
 ' - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-'* Range が複数選択 (例: A1, B2:C3, D4) かどうかをチェックします。
+'* Range アドレスが複数選択 (例: A1, B2:C3, D4) かどうかをチェックします。
 '*
-'* @param TestRange 判定対象の範囲
+'* @param AddressString 判定対象の Excel アドレス文字列
 '* @return 複数選択されている場合は True、それ以外は False
 '*
 '* @details
-'* Range が複数選択 (例: A1, B2:C3, D4) かどうかをチェックします。
-Public Function IsMultiRange(ByVal TestRange As Range) As Boolean
-    Dim result As Boolean
-    result = 0 < InStr(TestRange.Address, ",")
-    IsMultiRange = result
+'* Range アドレスが複数選択 (例: A1, B2:C3, D4) かどうかをチェックします。
+Public Function IsMultiRange(ByVal AddressString As String) As Boolean
+    Dim folder_path As String
+    Dim book_name As String
+    Dim sheet_name As String
+    Dim cell_address As String
+    Call SplitExcelAddress(folder_path, book_name, sheet_name, cell_address, AddressString)
+
+    IsMultiRange = 0 < InStr(cell_address, ",")
 End Function
 
-'* Range が範囲 (例: B2:C3) かどうかをチェックします。
+'* Range アドレスが Area (単一セルを除く連続した複数セル範囲) かどうかをチェックします。
 '*
-'* @param TestRange 判定対象の範囲
-'* @return 範囲として指定されている場合は True、それ以外は False
+'* @param AddressString 判定対象の Excel アドレス文字列
+'* @return Area の場合は True、それ以外は False
 '*
 '* @details
-'* Range が範囲 (例: B2:C3) かどうかをチェックします。
-Public Function IsArea(ByVal TestRange As Range) As Boolean
-    Dim result As Boolean
-    result = Not IsMultiRange(TestRange) And 0 < InStr(TestRange.Address, ":")
-    IsArea = result
+'* この共通モジュールでは Area を「単一セルを除く、連続した複数セル範囲」として扱います。
+'* 複数選択範囲は WorksheetRangeBounds で表現できないためエラーになります。
+Public Function IsArea(ByVal AddressString As String) As Boolean
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBoundsFromAddress(AddressString)
+
+    IsArea = range_bounds.IsArea
 End Function
 
-'* Range がセル (例: A1) かどうかをチェックします。
+'* Range アドレスが Cell (単一セル範囲) かどうかをチェックします。
 '*
-'* @param TestRange 判定対象の範囲
-'* @return 単一のセルである場合は True、それ以外は False
+'* @param AddressString 判定対象の Excel アドレス文字列
+'* @return 単一セル範囲の場合は True、それ以外は False
 '*
 '* @details
-'* Range がセル (例: A1) かどうかをチェックします。
-Public Function IsCell(ByVal TestRange As Range) As Boolean
-    Dim result As Boolean
-    result = Not IsMulti(TestRange) And InStr(TestRange.Address, ":") < 1
-    IsCell = result
+'* Range アドレスが Cell (例: A1) かどうかをチェックします。
+Public Function IsCell(ByVal AddressString As String) As Boolean
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBoundsFromAddress(AddressString)
+
+    IsCell = range_bounds.IsCell
 End Function
 
-'* Range が行 (例: 1:2) かどうかをチェックします。
+'* Range アドレスが行全体 (例: 1:2) かどうかをチェックします。
 '*
-'* @param TestRange 判定対象の範囲
+'* @param AddressString 判定対象の Excel アドレス文字列
 '* @return 行全体である場合は True、それ以外は False
 '*
 '* @details
-'* Range が行 (例: 1:2) かどうかをチェックします。
-Public Function IsEntireRow(ByVal TestRange As Range) As Boolean
-    If TestRange.EntireRow.Address = TestRange.Address Then
-        IsEntireRow = True
-    Else
-        IsEntireRow = False
-    End If
+'* Range アドレスが行全体 (例: 1:2) かどうかをチェックします。
+Public Function IsEntireRow(ByVal AddressString As String) As Boolean
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBoundsFromAddress(AddressString)
+
+    IsEntireRow = range_bounds.IsEntireRow
 End Function
 
-'* Range が列 (例: A:B) かどうかをチェックします。
+'* Range アドレスが列全体 (例: A:B) かどうかをチェックします。
 '*
-'* @param TestRange 判定対象の範囲
+'* @param AddressString 判定対象の Excel アドレス文字列
 '* @return 列全体である場合は True、それ以外は False
 '*
 '* @details
-'* Range が列 (例: A:B) かどうかをチェックします。
-Public Function IsEntireColumn(ByVal TestRange As Range) As Boolean
-    If TestRange.EntireColumn.Address = TestRange.Address Then
-        IsEntireColumn = True
-    Else
-        IsEntireColumn = False
-    End If
+'* Range アドレスが列全体 (例: A:B) かどうかをチェックします。
+Public Function IsEntireColumn(ByVal AddressString As String) As Boolean
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBoundsFromAddress(AddressString)
+
+    IsEntireColumn = range_bounds.IsEntireColumn
 End Function
 
-'* Range が 1 行 (例: 1:1 や A1:B1) かどうかをチェックします。
+'* Range アドレスが 1 行形状 (例: A1 や A1:B1 や 1:1) かどうかをチェックします。
 '*
-'* @param TestRange 判定対象の範囲
-'* @return 1 行のみを含む範囲の場合は True、それ以外は False
+'* @param AddressString 判定対象の Excel アドレス文字列
+'* @return 1 行形状の場合は True、それ以外は False
 '*
 '* @details
-'* Range が 1 行 (例: 1:1 や A1:B1) かどうかをチェックします。
-Public Function IsOneRowArea(ByVal TestRange As Range) As Boolean
-    Dim result As Boolean
-    result = TestRange.Rows.Count = 1 And 1 < TestRange.Columns.Count
-    IsOneRowArea = result
+'* 単一セルも 1 行形状として True になります。
+Public Function IsOneRow(ByVal AddressString As String) As Boolean
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBoundsFromAddress(AddressString)
+
+    IsOneRow = range_bounds.IsOneRow
 End Function
 
-'* Range が 1 列 (例: A:A や A1:A2) かどうかをチェックします。
+'* Range アドレスが 1 列形状 (例: A1 や A1:A2 や A:A) かどうかをチェックします。
 '*
-'* @param TestRange 判定対象の範囲
-'* @return 1 列のみを含む範囲の場合は True、それ以外は False
+'* @param AddressString 判定対象の Excel アドレス文字列
+'* @return 1 列形状の場合は True、それ以外は False
 '*
 '* @details
-'* Range が 1 列 (例: A:A や A1:A2) かどうかをチェックします。
-Public Function IsOneColumnArea(ByVal TestRange As Range) As Boolean
-    Dim result As Boolean
-    result = 1 < TestRange.Rows.Count And TestRange.Columns.Count = 1
-    IsOneColumnArea = result
+'* 単一セルも 1 列形状として True になります。
+Public Function IsOneColumn(ByVal AddressString As String) As Boolean
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBoundsFromAddress(AddressString)
+
+    IsOneColumn = range_bounds.IsOneColumn
+End Function
+
+'* Range アドレスが 1 行だけで構成される Area かどうかをチェックします。
+'*
+'* @param AddressString 判定対象の Excel アドレス文字列
+'* @return 1 行だけで構成される Area の場合は True、それ以外は False
+'*
+'* @details
+'* A1:B1 や 1:1 は True、A1 は Cell のため False になります。
+Public Function IsOneRowArea(ByVal AddressString As String) As Boolean
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBoundsFromAddress(AddressString)
+
+    IsOneRowArea = range_bounds.IsOneRowArea
+End Function
+
+'* Range アドレスが 1 列だけで構成される Area かどうかをチェックします。
+'*
+'* @param AddressString 判定対象の Excel アドレス文字列
+'* @return 1 列だけで構成される Area の場合は True、それ以外は False
+'*
+'* @details
+'* A1:A2 や A:A は True、A1 は Cell のため False になります。
+Public Function IsOneColumnArea(ByVal AddressString As String) As Boolean
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBoundsFromAddress(AddressString)
+
+    IsOneColumnArea = range_bounds.IsOneColumnArea
 End Function
 
 '* パラメータを指定して範囲のアドレス表記文字列を得ます。
@@ -3146,46 +3199,244 @@ End Function
 '*
 '* @details
 '* 指定された Excel アドレス文字列を分解し、フォルダパス、ブック名、シート名、セルアドレスに分けて出力します。
-'* 形式が正しくない場合でもエラーは発生せず、不正確な結果が出力されることがあります。
+'* 形式が正しくない場合はエラーにします。
 Public Sub SplitExcelAddress(ByRef FolderPath As String, ByRef BookName As String, ByRef SheetName As String, ByRef CellAddress As String, ByVal AddressString As String)
-    Dim folder_path As String
-    Dim book_name As String
-    Dim sheet_name As String
-    Dim cell_address As String
-    
+    FolderPath = ""
+    BookName = ""
+    SheetName = ""
+    CellAddress = ""
+
+    If AddressString = "" Then
+        Call pRaiseInvalidExcelAddress(AddressString)
+    End If
+
     Dim addr_parts() As String
-    If StartsWith(AddressString, "'") Then
-        addr_parts = Split(AddressString, "'!")
-        addr_parts(0) = Replace(Right(addr_parts(0), Len(addr_parts(0)) - 1), "''", "'")
-    Else
-        addr_parts = Split(AddressString, "!")
+    addr_parts = Split(AddressString, "!")
+    If 1 < UBound(addr_parts) Then
+        Call pRaiseInvalidExcelAddress(AddressString)
     End If
-    
-    Dim sheet_parts() As String
-    If 0 < UBound(addr_parts) Then
-        sheet_parts = Split(addr_parts(0), "]")
-        If 0 < UBound(sheet_parts) Then
-            Dim book_parts() As String
-            book_parts = Split(sheet_parts(0), "[")
-            If 0 < UBound(book_parts) Then
-                folder_path = book_parts(0)
-                book_name = book_parts(1)
-            Else
-                book_name = book_parts(0)
-            End If
-            sheet_name = sheet_parts(1)
-        Else
-            sheet_name = sheet_parts(0)
+
+    Dim location_part As String
+    If UBound(addr_parts) = 0 Then
+        CellAddress = addr_parts(0)
+        If 0 < InStr(CellAddress, "[") Or 0 < InStr(CellAddress, "]") Or 0 < InStr(CellAddress, "'") Then
+            Call pRaiseInvalidExcelAddress(AddressString)
         End If
-        cell_address = addr_parts(1)
     Else
-        cell_address = addr_parts(0)
+        location_part = addr_parts(0)
+        CellAddress = addr_parts(1)
+
+        If location_part = "" Or CellAddress = "" Then
+            Call pRaiseInvalidExcelAddress(AddressString)
+        End If
+
+        If StartsWith(location_part, "'") Then
+            If Not EndsWith(location_part, "'") Or Len(location_part) < 2 Then
+                Call pRaiseInvalidExcelAddress(AddressString)
+            End If
+            location_part = Mid(location_part, 2, Len(location_part) - 2)
+            location_part = Replace(location_part, "''", "'")
+        ElseIf 0 < InStr(location_part, "'") Then
+            Call pRaiseInvalidExcelAddress(AddressString)
+        End If
+
+        Dim close_book_idx As Long
+        close_book_idx = InStrRev(location_part, "]")
+        If 0 < close_book_idx Then
+            Dim open_book_idx As Long
+            open_book_idx = InStrRev(Left(location_part, close_book_idx - 1), "[")
+            If open_book_idx < 1 Then
+                Call pRaiseInvalidExcelAddress(AddressString)
+            End If
+
+            FolderPath = Left(location_part, open_book_idx - 1)
+            BookName = Mid(location_part, open_book_idx + 1, close_book_idx - open_book_idx - 1)
+            SheetName = Mid(location_part, close_book_idx + 1)
+            If BookName = "" Or SheetName = "" Then
+                Call pRaiseInvalidExcelAddress(AddressString)
+            End If
+        Else
+            If 0 < InStr(location_part, "[") Then
+                Call pRaiseInvalidExcelAddress(AddressString)
+            End If
+            SheetName = location_part
+            If SheetName = "" Then
+                Call pRaiseInvalidExcelAddress(AddressString)
+            End If
+        End If
     End If
-    
-    FolderPath = folder_path
-    BookName = book_name
-    SheetName = sheet_name
-    CellAddress = cell_address
+
+    If CellAddress = "" Then
+        Call pRaiseInvalidExcelAddress(AddressString)
+    End If
+End Sub
+
+Private Sub pRaiseInvalidExcelAddress(ByVal AddressString As String)
+    Err.Raise Number:=vbObjectError + 1, Source:="Sub SplitExcelAddress", Description:="Excel アドレス文字列の形式が正しくありません。(" & AddressString & ")"
+End Sub
+
+'* A1 形式の単一矩形範囲アドレスを、開始・終了インデックスへ分解します。
+'*
+'* @param StartRow [出力] 開始行番号。列範囲の場合は G_OMIT_CELL_INDEX。
+'* @param StartColumn [出力] 開始列番号。行範囲の場合は G_OMIT_CELL_INDEX。
+'* @param FinishRow [出力] 終了行番号。列範囲の場合は G_OMIT_CELL_INDEX。
+'* @param FinishColumn [出力] 終了列番号。行範囲の場合は G_OMIT_CELL_INDEX。
+'* @param AddressString 分解対象の A1 形式アドレス。ブック名・シート名は含めない。
+'*
+'* @details
+'* A1、A1:B2、1:3、A:C、$A$1:$B$2 を扱います。
+'* 複数範囲、R1C1 形式、ブック名・シート名付きアドレス、不完全なアドレスはエラーにします。
+Public Sub SplitA1RangeAddress( _
+        ByRef StartRow As Long, _
+        ByRef StartColumn As Long, _
+        ByRef FinishRow As Long, _
+        ByRef FinishColumn As Long, _
+        ByVal AddressString As String)
+
+    StartRow = G_OMIT_CELL_INDEX
+    StartColumn = G_OMIT_CELL_INDEX
+    FinishRow = G_OMIT_CELL_INDEX
+    FinishColumn = G_OMIT_CELL_INDEX
+
+    Dim normalized_address As String
+    normalized_address = Trim(AddressString)
+    If normalized_address = "" Then
+        Call pRaiseInvalidA1RangeAddress(AddressString)
+    End If
+
+    If 0 < InStr(normalized_address, ",") Or 0 < InStr(normalized_address, "!") _
+            Or 0 < InStr(normalized_address, "[") Or 0 < InStr(normalized_address, "]") _
+            Or 0 < InStr(normalized_address, "'") Then
+        Call pRaiseInvalidA1RangeAddress(AddressString)
+    End If
+
+    Dim address_parts() As String
+    address_parts = Split(normalized_address, ":")
+
+    Dim start_type As Long
+    Dim finish_type As Long
+    If UBound(address_parts) = 0 Then
+        Call pSplitA1AddressToken(StartRow, StartColumn, start_type, address_parts(0), AddressString)
+        If start_type <> C_A1_TOKEN_CELL Then
+            Call pRaiseInvalidA1RangeAddress(AddressString)
+        End If
+        FinishRow = StartRow
+        FinishColumn = StartColumn
+    ElseIf UBound(address_parts) = 1 Then
+        Call pSplitA1AddressToken(StartRow, StartColumn, start_type, address_parts(0), AddressString)
+        Call pSplitA1AddressToken(FinishRow, FinishColumn, finish_type, address_parts(1), AddressString)
+        If start_type <> finish_type Then
+            Call pRaiseInvalidA1RangeAddress(AddressString)
+        End If
+
+        If start_type = C_A1_TOKEN_ROW Then
+            StartColumn = G_OMIT_CELL_INDEX
+            FinishColumn = G_OMIT_CELL_INDEX
+        ElseIf start_type = C_A1_TOKEN_COLUMN Then
+            StartRow = G_OMIT_CELL_INDEX
+            FinishRow = G_OMIT_CELL_INDEX
+        End If
+    Else
+        Call pRaiseInvalidA1RangeAddress(AddressString)
+    End If
+
+    If StartRow <> G_OMIT_CELL_INDEX And FinishRow <> G_OMIT_CELL_INDEX And FinishRow < StartRow Then
+        Call pRaiseInvalidA1RangeAddress(AddressString)
+    End If
+    If StartColumn <> G_OMIT_CELL_INDEX And FinishColumn <> G_OMIT_CELL_INDEX And FinishColumn < StartColumn Then
+        Call pRaiseInvalidA1RangeAddress(AddressString)
+    End If
+End Sub
+
+Private Sub pSplitA1AddressToken( _
+        ByRef RowIndex As Long, _
+        ByRef ColumnIndex As Long, _
+        ByRef TokenType As Long, _
+        ByVal AddressToken As String, _
+        ByVal OriginalAddressString As String)
+
+    RowIndex = G_OMIT_CELL_INDEX
+    ColumnIndex = G_OMIT_CELL_INDEX
+    TokenType = 0
+
+    Dim normalized_token As String
+    normalized_token = UCase(Replace(AddressToken, "$", ""))
+    If normalized_token = "" Then
+        Call pRaiseInvalidA1RangeAddress(OriginalAddressString)
+    End If
+
+    Dim col_text As String
+    Dim row_text As String
+    Dim found_digit As Boolean
+    Dim char_idx As Long
+    For char_idx = 1 To Len(normalized_token)
+        Dim char_code As Long
+        char_code = Asc(Mid(normalized_token, char_idx, 1))
+
+        If Asc("A") <= char_code And char_code <= Asc("Z") Then
+            If found_digit Then
+                Call pRaiseInvalidA1RangeAddress(OriginalAddressString)
+            End If
+            col_text = col_text & Chr(char_code)
+        ElseIf Asc("0") <= char_code And char_code <= Asc("9") Then
+            found_digit = True
+            row_text = row_text & Chr(char_code)
+        Else
+            Call pRaiseInvalidA1RangeAddress(OriginalAddressString)
+        End If
+    Next
+
+    If col_text <> "" Then
+        ColumnIndex = pA1ColumnIndex(col_text, OriginalAddressString)
+    End If
+    If row_text <> "" Then
+        RowIndex = pA1RowIndex(row_text, OriginalAddressString)
+    End If
+
+    If col_text <> "" And row_text <> "" Then
+        TokenType = C_A1_TOKEN_CELL
+    ElseIf row_text <> "" Then
+        TokenType = C_A1_TOKEN_ROW
+    ElseIf col_text <> "" Then
+        TokenType = C_A1_TOKEN_COLUMN
+    Else
+        Call pRaiseInvalidA1RangeAddress(OriginalAddressString)
+    End If
+End Sub
+
+Private Function pA1ColumnIndex(ByVal ColumnAddress As String, ByVal OriginalAddressString As String) As Long
+    Dim result As Long
+    Dim char_idx As Long
+    For char_idx = 1 To Len(ColumnAddress)
+        Dim char_code As Long
+        char_code = Asc(Mid(ColumnAddress, char_idx, 1))
+        result = result * 26 + char_code - Asc("A") + 1
+        If G_COL_MAX < result Then
+            Call pRaiseInvalidA1RangeAddress(OriginalAddressString)
+        End If
+    Next
+
+    If result < 1 Then
+        Call pRaiseInvalidA1RangeAddress(OriginalAddressString)
+    End If
+    pA1ColumnIndex = result
+End Function
+
+Private Function pA1RowIndex(ByVal RowAddress As String, ByVal OriginalAddressString As String) As Long
+    If Len(CStr(G_ROW_MAX)) < Len(RowAddress) Then
+        Call pRaiseInvalidA1RangeAddress(OriginalAddressString)
+    End If
+
+    Dim result As Long
+    result = CLng(RowAddress)
+    If result < 1 Or G_ROW_MAX < result Then
+        Call pRaiseInvalidA1RangeAddress(OriginalAddressString)
+    End If
+    pA1RowIndex = result
+End Function
+
+Private Sub pRaiseInvalidA1RangeAddress(ByVal AddressString As String)
+    Err.Raise Number:=vbObjectError + 1, Source:="Sub SplitA1RangeAddress", Description:="A1 形式の単一矩形範囲アドレスではありません。(" & AddressString & ")"
 End Sub
 
 '* Range の Text プロパティを格納した ObjectList を返します。

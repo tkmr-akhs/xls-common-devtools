@@ -9,6 +9,8 @@ Option Base 0
 '!
 ' #############################################################################
 
+Rem Public Sub Test_RunAllTest_RemCommentDeclaration_IsIgnored(ByVal Assert As UnitTestAssert)
+
 Public Sub Test_RunAllTest_MultilineSubDeclaration_IsDiscovered( _
         ByVal Assert As UnitTestAssert)
 

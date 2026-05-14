@@ -169,7 +169,7 @@ Private Sub pRunAllTest(ByVal ResultSheet As Worksheet)
     ' テスト サブ プロシージャを抽出するための正規表現の準備
     Dim sub_re As RegExp
     Set sub_re = New RegExp
-    sub_re.Pattern = "(?:^Sub|^[^']*Public.*\sSub)\s(Test_[^\s(]+)\s*\([^,]*\s+As\s+UnitTestAssert.*\).*$"
+    sub_re.Pattern = "^\s*(?:Public\s+)?Sub\s+(Test_[^\s(]+)\s*\([^,]*\s+As\s+UnitTestAssert.*\).*$"
     
     ' プロジェクト オブジェクトのコンポーネントすべてについて処理
     Dim row_idx As Long: row_idx = 2

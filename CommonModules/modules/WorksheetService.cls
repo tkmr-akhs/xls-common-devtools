@@ -260,10 +260,30 @@ Public Sub WriteCell( _
         ' ï∂éöóÒÇ∆ÇµÇƒèàóù
         Dim current_format As String
         current_format = target_cell.NumberFormatLocal
+
+        On Error GoTo RESTORE_NUMBER_FORMAT_ON_ERROR
         target_cell.NumberFormatLocal = "@"
         target_cell.Value = Expression
         target_cell.NumberFormatLocal = current_format
+        On Error GoTo 0
     End If
+    Exit Sub
+
+RESTORE_NUMBER_FORMAT_ON_ERROR:
+    Dim err_num As Long
+    err_num = Err.Number
+
+    Dim err_source As String
+    err_source = Err.Source
+
+    Dim err_desc As String
+    err_desc = Err.Description
+
+    On Error Resume Next
+    target_cell.NumberFormatLocal = current_format
+    On Error GoTo 0
+
+    Err.Raise Number:=err_num, Source:=err_source, Description:=err_desc
 End Sub
 Private Sub IWorksheetService_WriteCell( _
         ByVal RangeBounds As WorksheetRangeBounds, _

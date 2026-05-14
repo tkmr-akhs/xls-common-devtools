@@ -286,11 +286,11 @@ Public Function GetRow(ByVal RowIndex As Long) As WorksheetRangeBounds
 End Function
 
 Private Function pGetTargetRow(ByVal RowIndex As Long) As Long
-    Dim target_row As Long: target_row = pRow + RowIndex - 1
-    If target_row < pRow Or pFinishRow < target_row Then
+    If RowIndex < 1 Or RowCount < RowIndex Then
         Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "行範囲を超えています。(index:" & RowIndex & ", start: " & pRow & ", finish: " & pFinishRow & ")"
     End If
-    pGetTargetRow = target_row
+
+    pGetTargetRow = pRow + RowIndex - 1
 End Function
 
 '* 最も左の列からの列インデックスを指定して、1 列の範囲を得ます。
@@ -307,11 +307,11 @@ Public Function GetColumn(ByVal ColumnIndex As Long) As WorksheetRangeBounds
 End Function
 
 Private Function pGetTargetColumn(ByVal ColumnIndex As Long) As Long
-    Dim target_col As Long: target_col = pColumn + ColumnIndex - 1
-    If target_col < pColumn Or pFinishColumn < target_col Then
+    If ColumnIndex < 1 Or ColumnCount < ColumnIndex Then
         Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "列範囲を超えています。(index:" & ColumnIndex & ", start: " & pColumn & ", finish: " & pFinishColumn & ")"
     End If
-    pGetTargetColumn = target_col
+
+    pGetTargetColumn = pColumn + ColumnIndex - 1
 End Function
 
 '* 最も左上のセルからの行インデックスおよび列インデックスを指定して、1 セルの範囲を得ます。

@@ -1201,6 +1201,82 @@ End Sub
 
 
 ' -----------------------------------------------------------------------------
+' GetRow / GetColumn / GetCell
+' -----------------------------------------------------------------------------
+
+Public Sub Test_GetRow_TooLargeIndex_RaisesRangeErrorBeforeOverflow(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim rng_bds As WorksheetRangeBounds
+    Set rng_bds = New_RangeBounds(Row:=2, Column:=3, FinishRow:=5, FinishColumn:=7)
+
+    ' Act
+    Dim actual_row As WorksheetRangeBounds
+    Set actual_row = rng_bds.GetRow(2147483647)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Class WorksheetRangeBounds", Err.Source
+    Assert.Equals "行範囲を超えています。(index:2147483647, start: 2, finish: 5)", Err.Description
+    Err.Clear
+End Sub
+
+Public Sub Test_GetColumn_TooLargeIndex_RaisesRangeErrorBeforeOverflow(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim rng_bds As WorksheetRangeBounds
+    Set rng_bds = New_RangeBounds(Row:=2, Column:=3, FinishRow:=5, FinishColumn:=7)
+
+    ' Act
+    Dim actual_column As WorksheetRangeBounds
+    Set actual_column = rng_bds.GetColumn(2147483647)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Class WorksheetRangeBounds", Err.Source
+    Assert.Equals "列範囲を超えています。(index:2147483647, start: 3, finish: 7)", Err.Description
+    Err.Clear
+End Sub
+
+Public Sub Test_GetCell_TooLargeRowIndex_RaisesRangeErrorBeforeOverflow(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim rng_bds As WorksheetRangeBounds
+    Set rng_bds = New_RangeBounds(Row:=2, Column:=3, FinishRow:=5, FinishColumn:=7)
+
+    ' Act
+    Dim actual_cell As WorksheetRangeBounds
+    Set actual_cell = rng_bds.GetCell(2147483647, 1)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Class WorksheetRangeBounds", Err.Source
+    Assert.Equals "行範囲を超えています。(index:2147483647, start: 2, finish: 5)", Err.Description
+    Err.Clear
+End Sub
+
+Public Sub Test_GetCell_TooLargeColumnIndex_RaisesRangeErrorBeforeOverflow(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim rng_bds As WorksheetRangeBounds
+    Set rng_bds = New_RangeBounds(Row:=2, Column:=3, FinishRow:=5, FinishColumn:=7)
+
+    ' Act
+    Dim actual_cell As WorksheetRangeBounds
+    Set actual_cell = rng_bds.GetCell(1, 2147483647)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Class WorksheetRangeBounds", Err.Source
+    Assert.Equals "列範囲を超えています。(index:2147483647, start: 3, finish: 7)", Err.Description
+    Err.Clear
+End Sub
+
+' -----------------------------------------------------------------------------
 ' Item
 ' -----------------------------------------------------------------------------
 

@@ -15,6 +15,11 @@
 
 ## 高優先度
 
+- [ ] [bug] WorksheetService.WriteCell の IgnoreEmpty で表示形式も変更しない
+  - 詳細: `WriteCell` は `NumberFormat` を設定してから `Expression = ""` の `IgnoreEmpty` / `ClearWhenEmpty` 分岐に入るため、`IgnoreEmpty:=True` でも `NumberFormat` を指定するとセルの値は残る一方で表示形式だけが変更される。
+  - 影響: 呼び出し側が「空値は完全に無視する」前提で既存セルを保護していても、書式だけが変わり、日付・数値・文字列表示が意図せず変わる可能性がある。既存テストも値の保持だけを確認しており、書式保持を検出できない。
+  - 対応案: `Expression = "" And IgnoreEmpty` の場合は `NumberFormat` 設定前に即終了するか、`NumberFormat` を含めて変更なしの契約に固定する。`IgnoreEmpty:=True` と `NumberFormat` 併用時に値・数式・表示形式が変わらないテストを追加する。
+
 - [ ] [bug] WorksheetService.WriteRange の配列サイズを対象範囲と照合する
   - 詳細: `WriteRange` は `ValuesArray` をそのまま `target_range.Value` に代入しており、配列の次元数、下限、行数、列数が `RangeBounds` と一致するかを確認していない。Excel 側の代入仕様により、不足要素が `#N/A` になったり、余剰要素が書き込まれない可能性がある。
   - 影響: 呼び出し側の配列整形ミスが明示エラーではなくシート上のデータ破壊として表面化する。表データ書き込みの基盤 API として、意図しない `#N/A` や欠落に気付きにくい。
@@ -30,7 +35,6 @@
   - 詳細: `ObjectSet.Exists` / `GetContains` / `RemoveItem` も追加時と同じ型検査を通さず、`IDuplicateCheckable` / `IEquatable` のキー生成経路では型違いの値が実装詳細由来の実行時エラーになる可能性がある。
   - 影響: 追加・更新では型を固定しているのに、検索・削除では型違いを False、暗黙一致、実行時エラーのどれにするかが揃わない。コレクション基盤として「同じ要素」の意味が操作ごとに変わる。
   - 対応案: 検索・削除系 API でも保存済み型との照合を行い、型違いは明示エラーまたは常に不一致のどちらかに統一する。数値と数値文字列、Boolean と数値、IEquatable 実装と非オブジェクト引数のテストを追加する。
-
 
 - [ ] [bug] WorksheetService.SetSheetOutlineLevel の既定値 0 を Excel に渡さない
   - 詳細: `SetSheetOutlineLevel` は `RowLevels:=0`、`ColumnLevels:=0` を既定値にし、そのまま `target_sheet.Outline.ShowLevels(RowLevels:=RowLevels, ColumnLevels:=ColumnLevels)` へ渡している。Excel のアウトラインレベルは 1 以上の指定または引数省略が前提で、0 を渡すと実行時エラーになり得る。
@@ -89,13 +93,11 @@
   - 影響: `ReadCell`、`XLookup`、`pGetFormulaLiteral` など、Excel エラー値を読み取る・式へ埋め込む経路で、テスト対象ではなく基盤側の変換処理が失敗する。
   - 対応案: `IsError` 分岐後は `WorksheetFunction.Error_Type` 相当の安定した判定に寄せ、7 種類の Excel エラー値を文字列へ変換するテストを追加する。
 
-
 - [ ] [bug] WorksheetService.ReadCell(GetText:=True) の副作用と表示形式戻り値を修正する
   - 詳細: `ReadCell(GetText:=True)` は `Range.Text` を読むために列幅を変更するが、元の `ColumnWidth` を `Long` に保存しているため、小数を含む列幅を正確に復元できない。途中でエラーが発生した場合に列幅が戻らない経路もある。
   - 詳細: `GetText:=False` では `NumberFormatLocal` を返す一方、`GetText:=True` では `NumberFormat` を返しており、インターフェイスコメントと `WriteCell` の表示形式指定と揃っていない。
   - 影響: 読み取り API の呼び出しだけでシートの列幅が変わる可能性があり、表示形式の戻り値もロケール依存の読み書きで不整合になる。
   - 対応案: 列幅は `Double` で退避し、エラー時も復元する。`NumberFormat` の返却値は `NumberFormatLocal` に統一し、列幅保持とローカル表示形式のテストを追加する。
-
 
 - [ ] [bug] WorksheetService.ActivateRange で対象シートを確実にアクティブ化する
   - 詳細: `ActivateRange` は `target_sheet.Range(...).Activate` を直接呼ぶだけで、対象ブックや対象シートを先にアクティブにしていない。
@@ -143,6 +145,16 @@
   - 対応案: `Nothing` の順序を先頭/末尾のどちらかに固定するか、Sort では非対応として入口で明示エラーにする。`Nothing` のみ、`Nothing` と比較可能オブジェクト混在、`ObjectSet.Sort` のテストを追加する。
 
 ## 中優先度
+
+- [ ] [bug] FileSystemService.GetLastModified で存在しないパスを明示エラーにする
+  - 詳細: `GetLastModified` は `IsFile(path_str)` が False の場合に `pFSO.GetFolder(path_str)` へ進むため、存在しないパスやファイル/フォルダー以外の指定が、共通基盤の明示エラーではなく FSO の実行時エラーになる。
+  - 影響: 更新日時比較や最新ファイル選択の前処理で、対象不存在とフォルダー取得失敗の区別がつかない。テストダブル側も未登録値は `UnitTestUtils.GetValue` のキー不一致エラーで、実装と同じ契約を固定しにくい。
+  - 対応案: `PathExists` / `IsFile` / `IsDirectory` を使って、存在しないパス、ファイル、フォルダーを入口で分岐し、存在しない場合は `Source:="Class FileSystemService"` の明示エラーにする。存在しないファイル、存在しないフォルダー、正常ファイル、正常フォルダーのテストを追加する。
+
+- [ ] [bug] TextFileEntityTestDouble の ReadLine / WriteLine でオープン状態とモードを検査する
+  - 詳細: `ReadLine` は未オープンや書き込みモードでも、登録済みの `ReadLine_Values(ReadCount)` があれば値を返す。`WriteLine` も未オープンや読み取りモードを確認せず、常に `WriteLine_Results` へ記録する。
+  - 影響: 実装の `TextFileEntity` では未オープン、読み書きモード違反がエラーになるのに、テストダブルでは成功するため、呼び出し側の Open/Close 順序やモード指定ミスをテストで見逃す。
+  - 対応案: `pCheckOpened` 相当と読み取り/書き込みモード検査をテストダブルにも入れる。未オープン Read/Write、読み取りモード Write、書き込みモード Read、Close 後の Read/Write をテストに追加する。
 
 - [ ] [bug] WorkbookServiceTestDouble.RemoveVBComponents の配列キー生成を衝突しない形にする
   - 詳細: `RemoveVBComponents` は `pBuildComponentNamesKey(ComponentNames)` で配列をカンマ連結した文字列にしてから `UnitTestUtils` のキーへ渡している。配列要素内のカンマをエスケープせず、要素型や配列境界も含めないため、`Array("A,B", "C")` と `Array("A", "B,C")` のような指定を区別できない。
@@ -284,10 +296,20 @@
 
 ## 低優先度
 
+- [ ] [ux] Lib_UnitTest の再実行ボタンは表示行のテストを実行する
+  - 詳細: 再実行ボタンは作成時点の行番号を `Name` に持ち、`UnitTestMain` は `Application.Caller` を数値化して、その行の `Category` / `Test Item` を再実行している。通常のフィルターや並べ替えだけでは直ちにずれないが、行挿入・行削除などでボタンの現在位置と `Name` の行番号がずれると、見た目の行とは別のテストを再実行し得る。
+  - 影響: 結果シートを手動編集した後の再実行で、意図と違う行の結果を更新する可能性がある。テスト実行自体の正否より、結果確認時の操作性・誤操作耐性の問題として扱う。
+  - 対応案: 再実行対象はボタン名の行番号ではなく、`Application.Caller` で得た Shape の `TopLeftCell.Row` から現在行を取る、またはボタンにモジュール名・テスト名を保持して行移動に依存しない形へ変更する。行挿入・行削除後の再実行確認を追加する。
+
 - [ ] [spec] WorksheetService の書式設定 API で省略引数を変更なしとして扱えるようにする
   - 詳細: `SetRangeColor` は背景色だけを指定したい呼び出しでも既定値の `FontColorIndex:=0` を書き込み、`SetAlignment` は `Orientation` や `IndentLevel` だけを変えたい呼び出しでも水平・垂直配置を既定値へ設定する。省略した項目を「変更しない」と扱う API と、既定値へリセットする API が分かれていない。
   - 影響: 共通の書式設定 API として、呼び出し側が一部の書式だけを変更したい場合に既存書式を壊しやすい。既存値を保つには呼び出し側が事前に読み取って全引数を渡す必要があり、基盤として使いづらい。
   - 対応案: 互換性を保つ場合は既存 API のリセット挙動を明記し、`SetRangeFontColor` / `SetRangeInteriorColor` / `SetHorizontalAlignment` など単一責務 API を追加する。破壊的変更を許す場合は Optional 引数の未指定を判別できる `Variant` や別オプションで「変更なし」を表現する。
+
+- [ ] [spec] WorksheetService.ClearRange の ClearAll と Excel Clear の関係を明確にする
+  - 詳細: `ClearRange(ClearAll:=True)` は内容、表示形式、文字色・背景色、コメント、ハイパーリンクを個別に消すが、罫線、入力規則、条件付き書式、スタイルなどは `Range.Clear` のようには消さない。一方で `IWorksheetService` のコメントは「すべてクリア」と読める。
+  - 影響: 呼び出し側が Excel の「すべてクリア」と同等の初期化を期待すると、テンプレート由来の罫線や入力規則などが残り、後続処理や見た目に意図しない状態が残る。逆に現行の限定クリアが意図なら、名前と契約から対象外の書式を判断しづらい。
+  - 対応案: `ClearAll` を Excel `Range.Clear` 相当にするか、現行挙動を維持するなら「個別オプション全指定」としてコメント・名称を整理する。罫線、入力規則、条件付き書式、ハイパーリンク、コメントを含むテストで契約を固定する。
 
 - [ ] [ux] WorksheetService.XLookup の検索範囲と戻り範囲の形状を検証する
   - 詳細: `XLookup` は `LookupRangeBounds` と `ReturnRangeBounds` をそのまま `=XLOOKUP(...)` の式に埋め込み、検索範囲が 1 行または 1 列か、戻り範囲の行列数が検索方向と整合するかを確認していない。
@@ -527,6 +549,16 @@
   - 詳細: `Item` / `pGetCellVertical` / `pGetCellHorizontal` の範囲外・空範囲エラーは `Err.Raise vbObjectError` を使っており、同じクラス内の他メソッドで使っている `vbObjectError + 1` と異なる。
   - 影響: 呼び出し側やテストが共通基盤の明示エラーを番号で識別する場合、`WorksheetRangeBounds` の一部境界エラーだけ別番号になり、同じ入力検証失敗として扱いにくい。エラー番号が VBA/COM の基底値そのものになるため、診断上も意図が読み取りにくい。
   - 対応案: `Err.Raise Number:=vbObjectError + 1, Source:=..., Description:=...` 形式へ揃える。`Item(-1)`、空範囲の `Item(0)`、範囲外 `Item` のエラー番号・Source・Description をテストで固定する。
+
+- [ ] [ref] 比較・同一性・重複判定インターフェイスの責務名を整理する
+  - 詳細: `IComparable.IsEqualTo` は整列上の同順位、`IEquatable.Equals` は同一性、`IDuplicateCheckable.IsDuplicateOf` / `GetKey` は集合内の重複判定を表している。いずれも「等しい」に近い概念だが、名前と優先順位が分散しており、`ObjectList` / `ObjectSet` では `IDuplicateCheckable` が `IEquatable` より優先される。
+  - 影響: 値オブジェクトを追加する利用者が、同一性・同等性・重複キー・ソート同順位のどれを実装すべきか判断しづらい。基盤コレクションに渡したときの比較基準も名前から読み取りにくい。
+  - 対応案: 既存互換を維持しつつ、`IIdentityComparable`、`ISetKeyProvider`、`IOrderComparable` など責務が分かる名前やガイドコメントへ整理する。`ObjectList` / `ObjectSet` 側の比較優先順位も公開コメントに明記する。
+
+- [ ] [ux] Dictionary 由来の重複キー・範囲外エラーを共通基盤のエラーに包む
+  - 詳細: `CounterSet.AddCounter`、`ObjectSet.Add`、`ObjectSet.Item` / `Update` / `Remove` などは、重複キーや範囲外インデックスを `Scripting.Dictionary` の実行時エラーに任せる経路がある。共通クラス自身が投げる `Err.Raise vbObjectError + 1` と、実装依存のエラー番号・文言が混在している。
+  - 影響: 呼び出し側やテストが失敗理由を `Source` / `Description` で追うとき、基盤クラスの契約違反なのか内部 Dictionary の例外なのかが読み取りにくい。エラー番号を基盤独自に揃える作業は低優先度の利便性改善として扱う。
+  - 対応案: 公開 API の入口で重複・存在・インデックス範囲を検証し、`Source:="Class ..."` の独自エラーへ変換する。重複追加、空集合アクセス、範囲外更新、存在しない削除のエラー番号・Source・Description をテストで固定する。
 
 ## TODO 整理メモ
 

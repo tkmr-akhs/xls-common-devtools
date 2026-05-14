@@ -121,6 +121,24 @@ Public Sub Test_ReadLine_WithValuesFromDictionary_ReturnsCorrectStrings(ByVal As
     Assert.Equals True, file_stub.IsEndOfFile
 End Sub
 
+Public Sub Test_ReadLine_MissingReadCount_RaisesWithoutCreatingKey(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim file_stub As TextFileEntityTestDouble
+    Set file_stub = New TextFileEntityTestDouble
+    Call file_stub.OpenFile
+
+    ' Act
+    Dim actual_str As String
+    actual_str = file_stub.ReadLine
+
+    ' Assert
+    If Not Assert.ErrorRaised(vbObjectError + 1, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Class TextFileEntityTestDouble", Err.Source
+    Assert.EqualsNumeric 0, file_stub.ReadCount
+    Assert.IsFalse file_stub.ReadLine_Values.Exists(0)
+End Sub
 ' ----------------------------------------------------------------------------
 ' WriteLine
 ' ----------------------------------------------------------------------------

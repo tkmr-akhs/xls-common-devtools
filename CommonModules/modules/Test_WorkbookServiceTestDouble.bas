@@ -246,7 +246,7 @@ Public Sub Test_CloseWorkbook_WithFalse_RecordsInDictionary(ByVal Assert As Unit
     ' Assert
     ' ここでは引数 (wb_name, False) がキー、値=True
     Dim stored_val As Variant
-    stored_val = TUtl.GetValue(wb_double.ColoseWorkbook_Results, wb_name, False)
+    stored_val = TUtl.GetValue(wb_double.CloseWorkbook_Results, wb_name, False)
     Assert.Equals True, stored_val
 End Sub
 
@@ -260,7 +260,7 @@ Public Sub Test_CloseWorkbook_NoForceArg_RecordsTrue(ByVal Assert As UnitTestAss
     
     ' Assert
     Dim stored_val As Variant
-    stored_val = TUtl.GetValue(wb_double.ColoseWorkbook_Results, "NoArgBook", True)
+    stored_val = TUtl.GetValue(wb_double.CloseWorkbook_Results, "NoArgBook", True)
     Assert.Equals True, stored_val
 End Sub
 

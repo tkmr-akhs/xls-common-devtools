@@ -227,7 +227,7 @@ Public Sub Test_CreateDirectory_RecordsArgsAndReturnsValue(ByVal Assert As UnitT
     Set fs_stub = New FileSystemServiceTestDouble
     
     ' CreateDirectory_Values -> ƒfƒtƒH‚Í True ‚¾‚ªˆê‰ž“o˜^‚µ‚Ä‚Ý‚é
-    Call TUtl.SetValue(fs_stub.CreateDirectory_Values, False, "C:\MakeDir")
+    Call TUtl.SetValue(fs_stub.CreateDirectory_Values, False, "C:\MakeDir", True, True)
     
     ' Act
     Dim actual_result As Boolean

@@ -29,6 +29,8 @@ Public Function Find( _
         Optional ByVal MatchCase As Boolean = True, _
         Optional ByVal MatchByte As Boolean = True) As WorksheetRangeBounds()
     
+    If RangeBounds.IsEmpty Then Exit Function
+
     Dim target_sheet As Worksheet
     Set target_sheet = pGetWorksheet(RangeBounds)
     
@@ -112,6 +114,7 @@ End Sub
 
 Private Sub pSortCore(ByVal RangeBounds As WorksheetRangeBounds, ByVal SortKeyAndOrder As Variant)
     If IsEmptyArray(SortKeyAndOrder) Then Exit Sub
+    If RangeBounds.IsEmpty Then Exit Sub
     If (UBound(SortKeyAndOrder) - LBound(SortKeyAndOrder)) Mod 2 = 0 Then
         Err.Raise vbObjectError + 1, "Class WorksheetService", "SortKeyAndOrder の要素数が偶数ではありません。(奇数番目の要素は、ソートのキーとなる列の番号、偶数番目の要素は、xlAscending か xlDescending)"
     End If
@@ -250,6 +253,7 @@ Public Sub WriteCell( _
             target_cell.Value = CCur(Expression)
             If Err.Number = 0 Then Exit Sub
             
+            Err.Clear
             On Error GoTo 0
         End If
         

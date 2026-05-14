@@ -45,8 +45,8 @@ Public SaveWorkbook_Results As Dictionary
 '* IsSaved の引数→戻り値辞書。引数がキーとなり、戻り値が値となります。
 Public IsSaved_Values As Dictionary
 
-'* SaveWorkbook の引数→受け取り値辞書。引数がキーとなり、値が True となります。
-Public ColoseWorkbook_Results As Dictionary
+'* CloseWorkbook の引数→受け取り値辞書。引数がキーとなり、値が True となります。
+Public CloseWorkbook_Results As Dictionary
 
 '* Find の引数→戻り値辞書。
 Public Find_Values As Dictionary
@@ -90,7 +90,7 @@ Private Sub Class_Initialize()
     Set OpenWorkbook_Results = New Dictionary
     Set SaveWorkbook_Results = New Dictionary
     Set IsSaved_Values = New Dictionary
-    Set ColoseWorkbook_Results = New Dictionary
+    Set CloseWorkbook_Results = New Dictionary
     Set Find_Values = New Dictionary
     Set AddWorksheet_Results = New Dictionary
     Set RemoveWorksheet_Results = New Dictionary
@@ -219,9 +219,9 @@ End Function
 '* CloseWorkbook のスパイです。
 '*
 '* @details
-'*
+'* Book, Force をキーとして呼び出しを記録します。
 Public Sub CloseWorkbook(ByVal Book As String, Optional ByVal Force As Boolean = True)
-    Call TUtl.SetValue(ColoseWorkbook_Results, True, Book, Force)
+    Call TUtl.SetValue(CloseWorkbook_Results, True, Book, Force)
 End Sub
 Private Sub IWorkbookService_CloseWorkbook(ByVal Book As String, Optional ByVal Force As Boolean = True)
     Call CloseWorkbook(Book, Force:=Force)

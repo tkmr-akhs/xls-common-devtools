@@ -195,6 +195,10 @@ End Sub
 '* @details
 '* ReadLine = ReadLine_Values(ReadCount)
 Public Function ReadLine() As String
+    If Not ReadLine_Values.Exists(ReadCount) Then
+        Err.Raise Number:=vbObjectError + 1, Source:="Class TextFileEntityTestDouble", Description:="“Ç‚İæ‚ès‚ª“o˜^‚³‚ê‚Ä‚¢‚Ü‚¹‚ñB(read_count: " & ReadCount & ")"
+    End If
+
     ReadLine = ReadLine_Values(ReadCount)
     ReadCount = ReadCount + 1
 End Function

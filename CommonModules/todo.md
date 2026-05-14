@@ -31,11 +31,6 @@
   - 影響: `WorksheetRangeBounds` の表示、同一性文字列、診断メッセージ、アドレス生成ヘルパーを絶対参照付きで使う呼び出しが、範囲値自体は正しいのに実行時エラーまたは誤ったアドレスになる。
   - 対応案: A1 の基準値検証は相対参照を生成する場合だけ行い、列範囲の終了列には `IsAbsoluteFinishColumn` を渡す。絶対セル、絶対行範囲、絶対列範囲、開始/終了で絶対指定が異なる列範囲のテストを追加する。
 
-- [ ] [bug] WorksheetService.WriteCell の内部型変換失敗で Err.Number を残さない
-  - 詳細: `WriteCell(TypeConvert:=True)` は `CBool` / `CDate` / `CCur` を `On Error Resume Next` で順に試し、すべて失敗した場合に `Err.Clear` しないまま文字列書き込みへ進む。処理自体は成功しても、呼び出し元の `Err.Number` に内部変換失敗の値が残り得る。
-  - 影響: 呼び出し側が `On Error Resume Next` と `Err.Number` で `WriteCell` の成否を見ている場合、正常に文字列として書き込めた値を失敗扱いする。テストでも基盤 API 内部の探索的変換エラーと実際の書き込みエラーを区別しづらい。
-  - 対応案: 型変換試行の最後で `Err.Clear` してから通常のエラーハンドリングへ戻す。数値/Boolean/Date/Currency に変換できない文字列を書き込んだあと、`Err.Number = 0` で戻るテストを追加する。
-
 - [ ] [bug] WorksheetService.WriteCell の文字列書き込みで表示形式を必ず復元する
   - 詳細: `WriteCell(TypeConvert:=False)` または型変換に失敗した文字列書き込みでは、現在の `NumberFormatLocal` を退避してから一時的に `@` に変更し、値設定後に元へ戻している。値設定や復元前の処理でエラーになると、セルの表示形式が `@` のまま残る。
   - 影響: 書き込み自体は失敗しても、シート側には表示形式変更だけが副作用として残り、後続の数値・日付入力が文字列扱いになる可能性がある。基盤書き込み API として失敗時の状態が予測しにくい。
@@ -71,16 +66,6 @@
   - 詳細: `WorksheetService.Sort` は `SortKeyAndOrder` の個数が偶数であることだけを確認し、キー列番号が `RangeBounds` の列数内か、並び順が `xlAscending` / `xlDescending` かを検証していない。`0`、負数、範囲外列、無効な並び順が Excel 呼び出しへそのまま渡る。
   - 影響: 呼び出し側の指定ミスで、対象範囲外の列をキーにしたソートや Excel 由来の実行時エラーが発生する。データ並べ替えの基盤 API として、誤ったデータ移動の原因を特定しにくい。
   - 対応案: キー列番号は `1 To RangeBounds.ColumnCount`、並び順は未指定時の既定値または Excel の有効値だけに制限する。`0`、負数、列数超過、無効な並び順のテストを追加する。
-
-- [ ] [bug] WorksheetService.Sort で空範囲を他の範囲 API と同じく no-op にする
-  - 詳細: `WorksheetService.Sort` は `WriteCell`、`WriteRange`、`CopyCell`、`ClearRange` などと異なり、`RangeBounds.IsEmpty` を入口で確認しない。空範囲を渡すと `RangeBounds.ToString(CellOnly:=True)` の空範囲表記を Excel `Range` として解釈しようとして、ソート対象なしの no-op ではなく実行時エラーになり得る。
-  - 影響: `GetUsedRangeBounds` や `Intersect` の結果をそのままソートへ渡す呼び出し側が、空データのときだけ個別分岐を強いられる。空範囲を no-op とする他の `WorksheetService` API と契約が揃わない。
-  - 対応案: `pSortCore` の先頭で空範囲を検出して終了する。空範囲、キーなし、キーあり空範囲のテストを追加し、空データ処理で例外が出ないことを固定する。
-
-- [ ] [bug] WorksheetService.Find で空範囲を空結果として扱う
-  - 詳細: `Find` は `RangeBounds.IsEmpty` を入口で確認せず、空範囲の `ToString(CellOnly:=True)` を Excel `Range` に渡す。`GetUsedRangeBounds` や `Intersect` の結果が空の場合、検索結果 0 件ではなく実行時エラーになり得る。
-  - 影響: 空データのシートや空の交差範囲を検索する呼び出し側が、`Find` の前だけ個別分岐を強いられる。`WorkbookService.Find` や `UserInputSheet.GetItemRange` など、検索を基盤 API として使う処理でも空範囲時に落ちる可能性がある。
-  - 対応案: `Find` の先頭で空範囲を検出して未初期化配列を返すか、空の `WorksheetRangeBounds()` を返す契約に固定する。空範囲、空シート、非空範囲 0 件のテストを追加する。
 
 - [ ] [bug] WorksheetService.RemoveDuplicates の重複判定列を対象範囲内に検証する
   - 詳細: `RemoveDuplicates` は `DuplicateColumns` をそのまま Excel `Range.RemoveDuplicates` に渡しており、0、負数、対象範囲の列数超過、空配列、絶対列番号の誤指定を基盤側で検出しない。
@@ -176,16 +161,6 @@
   - 影響: 呼び出し側には `Class WorksheetRangeBounds` の範囲エラーではなく実行時エラー 6 が返り、どの範囲操作が不正だったかを診断しづらい。範囲計算の入力検証としても `Initialize` / `Shift` の契約が揃わない。
   - 対応案: 加減算前に `Long` の範囲と Excel 行列上限を事前判定するか、`Double` など一時的に広い型で計算してから明示エラーにする。上限付近の正方向・負方向シフト、空範囲の `Transform` のテストを追加する。
 
-- [ ] [bug] WorksheetRangeBoundsEnumerator.Initialize で Nothing の列挙対象を拒否する
-  - 詳細: `Initialize(TargetCollection As WorksheetRangeBounds)` は `TargetCollection Is Nothing` を確認せず、`Target` に `Nothing` を設定したまま初期化済みにできる。`pCalculateLength` は `pRangeBounds Is Nothing` で何もせず、列挙子は長さ 0 のように振る舞う。
-  - 影響: 呼び出し側の範囲生成漏れが初期化時に検出されず、`MoveNext` が False を返すだけの空列挙として扱われる。`Target` や `Current` で後から落ちる場合もあり、基盤列挙子として原因を追いにくい。
-  - 対応案: `Initialize` の入口で `Nothing` を `Class WorksheetRangeBoundsEnumerator` の明示エラーにする。`Nothing`、空範囲、通常範囲の初期化テストを追加する。
-
-- [ ] [bug] WorksheetRangeBounds.Intersect で Nothing を明示的に拒否する
-  - 詳細: `Intersect(ByVal OtherRangeBounds As WorksheetRangeBounds)` は `OtherRangeBounds Is Nothing` を確認せず、すぐに `OtherRangeBounds.WorksheetName` / `WorkbookName` / `Row` などを参照する。
-  - 影響: 呼び出し側の範囲生成漏れが `Class WorksheetRangeBounds` の説明付きエラーではなく、VBA の汎用的な「オブジェクト変数または With ブロック変数が設定されていません。」として表面化する。範囲交差を使う `WorksheetService.GetUsedRangeBounds` などでも原因を追いにくい。
-  - 対応案: 入口で `Nothing` を明示エラーにし、`Nothing`、未初期化範囲、空範囲、非交差範囲、正常交差範囲のテストを分けて追加する。
-
 - [ ] [bug] ObjectList / ObjectSet の特殊 Variant 値の扱いを固定する
   - 詳細: `ObjectList.pItemsEqual` はプリミティブ比較で `ItemObject1 = ItemObject2` を直接 Boolean に代入するため、`Null` や `CVErr(...)` で比較自体が失敗し得る。`ObjectSet` は `Null` / `CVErr(...)` / `Empty` を Dictionary キーとして渡す経路があり、`ConvertToStringArray` でも特殊値の文字列化方針がない。
   - 影響: Excel Range から読んだ値や外部入力をそのまま基盤コレクションへ入れると、追加、存在判定、削除、重複除去、文字列化のどこで失敗するかが値によって変わる。
@@ -225,11 +200,6 @@
   - 影響: 読み書き対象と診断情報がずれ、`CloseFile` や後続の `OpenFile` でどのファイルを扱っているか追跡しづらくなる。テストダブルやサービス層でインスタンス再利用した場合に、実ファイルハンドルの状態とオブジェクト状態が分離する。
   - 対応案: 初期化済みインスタンスの再初期化を明示エラーにし、必要なら `Reset` / 新規インスタンス生成を使う契約にする。未初期化、初期化済み、オープン中、クローズ後再初期化のテストを追加する。
 
-- [ ] [bug] TextFileEntityTestDouble.ReadLine の未登録読み取りを Dictionary 欠落キーで隠さない
-  - 詳細: `TextFileEntityTestDouble.ReadLine` は `ReadLine_Values(ReadCount)` を直接読むため、未登録の読み取り位置を参照すると `Scripting.Dictionary` の欠落キーが作成され、空文字列として流れる可能性がある。
-  - 影響: テスト側が読み取り行数の設定を漏らしても、入力データ末尾や空行として扱われ、テストが誤って通る、または後続の `IsEndOfFile` 判定が汚染された辞書状態に依存する。
-  - 対応案: `Exists(ReadCount)` を確認して未登録なら `Class TextFileEntityTestDouble` の明示エラーにする。正常読み取り、未登録読み取り、EOF 判定のテストを追加する。
-
 - [ ] [bug] DiffStringArray の空配列入力と下限契約を修正する
   - 詳細: `DiffStringArray` は入力配列に対してすぐ `LBound` / `UBound` を呼ぶため、未初期化または空配列を渡すと差分結果ではなく実行時エラーになる。コメントでは `ChangeTypeArray` の下限を `OldArray` と揃えると読めるが、実装は常に `0 To ...` へ `ReDim` している。
   - 影響: 空ファイル、空行リスト、フィルタ結果 0 件の比較を共通 diff として扱えず、呼び出し側ごとに事前分岐が必要になる。下限を保つ前提の呼び出し側では添字ずれも起こり得る。
@@ -247,11 +217,6 @@
   - 詳細: 存在しないファイル・ディレクトリを `Debug.Print` で扱う箇所があり、呼び出し側が検知すべき失敗と無視可能な不存在の契約が曖昧になっている。
   - 影響: バックアップ作成経路がコンパイルまたは実行時に失敗し、相対パスや末尾セパレータ付きコピー先では存在確認と実操作の基準がずれる可能性がある。
   - 対応案: 名前付き引数を修正し、全ファイル/ディレクトリ操作で絶対パス化後の値を使う。インターフェイス、実装、テストダブルの型宣言を揃え、バックアップ名、相対パス、コピー先末尾セパレータ、`Force` 指定のテストを追加する。
-
-- [ ] [bug] CounterSet の Dictionary 欠落キー参照を修正する
-  - 詳細: `CounterSet.GetCounter` / `RemoveCounter` は `pDict(CounterObjectName)` を直接読み取っており、存在しない名前を指定すると `Scripting.Dictionary` が Empty 値を持つキーを新規作成してから `Set` 代入エラーになる。
-  - 影響: 不存在取得が単なる失敗ではなく内部状態変更を伴うため、エラー捕捉後の後続処理やテストダブルの記録内容が実際とずれる。
-  - 対応案: 取得前に `Exists` で存在確認し、不存在時は各クラスの明示的なエラーとして再送出する。`CounterSet` 欠落キー時に Count が増えないことを固定するテストを追加する。
 
 - [ ] [bug] Lib_Common の値変換・配列・ソート系ユーティリティを整備する
   - 詳細: `SortArray` は再帰呼び出しで `Descending` を渡しておらず、比較関数名も `psortlessthan` / `pSortIsLessThan` で不一致になっている。昇順・降順の判定も期待と逆方向に見える。
@@ -308,11 +273,6 @@
   - 影響: 共通モジュールは UTF-8 BOM の `.md` / `.ps1` と Shift_JIS の `.bas` / `.cls` を扱うため、基盤テキスト API として文字コードの契約がないと使える範囲が狭い。
   - 対応案: 既存 API は互換維持し、必要に応じて encoding / newline を指定できるオプションまたは別サービスを追加する。代表的な文字コードと末尾改行のテストを追加する。
 
-- [ ] [test] FileSystemServiceTestDouble.CreateDirectory の記録キーと戻り値キーを揃える
-  - 詳細: `CreateDirectory` は呼び出し記録を `DirectoryPath, Force, Recursive` で残す一方、戻り値の取得は `DirectoryPath` だけをキーにしている。
-  - 影響: `Force` や `Recursive` の違いで結果を切り替えるテストが書けず、実装が引数を正しく渡しているかをテストダブルで表現しにくい。
-  - 対応案: 記録、戻り値、既定値取得のキー生成を同じ引数セットに揃える。既存テストへの影響を確認し、必要なら互換用の設定ヘルパーを追加する。
-
 - [ ] [ref] WorksheetRangeBounds の値オブジェクト化と境界仕様をまとめる
   - 詳細: `WorksheetRangeBounds.Initialize` は `Book = ""` のとき `New WorkbookService` で `ThisWorkbook.Name` を取得しており、範囲値オブジェクトが Excel サービス生成を内包している。
   - 詳細: `TransformAbsolute`、`Transform` は `New_RangeBounds` ファクトリを呼ぶため、`Lib_Common` と `WorksheetRangeBounds` の相互依存ができている。`UserInputSheet.GetItemRange` では `TransformAbsolute` が「使用範囲の先頭列を取る」用途にも使われている。
@@ -347,6 +307,16 @@
   - 対応案: `GetEnumerator(Optional EnumerateType..., Optional ColumnDirection..., Optional Descending As Boolean = False)` に拡張するか、`GetDescendingEnumerator` のような別 API を追加する。既存呼び出し互換を保つ引数順に注意する。
 
 ## 低優先度
+
+- [ ] [ux] WorksheetRangeBoundsEnumerator.Initialize で Nothing の列挙対象を拒否する
+  - 詳細: `Initialize(TargetCollection As WorksheetRangeBounds)` は `TargetCollection Is Nothing` を確認せず、`Target` に `Nothing` を設定したまま初期化済みにできる。`pCalculateLength` は `pRangeBounds Is Nothing` で何もせず、列挙子は長さ 0 のように振る舞う。
+  - 影響: 呼び出し側の範囲生成漏れが初期化時に検出されず、`MoveNext` が False を返すだけの空列挙として扱われる。`Target` や `Current` で後から落ちる場合もあり、基盤列挙子として原因を追いにくい。
+  - 対応案: `Initialize` の入口で `Nothing` を `Class WorksheetRangeBoundsEnumerator` の明示エラーにする。`Nothing`、空範囲、通常範囲の初期化テストを追加する。
+
+- [ ] [ux] WorksheetRangeBounds.Intersect で Nothing を明示的に拒否する
+  - 詳細: `Intersect(ByVal OtherRangeBounds As WorksheetRangeBounds)` は `OtherRangeBounds Is Nothing` を確認せず、すぐに `OtherRangeBounds.WorksheetName` / `WorkbookName` / `Row` などを参照する。
+  - 影響: 呼び出し側の範囲生成漏れが `Class WorksheetRangeBounds` の説明付きエラーではなく、VBA の汎用的な「オブジェクト変数または With ブロック変数が設定されていません。」として表面化する。範囲交差を使う `WorksheetService.GetUsedRangeBounds` などでも原因を追いにくい。
+  - 対応案: 入口で `Nothing` を明示エラーにし、`Nothing`、未初期化範囲、空範囲、非交差範囲、正常交差範囲のテストを分けて追加する。
 
 - [ ] [spec] WorksheetService.Sort のキー指定を型付きで表現する
   - 詳細: `Sort(ByVal RangeBounds As WorksheetRangeBounds, ParamArray SortKeyAndOrder() As Variant)` は、キー列番号と並び順を交互に並べる呼び出し規約になっている。呼び出し側では `Sort bounds, 2, xlAscending, 1, xlDescending` のような値の意味が読み取りにくく、テストダブルも生の配列として保持している。
@@ -443,11 +413,6 @@
   - 詳細: `Initialize(ByVal TargetCollection As WorksheetRangeBounds, ...)` は実際には `WorksheetRangeBounds` を受け取るが、引数名とコメントは汎用列挙子と同じ「コレクション」になっている。範囲値オブジェクトを渡す専用列挙子であることが公開 API から伝わりにくい。
   - 影響: 呼び出し側やテストで、配列や `ObjectList` 用の汎用 `Enumerator` と同じ契約だと誤読しやすい。`WorksheetRangeBounds` 専用列挙子として、どの型を列挙対象にするのかも読み取りにくい。
   - 対応案: named argument 互換性を考慮しつつ、`TargetRangeBounds` など範囲であることが分かる名前やファクトリ API へ移行する。少なくともコメントは「列挙対象の範囲」に修正し、汎用 `Enumerator` との命名差を整理する。
-
-- [ ] [ref] WorkbookServiceTestDouble の CloseWorkbook 記録名とコメントを実 API 名へ揃える
-  - 詳細: `WorkbookServiceTestDouble` の公開 Dictionary が `ColoseWorkbook_Results` という綴りになっており、`CloseWorkbook` と一致していない。周辺コメントにも `SaveWorkbook` や `RemoveWorksheet` の説明が残っている。
-  - 影響: テストで記録結果を確認するときに自然な `CloseWorkbook_Results` という名前を使えず、テストダブルの公開 API に typo を広げることになる。コメントからもどのメソッドのスパイ結果か読み取りづらい。
-  - 対応案: 互換性が必要なら旧名を段階廃止扱いにしつつ、正しい `CloseWorkbook_Results` へ移行する。コメントと既存テストの参照名も合わせて更新する。
 
 - [ ] [spec] ObjectList / ObjectSet の空集合化後の型固定契約を決める
   - 詳細: `ObjectList.Remove` や `ObjectSet.RemoveItem` / `Remove` で要素数が 0 になっても、`pTypeName` や `pIsObject` などの型状態は残る。一方で `RemoveAll` は型状態をリセットするため、空になった経路によって次に追加できる型が変わる。
@@ -564,12 +529,36 @@
   - 保留理由: 対応が困難であり、かつ、現状では必要になっていないため
   - 保留解除条件: 必要とされたら
 
-
 ## 対応しないと決定した事項
 
 ## 対応済み事項
 
 ### 高優先度だったもの
+
+- [x] [bug] TextFileEntityTestDouble.ReadLine の未登録読み取りを Dictionary 欠落キーで隠さない
+  - 詳細: `ReadLine` が `ReadLine_Values(ReadCount)` を直接読み、未登録の読み取り位置を Dictionary 欠落キー作成と空文字列相当で隠し得た。
+  - 最終対応: `ReadLine_Values.Exists(ReadCount)` を確認し、未登録時は `Class TextFileEntityTestDouble` の明示エラーにした。正常読み取り時だけ `ReadCount` を進める。
+  - 確認: 未登録読み取りで明示エラーになり、`ReadCount` と Dictionary が汚れないことを確認した。`CommonModules.xlsm` の `UnitTestMain` 全件 OK を確認済み。
+
+- [x] [bug] CounterSet の Dictionary 欠落キー参照を修正する
+  - 詳細: `GetCounter` / `RemoveCounter` が `pDict(CounterObjectName)` を直接読み、存在しない名前で Dictionary 欠落キーを作成してから実行時エラーになり得た。
+  - 最終対応: 取得・削除前に `pDict.Exists` を確認し、不存在時は `Class CounterSet` の明示エラーにした。
+  - 確認: 欠落取得・欠落削除の後でも同名 `AddCounter` が成功することを確認した。`CommonModules.xlsm` の `UnitTestMain` 全件 OK を確認済み。
+
+- [x] [bug] WorksheetService.WriteCell の内部型変換失敗で Err.Number を残さない
+  - 詳細: `WriteCell(TypeConvert:=True)` が型変換を順に試してすべて失敗したあと、内部変換失敗の `Err.Number` を残したまま文字列書き込みへ進んでいた。
+  - 最終対応: 文字列書き込みへフォールバックする直前に `Err.Clear` し、通常完了時に内部変換失敗を呼び出し元へ残さないようにした。
+  - 確認: 変換不能な文字列を書き込んでも `Err.Number = 0` のまま戻るテストを追加し、`CommonModules.xlsm` の `UnitTestMain` 全件 OK を確認済み。
+
+- [x] [bug] WorksheetService.Sort で空範囲を他の範囲 API と同じく no-op にする
+  - 詳細: `Sort` が空範囲を確認せず、空範囲表記を Excel `Range` に渡して実行時エラーになり得た。
+  - 最終対応: `pSortCore` の入口で `RangeBounds.IsEmpty` を検出し、空範囲では何もせず終了するようにした。
+  - 確認: キー指定ありの空範囲ソートが実行時エラーにならず、既存セル値も変えないことを確認した。`CommonModules.xlsm` の `UnitTestMain` 全件 OK を確認済み。
+
+- [x] [bug] WorksheetService.Find で空範囲を空結果として扱う
+  - 詳細: `Find` が空範囲を確認せず、空範囲表記を Excel `Range` に渡して実行時エラーになり得た。
+  - 最終対応: `Find` の入口で `RangeBounds.IsEmpty` を検出し、既存の 0 件検索と同じ未初期化配列相当の空結果で戻るようにした。
+  - 確認: 空範囲検索が実行時エラーにならず、`IsEmptyArray` で空結果として扱えることを確認した。`CommonModules.xlsm` の `UnitTestMain` 全件 OK を確認済み。
 
 - [x] [bug] Lib_UnitTest のテスト候補検出を標準モジュールに限定する
   - 詳細: `pRunAllTest` が `VBComponents` の種別を見ずに `Test_...` 手続きを拾い、クラスやドキュメントモジュールのメンバーを誤検出し得た。
@@ -757,6 +746,11 @@
 
 ### 中優先度だったもの
 
+- [x] [test] FileSystemServiceTestDouble.CreateDirectory の記録キーと戻り値キーを揃える
+  - 詳細: `CreateDirectory` の呼び出し記録は `DirectoryPath, Force, Recursive` だったが、戻り値取得は `DirectoryPath` だけをキーにしていた。
+  - 最終対応: `CreateDirectory_Values` の取得キーも `DirectoryPath, Force, Recursive` に統一した。
+  - 確認: 3 引数キーで設定した戻り値が返り、呼び出し記録も同じ引数セットで確認できることを確認した。`CommonModules.xlsm` の `UnitTestMain` 全件 OK を確認済み。
+
 - [x] [spec] Excel Range 判定ヘルパーの名前と判定粒度を整理する
   - 詳細: `Lib_Common` の `IsMultiRange`、`IsArea`、`IsCell`、`IsEntireRow`、`IsEntireColumn`、`IsOneRowArea`、`IsOneColumnArea` は Excel `Range` を直接受けていたが、`WorksheetRangeBounds` 側にも似た判定があり、判定基準のずれが起きやすかった。
   - 影響: 呼び出し側が Excel `Range` と `WorksheetRangeBounds` のどちらの判定を使うべきか迷いやすく、セル 1 個、空範囲、行/列全体、複数選択の扱いを誤解しやすかった。
@@ -778,6 +772,11 @@
   - 確認: `Test_WorksheetService.bas` に 1 列 UsedRange、全シート級範囲、対象範囲外の非表示行・非表示列を突くテストを追加し、`CommonModules.xlsm` へ import 後に `UnitTestMain` 全件 OK を確認済み。
 
 ### 低優先度だったもの
+
+- [x] [ref] WorkbookServiceTestDouble の CloseWorkbook 記録名とコメントを実 API 名へ揃える
+  - 詳細: `WorkbookServiceTestDouble` の公開 Dictionary が `ColoseWorkbook_Results` という綴りで、実 API 名 `CloseWorkbook` と一致していなかった。
+  - 最終対応: 公開 Dictionary、初期化、記録処理、テスト参照を `CloseWorkbook_Results` に統一し、コメントも `CloseWorkbook` 用に修正した。
+  - 確認: `CloseWorkbook` の呼び出し記録を `CloseWorkbook_Results` から取得できることを確認した。`CommonModules.xlsm` の `UnitTestMain` 全件 OK を確認済み。
 
 - [x] [ref] インターフェイス定義のタグと直接生成防止を規約へ揃える
   - 詳細: `IWorkbookService.cls`、`IFileSystemService.cls`、`ITextFileService.cls`、`ITextFileEntity.cls` のタグが `'# Interface` で、規約の `'#Interface` と揺れていた。インターフェイス直接生成防止の `Class_Initialize` も横断確認対象だった。

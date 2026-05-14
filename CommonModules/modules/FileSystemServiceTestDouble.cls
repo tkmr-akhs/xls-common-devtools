@@ -212,8 +212,8 @@ End Function
 Public Function CreateDirectory(ByVal DirectoryPath As String, Optional ByVal Force As Boolean = False, Optional ByVal Recursive As Boolean = False) As Boolean
     Call TUtl.SetValue(CreateDirectory_Results, True, DirectoryPath, Force, Recursive)
     
-    If TUtl.HasValue(CreateDirectory_Values, DirectoryPath) Then
-         CreateDirectory = TUtl.GetValue(CreateDirectory_Values, DirectoryPath)
+    If TUtl.HasValue(CreateDirectory_Values, DirectoryPath, Force, Recursive) Then
+         CreateDirectory = TUtl.GetValue(CreateDirectory_Values, DirectoryPath, Force, Recursive)
     Else
         CreateDirectory = True
     End If

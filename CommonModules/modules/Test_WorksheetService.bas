@@ -34,6 +34,32 @@ Private Sub pWriteEmptyStringValue(ByVal TargetCell As Range)
 End Sub
 
 ' -----------------------------------------------------------------------------
+' Find
+' -----------------------------------------------------------------------------
+
+Public Sub Test_Find_EmptyRange_ReturnsEmptyResult(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+    target_sheet.Cells(2, 2).Value = "target"
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=3, Column:=2, FinishRow:=2, FinishColumn:=2, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Dim actual_ranges() As WorksheetRangeBounds
+    actual_ranges = sheet_srv.Find("target", range_bounds)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.IsTrue IsEmptyArray(actual_ranges)
+End Sub
+' -----------------------------------------------------------------------------
 ' Sort
 ' -----------------------------------------------------------------------------
 
@@ -66,7 +92,29 @@ Public Sub Test_Sort_WhenCalls_HasBeenSorted(ByVal Assert As UnitTestAssert)
     
     Assert.ErrorNotRaised 0, Err.Number, Err.Source, Err.Description
 End Sub
+Public Sub Test_Sort_EmptyRange_DoesNothing(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
 
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+    target_sheet.Cells(2, 2).Value = 2
+    target_sheet.Cells(2, 3).Value = 22
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=3, Column:=2, FinishRow:=2, FinishColumn:=3, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Call sheet_srv.Sort(range_bounds, 1, xlAscending)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.EqualsNumeric 2, target_sheet.Cells(2, 2).Value
+    Assert.EqualsNumeric 22, target_sheet.Cells(2, 3).Value
+End Sub
 ' -----------------------------------------------------------------------------
 ' WriteCell
 ' -----------------------------------------------------------------------------
@@ -92,6 +140,28 @@ Public Sub Test_WriteCell_String_WritesAsString(ByVal Assert As UnitTestAssert)
     Assert.Equals "Hello VBA", actual_value
 End Sub
 
+
+Public Sub Test_WriteCell_UnconvertibleString_DoesNotLeaveErrNumber(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=13, Column:=2, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Err.Clear
+    Call sheet_srv.WriteCell(range_bounds, "ABC123")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "ABC123", target_sheet.Cells(13, 2).Value
+End Sub
 Public Sub Test_WriteCell_NumericString_WritesAsNumber(ByVal Assert As UnitTestAssert)
     ' Arrange
     Dim target_sheet As Worksheet

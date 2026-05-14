@@ -23,6 +23,12 @@ Private Sub Class_Initialize()
     Set pDict = New Dictionary
 End Sub
 
+Private Sub pCheckExists(ByVal CounterObjectName As String)
+    If Not pDict.Exists(CounterObjectName) Then
+        Err.Raise Number:=vbObjectError + 1, Source:="Class CounterSet", Description:="Counter が存在しません。(" & CounterObjectName & ")"
+    End If
+End Sub
+
 '* 名前を指定してカウンターを取得します。
 '*
 '* @param CounterObjectName カウンターオブジェクトの名前。
@@ -30,6 +36,7 @@ End Sub
 '* @details
 '* 指定された名前のカウンターオブジェクトを取得します。
 Public Function GetCounter(ByVal CounterObjectName As String) As Counter
+    Call pCheckExists(CounterObjectName)
     Set GetCounter = pDict(CounterObjectName)
 End Function
 
@@ -43,7 +50,7 @@ Public Sub AddCounter(ByVal CounterObjectName As String, ByVal CounterObject As 
     If CounterObject Is Nothing Then
         Err.Raise Number:=vbObjectError + 1, Source:="Class CounterSet", Description:="CounterObject が Nothing です。"
     End If
-    
+
     Call pDict.Add(CounterObjectName, CounterObject)
 End Sub
 
@@ -70,6 +77,8 @@ End Function
 '* @details
 '* 指定された名前のカウンターを削除し、削除されたカウンターオブジェクトを返します。
 Public Function RemoveCounter(ByVal CounterObjectName As String) As Counter
+    Call pCheckExists(CounterObjectName)
+
     Dim result_value As Counter
     Set result_value = pDict(CounterObjectName)
     Call pDict.Remove(CounterObjectName)

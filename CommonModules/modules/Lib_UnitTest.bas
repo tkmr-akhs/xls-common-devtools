@@ -371,25 +371,38 @@ Private Function pEnsureRuntimeRunnerModule() As Object
 End Function
 
 Private Sub pRemoveRuntimeRunnerModule()
-    If pRuntimeRunnerModuleName = "" Then Exit Sub
-
     Dim vb_proj As Object: Set vb_proj = ThisWorkbook.VBProject
-    Dim runner_comp As Object
+    Dim remove_names As Collection: Set remove_names = New Collection
+    Dim vb_comp As Object
 
-    On Error Resume Next
-    Set runner_comp = vb_proj.VBComponents.Item(pRuntimeRunnerModuleName)
-    If Err.Number <> 0 Then
-        Err.Clear
-        Set runner_comp = Nothing
-    End If
-    On Error GoTo 0
+    For Each vb_comp In vb_proj.VBComponents
+        If vb_comp.Type = C_VBEXT_CT_STDMODULE Then
+            If vb_comp.Name = pRuntimeRunnerModuleName Or pIsRuntimeRunnerModuleName(vb_comp.Name) Then
+                Call remove_names.Add(vb_comp.Name)
+            End If
+        End If
+    Next vb_comp
 
-    If Not runner_comp Is Nothing Then
-        vb_proj.VBComponents.Remove runner_comp
-    End If
+    Dim remove_name As Variant
+    For Each remove_name In remove_names
+        Call vb_proj.VBComponents.Remove(vb_proj.VBComponents.Item(CStr(remove_name)))
+    Next remove_name
 
     pRuntimeRunnerModuleName = ""
 End Sub
+
+Private Function pIsRuntimeRunnerModuleName(ByVal ModuleName As String) As Boolean
+    Static runtime_runner_name_re As RegExp
+
+    If runtime_runner_name_re Is Nothing Then
+        Set runtime_runner_name_re = New RegExp
+        runtime_runner_name_re.Pattern = "^" & C_RUNTIME_RUNNER_MODULE_PREFIX & "[A-Z]{" & C_RUNTIME_RUNNER_MODULE_SUFFIX_LENGTH & "}$"
+        runtime_runner_name_re.IgnoreCase = False
+        runtime_runner_name_re.Global = False
+    End If
+
+    pIsRuntimeRunnerModuleName = runtime_runner_name_re.Test(ModuleName)
+End Function
 
 Private Sub pWriteRuntimeRunnerModule(ByVal TestModName As String, ByVal TestSubName As String)
     Dim runner_comp As Object: Set runner_comp = pEnsureRuntimeRunnerModule()

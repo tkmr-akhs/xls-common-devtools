@@ -15,15 +15,20 @@
 
 ## 高優先度
 
+- [ ] [bug] WorksheetService.GetUsedRangeBounds で値なし書式セルを空扱いしない
+  - 詳細: `pGetRawUsedRange` は UsedRange が 1 セルだけの場合、値が空で四辺の罫線がないことだけを見て空範囲としている。塗りつぶし、フォント、表示形式、コメント、ハイパーリンク、入力規則など、値以外の使用状態を確認していない。
+  - 影響: 書式だけを持つセルを `GetUsedRangeBounds(GetRawRange:=True)` が空範囲として返し、`CopyRange(CopyNumberFormat:=True)` など UsedRange に依存する処理で書式のみの使用セルが落ちる可能性がある。
+  - 対応案: 「使用中」に含める書式・コメント・リンクの範囲を仕様化し、Raw UsedRange は Excel の UsedRange 境界を尊重するか、空判定で対象とする書式要素を明示的に検査する。値なしで表示形式、塗りつぶし、コメントだけがあるケースのテストを追加する。
+
+- [ ] [bug] WorksheetRangeBounds の省略値と明示的な不正行列番号を区別する
+  - 詳細: `Initialize` は省略値を `G_OMIT_CELL_INDEX` として受ける一方、`pWellFormBounds` は `Row < 1` / `Column < 1` をすべて 1 へ丸める。`TransformAbsolute` も `Row <= 0` / `Column <= 0` を「元の値を維持」と扱うため、呼び出し側が明示的に `0` や不正な負数を渡してもエラーにならない。
+  - 影響: 行列番号の計算ミスが範囲生成時に検出されず、先頭行・先頭列や元範囲を対象にした正しそうな `WorksheetRangeBounds` として伝播する。行削除、範囲クリア、コピーなどの破壊的操作では、誤った大きな範囲を処理する危険がある。
+  - 対応案: 省略を表す値と明示的な不正値を分け、`0` や許可していない負数は `Class WorksheetRangeBounds` の明示エラーにする。省略指定、`0`、`-2`、開始行列の上限超過を分けたテストを追加する。
+
 - [ ] [bug] WorksheetService.CopyRange の同一シート内重複コピーでコピー元を上書きしない
   - 詳細: `CopyRange` は左上から右下へセル単位で `pCopyCellCore` を実行する。コピー元とコピー先が同じシートで重なり、コピー先がコピー元より下または右にずれる場合、先に書いたコピー先セルを後続のコピー元セルとして読み直す。
   - 影響: `A1:A2` を `A2:A3` にコピーするような重複移動で、`A3` へ元の `A2` ではなくコピー後の `A2` が入るなど、Excel の範囲コピーと異なるデータ破壊が起こり得る。
   - 対応案: 同一シート内の交差を検出し、値・数式・表示形式を一度バッファに退避してから書き込むか、コピー方向を重なりに応じて逆順にする。上下左右の重複コピーと非重複コピーのテストを追加する。
-
-- [ ] [bug] WorksheetService.XLookup の検索範囲と戻り範囲の形状を検証する
-  - 詳細: `XLookup` は `LookupRangeBounds` と `ReturnRangeBounds` をそのまま `=XLOOKUP(...)` の式に埋め込み、検索範囲が 1 行または 1 列か、戻り範囲の行列数が検索方向と整合するかを確認していない。
-  - 影響: 2 次元検索範囲や行数・列数が合わない戻り範囲を渡すと、基盤 API の引数エラーではなく Excel の評価結果 `#VALUE!` などとして返り、データ未検出・式エラー・仕様違反の区別がつきにくい。
-  - 対応案: 検索範囲は 1 行または 1 列に制限し、戻り範囲は検索方向の長さを一致させる。`MatchMode` / `SearchMode` も Excel の有効値だけを受け付けるテストを追加する。
 
 - [ ] [bug] WorksheetRangeBounds.ToString の絶対 A1 アドレス生成を失敗させない
   - 詳細: `WorksheetRangeBounds.ToString(IsAbsoluteStartRow:=True...)` は `RangeAddress` に `ReferenceRow:=0` / `ReferenceColumn:=0` を渡すが、`RangeAddress` は絶対参照指定時に基準行・列が 1 未満だとエラーにしている。絶対参照では基準値を使わないため、`$A$1` のようなアドレス生成が不要に失敗し得る。
@@ -188,6 +193,11 @@
 
 ## 中優先度
 
+- [ ] [bug] WorkbookServiceTestDouble.RemoveVBComponents の配列キー生成を衝突しない形にする
+  - 詳細: `RemoveVBComponents` は `pBuildComponentNamesKey(ComponentNames)` で配列をカンマ連結した文字列にしてから `UnitTestUtils` のキーへ渡している。配列要素内のカンマをエスケープせず、要素型や配列境界も含めないため、`Array("A,B", "C")` と `Array("A", "B,C")` のような指定を区別できない。
+  - 影響: VBComponent 削除のスパイ記録で別の呼び出しが同じキーになり、テストが誤った呼び出しを検出または見逃す可能性がある。`Null` や `CVErr(...)` を含む配列では `CStr` 変換時の実行時エラーにもなる。
+  - 対応案: 配列引数は要素数、境界、型タグ、エスケープ済み値を含めてキー化するか、`UnitTestUtils` 側の配列キー対応へ寄せる。カンマを含むモジュール名、単一要素配列とスカラー、特殊値配列のテストを追加する。
+
 - [ ] [bug] TextFileEntity のファイルモード・EOF・Close 契約を揃える
   - 詳細: `OpenFile` の `pAsAppend` 分岐で `If pGetReadLock And pGetReadLock Then` となっており、読み取りロック指定時に `Open` 文を実行しないまま `pIsOpen = True` へ進む可能性がある。`pGetWriteLock` との組み合わせ判定の誤記に見える。
   - 詳細: `IsEndOfFile` は `Output` / `Append` で開いた書き込み用ファイルでも `EOF(pFileDesc)` を呼ぶ一方、`TextFileEntityTestDouble.IsEndOfFile` は `Not pIsOpen Or pAsWrite` の場合に True を返しており、実装とテストダブルの契約がずれている。
@@ -308,6 +318,11 @@
 
 ## 低優先度
 
+- [ ] [ux] WorksheetService.XLookup の検索範囲と戻り範囲の形状を検証する
+  - 詳細: `XLookup` は `LookupRangeBounds` と `ReturnRangeBounds` をそのまま `=XLOOKUP(...)` の式に埋め込み、検索範囲が 1 行または 1 列か、戻り範囲の行列数が検索方向と整合するかを確認していない。
+  - 影響: 2 次元検索範囲や行数・列数が合わない戻り範囲を渡すと、基盤 API の引数エラーではなく Excel の評価結果 `#VALUE!` などとして返り、データ未検出・式エラー・仕様違反の区別がつきにくい。
+  - 対応案: 検索範囲は 1 行または 1 列に制限し、戻り範囲は検索方向の長さを一致させる。`MatchMode` / `SearchMode` も Excel の有効値だけを受け付けるテストを追加する。
+
 - [ ] [ux] WorksheetRangeBoundsEnumerator.Initialize で Nothing の列挙対象を拒否する
   - 詳細: `Initialize(TargetCollection As WorksheetRangeBounds)` は `TargetCollection Is Nothing` を確認せず、`Target` に `Nothing` を設定したまま初期化済みにできる。`pCalculateLength` は `pRangeBounds Is Nothing` で何もせず、列挙子は長さ 0 のように振る舞う。
   - 影響: 呼び出し側の範囲生成漏れが初期化時に検出されず、`MoveNext` が False を返すだけの空列挙として扱われる。`Target` や `Current` で後から落ちる場合もあり、基盤列挙子として原因を追いにくい。
@@ -382,6 +397,11 @@
   - 詳細: テスト検出・実行・結果シート書き込み・再実行ボタン追加が `Lib_UnitTest.bas` にまとまっており、テストランナー単体の確認がしにくい。
   - 詳細: `Test_*.bas` が直接対応していない共通モジュールに、`ArrayObject.cls`、`Counter.cls`、`CounterSet.cls`、`DebugInformation.cls`、`Enumerator.cls`、`Lib_IPv4.bas`、`ObjectSet.cls`、`UnitTestAssert.cls`、`UnitTestUtils.cls`、`UserInputSheet.cls` がある。
   - 対応案: VBProject 走査、テスト候補抽出、結果出力を小さな関数に分ける。未テスト領域は、実バグが見つかっている `ObjectSet`、`Counter`、`UnitTestAssert`、`DebugInformation`、実務ロジック境界を担う `Lib_IPv4` から追加する。
+
+- [ ] [ref] UnitTestAssert のコメントアウト済み旧配列比較コードを削除する
+  - 詳細: `UnitTestAssert.cls` には、未使用の `pEqualsMultidimensionalArrayCore` がコメントアウトされたまま残っている。対応済み事項では削除済みと記録されているため、現在のソースと TODO 履歴の説明も食い違っている。
+  - 影響: 配列比較の現行仕様と、復活予定があるのか不明な旧実装案が同じ場所に並び、テスト失敗時や拡張時に読むべき実装を判断しにくい。
+  - 対応案: コメントアウト済みコードは削除し、必要な設計メモだけを TODO またはコメントへ短く残す。多次元配列の差分表示改善は既存 TODO の `EqualsArray` 表示改善へ集約する。
 
 - [ ] [ux] UnitTestAssert.EqualsArray の差分位置を多次元座標で表示する
   - 詳細: `EqualsArray` は多次元配列の境界は比較するが、要素差分の位置は `For Each` の線形インデックス `@0`、`@1` ... として出力する。`ReadRange` のような 2 次元配列では、どの行・列の不一致かを結果メッセージから直接読めない。
@@ -534,6 +554,11 @@
 ## 対応済み事項
 
 ### 高優先度だったもの
+
+- [x] [bug] Lib_UnitTest の実行用一時モジュールを名前未保持時も掃除する
+  - 詳細: `pRemoveRuntimeRunnerModule` が `pRuntimeRunnerModuleName` 空の場合に終了し、ブックを開き直した後などに残った `Tmp_UTRUN...` 標準モジュールを掃除できなかった。
+  - 最終対応: 保持名の有無にかかわらず `VBComponents` を走査し、標準モジュールかつ正規表現 `^Tmp_UTRUN[A-Z]{22}$` に一致する一時モジュールを削除するようにした。
+  - 確認: 残存標準モジュール、長さ不一致の標準モジュール、同形式名のクラスモジュールを挿入して `UnitTestMain` を実行し、対象だけ削除されることを確認した。`CommonModules.xlsm` の `UnitTestMain` 全件 OK を確認済み。
 
 - [x] [bug] TextFileEntityTestDouble.ReadLine の未登録読み取りを Dictionary 欠落キーで隠さない
   - 詳細: `ReadLine` が `ReadLine_Values(ReadCount)` を直接読み、未登録の読み取り位置を Dictionary 欠落キー作成と空文字列相当で隠し得た。

@@ -1506,6 +1506,116 @@ End Sub
 ' -----------------------------------------------------------------------------
 ' CopyRange
 ' -----------------------------------------------------------------------------
+Public Sub Test_CopyRange_OverlappedSameSheetDown_CopiesOriginalValues(ByVal Assert As UnitTestAssert)
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+
+    target_sheet.Range("A1").Value = "src1"
+    target_sheet.Range("A2").Value = "src2"
+    target_sheet.Range("A3").Value = "dst"
+
+    Dim src_bounds As WorksheetRangeBounds
+    Set src_bounds = New_RangeBounds(Row:=1, Column:=1, FinishRow:=2, FinishColumn:=1, Sheet:="test_output")
+
+    Dim dst_bounds As WorksheetRangeBounds
+    Set dst_bounds = New_RangeBounds(Row:=2, Column:=1, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    sheet_srv.CopyRange src_bounds, dst_bounds
+
+    ' Assert
+    Assert.Equals "src1", target_sheet.Range("A2").Value
+    Assert.Equals "src2", target_sheet.Range("A3").Value
+End Sub
+
+Public Sub Test_CopyRange_OverlappedSameSheetRight_CopiesOriginalValues(ByVal Assert As UnitTestAssert)
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+
+    target_sheet.Range("A1").Value = "src1"
+    target_sheet.Range("B1").Value = "src2"
+    target_sheet.Range("C1").Value = "dst"
+
+    Dim src_bounds As WorksheetRangeBounds
+    Set src_bounds = New_RangeBounds(Row:=1, Column:=1, FinishRow:=1, FinishColumn:=2, Sheet:="test_output")
+
+    Dim dst_bounds As WorksheetRangeBounds
+    Set dst_bounds = New_RangeBounds(Row:=1, Column:=2, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    sheet_srv.CopyRange src_bounds, dst_bounds
+
+    ' Assert
+    Assert.Equals "src1", target_sheet.Range("B1").Value
+    Assert.Equals "src2", target_sheet.Range("C1").Value
+End Sub
+
+Public Sub Test_CopyRange_OverlappedSameSheetDownRight_CopiesOriginalValues(ByVal Assert As UnitTestAssert)
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+
+    target_sheet.Range("A1").Value = "src11"
+    target_sheet.Range("B1").Value = "src12"
+    target_sheet.Range("A2").Value = "src21"
+    target_sheet.Range("B2").Value = "src22"
+
+    Dim src_bounds As WorksheetRangeBounds
+    Set src_bounds = New_RangeBounds(Row:=1, Column:=1, FinishRow:=2, FinishColumn:=2, Sheet:="test_output")
+
+    Dim dst_bounds As WorksheetRangeBounds
+    Set dst_bounds = New_RangeBounds(Row:=2, Column:=2, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    sheet_srv.CopyRange src_bounds, dst_bounds
+
+    ' Assert
+    Assert.Equals "src11", target_sheet.Range("B2").Value
+    Assert.Equals "src12", target_sheet.Range("C2").Value
+    Assert.Equals "src21", target_sheet.Range("B3").Value
+    Assert.Equals "src22", target_sheet.Range("C3").Value
+End Sub
+
+Public Sub Test_CopyRange_OverlappedSameSheetUpLeft_CopiesOriginalValues(ByVal Assert As UnitTestAssert)
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+
+    target_sheet.Range("B2").Value = "src11"
+    target_sheet.Range("C2").Value = "src12"
+    target_sheet.Range("B3").Value = "src21"
+    target_sheet.Range("C3").Value = "src22"
+
+    Dim src_bounds As WorksheetRangeBounds
+    Set src_bounds = New_RangeBounds(Row:=2, Column:=2, FinishRow:=3, FinishColumn:=3, Sheet:="test_output")
+
+    Dim dst_bounds As WorksheetRangeBounds
+    Set dst_bounds = New_RangeBounds(Row:=1, Column:=1, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    sheet_srv.CopyRange src_bounds, dst_bounds
+
+    ' Assert
+    Assert.Equals "src11", target_sheet.Range("A1").Value
+    Assert.Equals "src12", target_sheet.Range("B1").Value
+    Assert.Equals "src21", target_sheet.Range("A2").Value
+    Assert.Equals "src22", target_sheet.Range("B2").Value
+End Sub
+
 Public Sub Test_CopyRange_Call_CopyToDestination(ByVal Assert As UnitTestAssert)
     ' Arrange
     ' ÉVÅ[ÉgÇÃèÄîı

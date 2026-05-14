@@ -622,12 +622,36 @@ Public Sub CopyRange( _
     Dim last_row_idx As Long, last_col_idx As Long
     last_row_idx = MaxLng(src_bounds.RowCount, dst_bounds.RowCount) - 1
     last_col_idx = MaxLng(src_bounds.ColumnCount, dst_bounds.ColumnCount) - 1
-    
+
+    Dim row_start_idx As Long, row_end_idx As Long, row_step As Long
+    row_start_idx = 0
+    row_end_idx = last_row_idx
+    row_step = 1
+
+    Dim col_start_idx As Long, col_end_idx As Long, col_step As Long
+    col_start_idx = 0
+    col_end_idx = last_col_idx
+    col_step = 1
+
+    If src_sheet Is dst_sheet Then
+        If src_bounds.Row < dst_bounds.Row Then
+            row_start_idx = last_row_idx
+            row_end_idx = 0
+            row_step = -1
+        End If
+
+        If src_bounds.Column < dst_bounds.Column Then
+            col_start_idx = last_col_idx
+            col_end_idx = 0
+            col_step = -1
+        End If
+    End If
+
     ' 処理済みの配列数式を記録する配列を準備
     Dim procd_arr() As String: ReDim procd_arr(0)
     Dim row_idx As Long, col_idx As Long
-    For row_idx = 0 To last_row_idx
-        For col_idx = 0 To last_col_idx
+    For row_idx = row_start_idx To row_end_idx Step row_step
+        For col_idx = col_start_idx To col_end_idx Step col_step
             ' 配列数式のアンカーセルを得る (配列数式でない場合は Nothing)
             Dim arr_anchor As Range
             Set arr_anchor = pGetArrayFormulaAnchor(src_sheet, src_bounds.Row + row_idx, src_bounds.Column + col_idx)

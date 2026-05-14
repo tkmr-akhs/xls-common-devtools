@@ -15,11 +15,6 @@
 
 ## 高優先度
 
-- [ ] [bug] WorksheetService.CopyRange の同一シート内重複コピーでコピー元を上書きしない
-  - 詳細: `CopyRange` は左上から右下へセル単位で `pCopyCellCore` を実行する。コピー元とコピー先が同じシートで重なり、コピー先がコピー元より下または右にずれる場合、先に書いたコピー先セルを後続のコピー元セルとして読み直す。
-  - 影響: `A1:A2` を `A2:A3` にコピーするような重複移動で、`A3` へ元の `A2` ではなくコピー後の `A2` が入るなど、Excel の範囲コピーと異なるデータ破壊が起こり得る。
-  - 対応案: 同一シート内の交差を検出し、値・数式・表示形式を一度バッファに退避してから書き込むか、コピー方向を重なりに応じて逆順にする。上下左右の重複コピーと非重複コピーのテストを追加する。
-
 - [ ] [bug] WorksheetRangeBounds.ToString の絶対 A1 アドレス生成を失敗させない
   - 詳細: `WorksheetRangeBounds.ToString(IsAbsoluteStartRow:=True...)` は `RangeAddress` に `ReferenceRow:=0` / `ReferenceColumn:=0` を渡すが、`RangeAddress` は絶対参照指定時に基準行・列が 1 未満だとエラーにしている。絶対参照では基準値を使わないため、`$A$1` のようなアドレス生成が不要に失敗し得る。
   - 詳細: 列範囲の A1 生成では、終了列の絶対指定に `IsAbsoluteFinishColumn` ではなく `IsAbsoluteStartColumn` を使っており、開始列と終了列で絶対/相対指定を変えた場合に表記が崩れる。

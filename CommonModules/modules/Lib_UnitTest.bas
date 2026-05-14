@@ -133,6 +133,9 @@ Private Function pPrepareResultSheet(ByVal TestIndex As Long) As Worksheet
             ' シート作成を試行
             On Error Resume Next
             Set result_sheet = ThisWorkbook.Worksheets(C_SHEET_NAME)
+            If Err.Number <> 0 Then
+                Err.Clear
+            End If
             On Error GoTo 0
             If result_sheet Is Nothing Then
                 ' 新規シート

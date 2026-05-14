@@ -21,12 +21,6 @@
   - 影響: 配列引数を持つ API を個別変換なしでテストダブルに記録できず、任意文字列を同一性に含む値オブジェクトではスタブ値やスパイ結果の照合が不安定になる。
   - 対応案: 配列引数は要素型・次元・境界を含めてキー化するか、サポート外として `Class UnitTestUtils` の明示エラーにする。`IEquatable` / オブジェクト系キーにも同じエスケープと型タグ規則を適用し、衝突テストを追加する。
 
-
-- [ ] [bug] Lib_UnitTest の結果シート未作成経路で内部 Err.Number を残さない
-  - 詳細: `pPrepareResultSheet` は全件実行時に `On Error Resume Next` で `ThisWorkbook.Worksheets(C_SHEET_NAME)` を探すが、結果シートがない通常初回実行で発生したエラーを `Err.Clear` しないまま新規シート作成へ進む。
-  - 影響: `UnitTestMain` 自体は成功しても、呼び出し側や自動化側が `On Error Resume Next` 後の `Err.Number` を確認する運用では、正常な初回実行を失敗扱いする可能性がある。テストランナー内部の探索エラーと実際のテスト失敗も切り分けにくい。
-  - 対応案: 想定内の未検出エラーは分岐直後に `Err.Clear` し、結果シート既存/未作成それぞれで `Err.Number = 0` のまま戻ることを手動プローブまたはテストで固定する。
-
 - [ ] [bug] WorksheetRangeBounds.Item の負インデックスを範囲外として拒否する
   - 詳細: `WorksheetRangeBounds.Item` は `pGetCellVertical` / `pGetCellHorizontal` で `ItemIndex Mod ...` から行・列を計算するが、`ItemIndex < 0` を入口で拒否していない。負数を渡すと、範囲外エラーではなく開始位置より前のセルを返したり、正規化された別範囲になる可能性がある。
   - 影響: `WorksheetRangeBoundsEnumerator` 経由では通常発生しないが、公開 API として `Item(-1)` が意図しないセルを返すと、呼び出し側が範囲外アクセスを検出できず誤ったセルを読み書きする。
@@ -558,6 +552,11 @@
 ## 対応済み事項
 
 ### 高優先度だったもの
+
+- [x] [bug] Lib_UnitTest の結果シート未作成経路で内部 Err.Number を残さない
+  - 詳細: `pPrepareResultSheet` が全件実行時に結果シートを探索する際、未作成時の想定内エラーを `Err.Clear` せずに新規作成へ進んでいた。
+  - 最終対応: `ThisWorkbook.Worksheets(C_SHEET_NAME)` の探索直後に `Err.Number` を確認し、想定内の未検出エラーを `Err.Clear` してから通常分岐へ戻すようにした。
+  - 確認: `UNIT_TEST_SHEET` を削除した状態で `UnitTestMain` を呼び、呼び出し元の `Err.Number` が 0 のまま戻ることを確認した。`CommonModules.xlsm` の `UnitTestMain` 全件 OK を確認済み。
 
 - [x] [bug] UnitTestAssert の通常比較で配列引数を実行時エラーにしない
   - 詳細: `Equals` / `NotEquals` などの通常比較に配列を渡すと、`CStr` や `ExpectedValue = ActualValue` で型不一致になり得た。

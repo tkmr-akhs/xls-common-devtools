@@ -163,6 +163,58 @@ Public Sub Test_ToString_Uninitialized_ReturnsUninitializedString(ByVal Assert A
     Assert.IsTrue InStr(str_val, "UNINITIALIZED") > 0
 End Sub
 
+Public Sub Test_ToString_AbsoluteCell_ReturnsAbsoluteA1Address(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=1, Column:=1, Book:="MyBook.xlsm", Sheet:="Data")
+
+    ' Act
+    Dim actual_value As String
+    actual_value = range_bounds.ToString( _
+            IsAbsoluteStartRow:=True, _
+            IsAbsoluteStartColumn:=True, _
+            IsAbsoluteFinishRow:=True, _
+            IsAbsoluteFinishColumn:=True)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "[MyBook.xlsm]Data!$A$1", actual_value
+End Sub
+
+Public Sub Test_ToString_AbsoluteRowRange_ReturnsAbsoluteA1Address(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=1, FinishRow:=3, Book:="MyBook.xlsm", Sheet:="Data")
+
+    ' Act
+    Dim actual_value As String
+    actual_value = range_bounds.ToString(IsAbsoluteStartRow:=True, IsAbsoluteFinishRow:=True)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "[MyBook.xlsm]Data!$1:$3", actual_value
+End Sub
+
+Public Sub Test_ToString_AbsoluteColumnRange_ReturnsAbsoluteA1Address(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Column:=2, FinishColumn:=4, Book:="MyBook.xlsm", Sheet:="Data")
+
+    ' Act
+    Dim actual_value As String
+    actual_value = range_bounds.ToString(IsAbsoluteStartColumn:=True, IsAbsoluteFinishColumn:=True)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "[MyBook.xlsm]Data!$B:$D", actual_value
+End Sub
+
 ' -----------------------------------------------------------------------------
 ' Initialize
 ' -----------------------------------------------------------------------------

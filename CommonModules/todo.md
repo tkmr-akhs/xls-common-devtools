@@ -15,11 +15,22 @@
 
 ## 高優先度
 
-- [ ] [bug] WorksheetRangeBounds.ToString の絶対 A1 アドレス生成を失敗させない
-  - 詳細: `WorksheetRangeBounds.ToString(IsAbsoluteStartRow:=True...)` は `RangeAddress` に `ReferenceRow:=0` / `ReferenceColumn:=0` を渡すが、`RangeAddress` は絶対参照指定時に基準行・列が 1 未満だとエラーにしている。絶対参照では基準値を使わないため、`$A$1` のようなアドレス生成が不要に失敗し得る。
-  - 詳細: 列範囲の A1 生成では、終了列の絶対指定に `IsAbsoluteFinishColumn` ではなく `IsAbsoluteStartColumn` を使っており、開始列と終了列で絶対/相対指定を変えた場合に表記が崩れる。
-  - 影響: `WorksheetRangeBounds` の表示、同一性文字列、診断メッセージ、アドレス生成ヘルパーを絶対参照付きで使う呼び出しが、範囲値自体は正しいのに実行時エラーまたは誤ったアドレスになる。
-  - 対応案: A1 の基準値検証は相対参照を生成する場合だけ行い、列範囲の終了列には `IsAbsoluteFinishColumn` を渡す。絶対セル、絶対行範囲、絶対列範囲、開始/終了で絶対指定が異なる列範囲のテストを追加する。
+- [ ] [bug] UnitTestUtils の IEquatable 引数キー生成をインターフェイス経由にする
+  - 詳細: `UnitTestUtils.pGetKeyCore` は `TypeOf ArgItem Is IEquatable` のとき、`ArgItem.GetIdentityString()` を直接呼んでいる。`Implements IEquatable` したクラスが `Private Function IEquatable_GetIdentityString()` だけを持ち、公開 `GetIdentityString` を持たない場合、IEquatable としては正しい実装でも実行時エラーになる。
+  - 詳細: CommonModules 内でも `Test_ObjectSetEquatableDouble` / `Test_ObjectSetKeyPriorityDouble` はこの実装形で、`ObjectSet` 側は `Dim eq_item As IEquatable: Set eq_item = ObjectItem` としてから呼んでいるため方針が揺れている。
+  - 影響: テストダブルの引数キーに IEquatable 実装オブジェクトを使っただけで、スタブ値の登録・取得が失敗する。テスト支援基盤として、正しいインターフェイス実装を受け付けない。
+  - 対応案: `IEquatable` へ代入してから `GetIdentityString` を呼ぶ。公開ラッパーなしの IEquatable 実装、公開ラッパーありの実装、非 IEquatable オブジェクトのキー生成テストを追加する。
+
+- [ ] [bug] Lib_UnitTest のテスト検出で UnitTestAssert 以外の必須引数を除外する
+  - 詳細: `pRunAllTest` の正規表現は `UnitTestAssert` 引数を含む `Sub Test_...` を拾うが、後続の追加引数を禁止していない。そのため `Public Sub Test_X(ByVal Assert As UnitTestAssert, ByVal Other As Long)` のようなテストでない手続きも検出し、実行用一時モジュールは `AssertObject` だけを渡して呼び出す。
+  - 影響: 検出段階では正常なテストとして結果シートへ載る一方、実行時には runner error になり、テスト本体の失敗とテスト定義の不正が区別しづらい。
+  - 対応案: テスト手続きのシグネチャは `UnitTestAssert` 1 引数だけに限定するか、追加引数がすべて Optional かを明示的に検証する。追加必須引数、Optional 引数、ByRef/ByVal、改行された宣言の検出テストを追加する。
+
+- [ ] [bug] WorksheetService.CopyRange のコピー先範囲を空範囲・複数セルのまま受け付けない
+  - 詳細: `CopyRange` では `DestinationRangeBounds.IsEmpty` と `DestinationRangeBounds.IsCell` の検査がコメントアウトされているが、実処理では `DestinationRangeBounds.Row` / `Column` をコピー先左上として使い、`FinishRow` / `FinishColumn` は無視している。空範囲でも保持している開始行・列へコピーされ、複数セル範囲を渡しても形状不一致を検出しない。
+  - 影響: 呼び出し側が「コピー先なし」または「この範囲へコピー」と考えて渡した `WorksheetRangeBounds` が、意図しない左上セル起点の上書きとして実行され得る。
+  - 対応案: コピー先は単一セルアンカーだけを受け付ける、またはコピー先範囲の行列数がコピー元と一致する場合だけ許可する、のどちらかに契約を固定する。空範囲、単一セル、同形複数セル、形状不一致のテストを追加する。
+
 
 - [ ] [bug] WorksheetService.WriteCell の文字列書き込みで表示形式を必ず復元する
   - 詳細: `WriteCell(TypeConvert:=False)` または型変換に失敗した文字列書き込みでは、現在の `NumberFormatLocal` を退避してから一時的に `@` に変更し、値設定後に元へ戻している。値設定や復元前の処理でエラーになると、セルの表示形式が `@` のまま残る。
@@ -257,6 +268,11 @@
   - 詳細: `BitLeft` / `BitRight` は負のシフト数を逆方向シフトとして扱うが、`ShiftCount = -2147483648` のような `Long` 最小値では `-ShiftCount` 自体がオーバーフローする。32 ビット幅を超えるシフトを 0 埋めにするのか、明示エラーにするのかも固定されていない。
   - 影響: IPv4 計算など 32 ビット境界値を扱う基盤処理で、極端値だけ誤った結果、握りつぶされたエラー、または実行時エラーになる可能性がある。
   - 対応案: エラー制御を最小範囲に閉じ、シフト範囲と境界値の契約を入口で検証する。`0`、`31`、`32`、負数、`Long` 最小値、`&H80000000`、`&HFFFFFFFF` のテストを追加する。
+
+- [ ] [bug] Enumerator.Update の配列対象更新を呼び出し元へ反映しないまま成功扱いにしない
+  - 詳細: `Enumerator.Initialize` は `TargetCollection As Variant` を値渡しで受け取り、配列の場合は `pArray = NewValue` と内部フィールドへコピーする。`Update` は `pArray(pIndex)` を更新するだけなので、`GetArrayEnumerator(source_arr).Update(...)` を呼んでも元の `source_arr` は変わらない。
+  - 影響: ObjectList / ObjectSet の列挙子では `Update` が対象コレクションを更新するのに、配列列挙子だけは見かけ上成功して内部コピーだけが変わる。共通列挙インターフェイスとして書き込み可否が対象種別で予測しにくい。
+  - 対応案: 配列列挙子は常に読み取り専用にするか、ByRef で配列を保持できる別 API に分ける。配列、ObjectList、ObjectSet それぞれの `Update` / `Remove` 契約テストを追加する。
 
 - [ ] [spec] WorkbookService.OpenWorkbook の名称と実挙動を揃える
   - 詳細: `OpenWorkbook` は `Workbooks.Open` ではなく `Workbooks.Add(Template:=file_path)` でテンプレートから非表示ブックを作成している。コメントには元ファイルをロックしない旨があるが、API 名からは通常の open と誤解しやすい。
@@ -513,6 +529,19 @@
   - 詳細: `pRunAllTest` は `VBProject.VBComponents` の列挙順と各 `CodeModule` の出現順をそのまま結果シートに出力する。モジュールの import/export や VBIDE の内部順序変更で同じテスト集合でも行順が変わり得る。
   - 影響: 前回結果との目視比較、特定行の再実行ボタン、CI 風のログ比較で差分が出やすく、失敗したテストの追跡がしづらい。
   - 対応案: `Category`、`Test Item` の昇順など、実行順・表示順を仕様化する。依存順が必要なテストは禁止または別タグ化する。
+
+- [ ] [ref] UnitTestAssert のオブジェクト比較を参照同一性と値同一性に分ける
+  - 詳細: `Equals` / `NotEquals` のオブジェクト比較は `Is` による参照同一性だけで、`IEquatable` を実装する値オブジェクトでも内容比較は行わない。一方、`ObjectList` / `ObjectSet` や `UnitTestUtils` は `IEquatable.GetIdentityString` を値同一性として使っている。
+  - 影響: `WorksheetRangeBounds` などの値オブジェクトをテストするとき、同じ範囲を表す別インスタンスは `Equals` で失敗し、呼び出し側が毎回 `GetIdentityString` や個別プロパティ比較へ落とす必要がある。
+  - 対応案: 既存 `Equals` は参照同一性として維持しつつ、`EqualsObject` / `EqualsValueObject` / `SameReference` など名前で意図が分かる API を追加するか、`IEquatable` 対応の方針を明記する。
+
+- [ ] [ux] Lib_UnitTest の結果区分を失敗種別ごとに分ける
+  - 詳細: 現在は assertion 未実行、テスト本体の実行時エラー、実行用一時モジュール側の runner error がすべて `ERR` になる。説明文を読めば区別できるが、Result 列だけでテスト失敗、テスト定義不備、テスト基盤エラーを絞り込めない。
+  - 対応案: `NO_ASSERT`、`RUNTIME_ERR`、`RUNNER_ERR` のような内部区分列を追加するか、Result 列の値を分ける。既存の `OK` / `NG` / `ERR` フィルター運用と互換性を取る。
+
+- [ ] [ref] ObjectList / ObjectSet の相互取り込みメソッド名を型名付きへ揃える
+  - 詳細: `ObjectList.AddOther` は別の `ObjectList` を取り込み、`ObjectSet.AddOther` は別の `ObjectSet` を取り込む。同時に `ObjectList.AddSet` / `ObjectSet.AddList` も存在するため、`AddOther` だけでは取り込み元の型が名前から分かりにくい。
+  - 対応案: 既存名は互換ラッパーとして残し、`AddList` / `AddSet` または `AddRangeFromList` / `AddRangeFromSet` のように型と複数追加が分かる名前へ寄せる。公開コメントでも重複時・型違い時の挙動を明示する。
 
 ## TODO 整理メモ
 

@@ -204,6 +204,42 @@ Public Sub Test_SplitA1RangeAddress_MultiRange_RaisesError(ByVal Assert As UnitT
     If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
 End Sub
 
+Public Sub Test_RangeAddress_ColumnRangeMixedAbsoluteFlags_UsesFinishColumnFlag(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim actual_value As String
+    actual_value = RangeAddress( _
+            StartColumn:=2, _
+            FinishColumn:=4, _
+            IsAbsoluteStartColumn:=True, _
+            IsAbsoluteFinishColumn:=False, _
+            ReferenceColumn:=1, _
+            AddressType:="A1")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "$B:E", actual_value
+End Sub
+
+Public Sub Test_RangeAddress_ColumnRangeMixedAbsoluteFlags_CanMakeOnlyFinishColumnAbsolute(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim actual_value As String
+    actual_value = RangeAddress( _
+            StartColumn:=2, _
+            FinishColumn:=4, _
+            IsAbsoluteStartColumn:=False, _
+            IsAbsoluteFinishColumn:=True, _
+            ReferenceColumn:=1, _
+            AddressType:="A1")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "C:$D", actual_value
+End Sub
+
 Public Sub Test_RangeAddressShapeFunctions_ExpectedValues(ByVal Assert As UnitTestAssert)
     On Error Resume Next
 

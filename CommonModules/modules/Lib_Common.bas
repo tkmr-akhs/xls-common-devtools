@@ -3017,17 +3017,6 @@ Public Function RangeAddress( _
         Optional ByVal SheetName As String = "", _
         Optional ByVal BookName As String = "") As Variant
     
-    ' 相対参照の参照元確認
-    If (IsAbsoluteStartRow Or IsAbsoluteFinishRow) And ReferenceRow < 1 And AddressType = "A1" Then
-        Err.Raise Number:=vbObjectError + 1, Source:="Function RangeAddress", Description:="基準となる行インデックスは正である必要があります。(" & ReferenceRow & ")"
-        Exit Function
-    End If
-    
-    If (IsAbsoluteStartColumn Or IsAbsoluteFinishColumn) And ReferenceColumn < 1 And AddressType = "A1" Then
-        Err.Raise Number:=vbObjectError + 1, Source:="Function RangeAddress", Description:="基準となる列インデックスは正である必要があります。(" & ReferenceColumn & ")"
-        Exit Function
-    End If
-    
     ' 行指定および列指定の確認
     If StartRow = G_OMIT_CELL_INDEX And StartColumn = G_OMIT_CELL_INDEX Then
         Err.Raise Number:=vbObjectError + 1, Source:="Function RangeAddress", Description:="開始行と開始列の両方を省略することはできません。"
@@ -3101,7 +3090,7 @@ Public Function RangeAddress( _
             If is_row_range Then
                 result_value = result_value & pA1RowAddressCore(StartRow, IsAbsoluteStartRow, ReferenceRow) & ":" & pA1RowAddressCore(FinishRow, IsAbsoluteFinishRow, ReferenceRow)
             ElseIf is_col_range Then
-                result_value = result_value & pA1columnAddressCore(StartColumn, IsAbsoluteStartColumn, ReferenceColumn) & ":" & pA1columnAddressCore(FinishColumn, IsAbsoluteStartColumn, ReferenceColumn)
+                result_value = result_value & pA1columnAddressCore(StartColumn, IsAbsoluteStartColumn, ReferenceColumn) & ":" & pA1columnAddressCore(FinishColumn, IsAbsoluteFinishColumn, ReferenceColumn)
             Else
                 result_value = result_value & pA1columnAddressCore(StartColumn, IsAbsoluteStartColumn, ReferenceColumn) & pA1RowAddressCore(StartRow, IsAbsoluteStartRow, ReferenceRow) & _
                         ":" & pA1columnAddressCore(FinishColumn, IsAbsoluteFinishColumn, ReferenceColumn) & pA1RowAddressCore(FinishRow, IsAbsoluteFinishRow, ReferenceRow)

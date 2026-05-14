@@ -15,11 +15,6 @@
 
 ## 高優先度
 
-- [ ] [bug] Lib_UnitTest のテスト候補検出で複数行 Sub 宣言を見落とさない
-  - 詳細: `pRunAllTest` は `CodeModule.Lines(line_idx, 1)` で 1 物理行ずつ読み、正規表現で `Test_...` 手続きを検出している。`_` で改行した `Sub` 宣言は 1 行の宣言として見なされず、テスト候補から外れる。
-  - 影響: 長いテスト名や引数宣言を規約に合わせて折り返しただけで、テストが結果シートに現れず実行もされない。スキップ表示もないため、未実行に気付きにくい。
-  - 対応案: 行継続を連結した論理行で宣言を検出するか、VBIDE の手続き情報を使って列挙する。1 行宣言、行継続宣言、`Public Sub` / `Sub` の各ケースをテストまたは手動プローブで固定する。
-
 - [ ] [bug] Lib_UnitTest のテスト候補検出でコメント行を誤実行しない
   - 詳細: `pRunAllTest` の正規表現は行頭の `'` コメントは除外できるが、`Rem Public Sub Test_...(Assert As UnitTestAssert)` のような `Rem` コメントや、コメント化されたテスト宣言風の行を構文として判定し得る。
   - 影響: 無効化したテストや説明コメントがテスト候補として結果シートに出力され、実行時には存在しない手続き呼び出しとして runner error になる。テスト失敗なのかランナーの検出誤りなのかを切り分けにくい。
@@ -588,14 +583,21 @@
 
 ### 高優先度だったもの
 
+- [x] [bug] Lib_UnitTest のテスト候補検出で複数行 Sub 宣言を見落とさない
+  - 詳細: `pRunAllTest` がコードを 1 物理行ずつ正規表現にかけていたため、`_` で折り返した `Test_...` 手続き宣言を検出できなかった。
+  - 最終対応: `_` による行継続を連結して論理行を作成し、その論理行を既存のテスト候補検出正規表現にかけるようにした。
+  - 確認: 複数行 `Sub` 宣言の `Test_Lib_UnitTest` を追加し、結果シートに `OK` として出力されることを確認した。`CommonModules.xlsm` の `UnitTestMain` 全件 OK を確認済み。
+
 - [x] [bug] Lib_UnitTest / UnitTestAssert でアサーション 0 件のテストを OK にしない
   - 詳細: `UnitTestAssert` はアサーション実行数を内部で数えていたが、テストランナー側は `IsFailed` だけで結果判定していたため、`Assert.*` を 1 回も呼ばないテストが OK になっていた。
   - 最終対応: `UnitTestAssert.AssertionCount` を公開し、`Lib_UnitTest.pWriteResult` で `AssertionCount <= 0` のテストを `ERR` として記録するようにした。Description には `No assertions were executed.` を出力する。
   - 確認: `Test_UnitTestAssert.bas` にアサーション件数のテストを追加し、一時プローブで 0 アサーションのテストが `ERR` になることを確認した。`CommonModules.xlsm` の `UnitTestMain` 全件 OK を確認済み。
+
 - [x] [bug] WorksheetRangeBounds の空範囲を Shift / Transform 系で維持する
   - 詳細: 空範囲は `FinishRow = 0` や `FinishColumn = 0` で表現されるが、`Shift` で負方向へ移動すると `pFinishRow + Row` / `pFinishColumn + Column` が負値になり、`Initialize` の `pWellFormBounds` が「省略」と解釈して開始行・開始列へ補完していた。
   - 最終対応: `Shift` では開始行・開始列だけをシフトし、`FinishRow` / `FinishColumn` が `0` の場合は空方向の番兵として `0` を維持するようにした。`0` 以外の終了位置はシフト後 1 未満または上限超過をエラーにする。
   - 確認: `Test_WorksheetRangeBounds.bas` に行方向・列方向の空範囲を負方向へ `Shift` するテストを追加し、`CommonModules.xlsm` の `UnitTestMain` 全件 OK を確認済み。
+
 - [x] [bug] Lib_UnitTest でテスト単位の実行時エラーを ERR として記録する
   - 詳細: `pRunTestCore` は `Application.Run` の実行時エラーをテスト単位で捕捉していないため、テスト内で予期しないエラーが発生すると `UnitTestMain` 全体が中断し、そのテスト行も結果として記録されなかった。
   - 最終対応: テスト呼び出し用の一時ラッパーモジュールをランナー内部で生成し、ラッパー内の直接呼び出しで実行時エラーを捕捉するようにした。捕捉したエラーは対象テスト行へ `ERR` として記録し、`Err.Number`、`Err.Source`、`Err.Description` を Description に出す。アサート失敗の `NG`、正常終了の `OK` と状態を分けた。
@@ -680,6 +682,7 @@
   - 影響: キー生成失敗、`Nothing` の扱いが呼び出し箇所ごとに読み取りにくく、エラー原因の追跡もしづらかった。
   - 最終対応: `Nothing` は通常要素として許可し、`Set ObjectKey = ObjectItem` で Dictionary キーへ渡すようにした。キー生成の優先順位は `IDuplicateCheckable`、`IEquatable`、オブジェクト参照、プリミティブ値の順で固定した。最初に `Nothing` が入った場合も、最初の非 `Nothing` 要素で集合種別が確定する。
   - 確認: `Test_ObjectSet.bas` に `Nothing`、`IDuplicateCheckable`、`IEquatable`、キー優先順位のテストを追加し、`CommonModules.xlsm` の `UnitTestMain` 全件 OK を確認済み。
+
 - [x] [bug] UnitTestUtils の Dictionary 欠落キー参照を修正する
   - 詳細: `UnitTestUtils.GetValue` は `Values(pGetKey(Args))` を直接読み取っており、未設定スタブの値取得時に Dictionary を汚していた。値型の戻り値では Empty / False / 0 / 空文字相当として流れる可能性もあった。
   - 影響: 不存在取得が単なる失敗ではなく内部状態変更を伴うため、エラー捕捉後の後続処理やテストダブルの記録内容が実際とずれる可能性があった。
@@ -739,6 +742,7 @@
   - 詳細: `OpenWorkbook`、`SaveWorkbook`、`RemoveWorksheet`、`CopyWorksheet`、`Lib_UnitTest.UnitTestMain` は Excel 設定やアクティブブックを個別に退避復元しており、例外時の復元経路が不足していた。
   - 最終対応: 負数 `SheetIndex` は `-1` を末尾として扱う式へ修正した。`GetExcelFileFormat` は `LCase$` で拡張子の大小文字を無視するようにした。`SaveWorkbook` は `SaveAs` 失敗を再送出し、保存対象ウィンドウ、アクティブブック、Excel 設定を成功時・失敗時とも復元するようにした。`OpenWorkbook`、`RemoveWorksheet`、`CopyWorksheet`、`UnitTestMain` も `ApplicationScreenUpdateManager` とエラー経路で復元する形へ整理した。
   - 確認: `Test_WorkbookService.bas` と `Test_Lib_Common.bas` に負数 `SheetIndex`、保存失敗、拡張子大小文字のテストを追加し、`CommonModules.xlsm` へ import 後に `UnitTestMain` 全件 OK を確認済み。
+
 - [x] [bug] WorksheetService の UsedRange 取得と範囲クリア境界を修正する
   - 詳細: `pGetRawUsedRange` の空領域判定が `If used_s_row = used_s_row And used_s_col = used_f_col ...` となっており、開始行と終了行の比較が常に True になっていた。`used_s_row = used_f_row` の誤記だった。
   - 詳細: `pGetFirstRowCore` / `pGetFirstColumnCore` は `srch_rng.Cells(srch_rng.Cells.Count)` を使うため、全シート級の範囲では Excel の `Range.Count` 桁あふれが発生していた。

@@ -194,9 +194,10 @@ Private Sub pRunAllTest(ByVal ResultSheet As Worksheet)
             
             ' コード モジュールのすべての行を処理する
             Dim line_idx As Long
-            For line_idx = 1 To vb_comp_code.CountOfLines
+            line_idx = 1
+            Do While line_idx <= vb_comp_code.CountOfLines
                 Dim code_line As String
-                code_line = vb_comp_code.Lines(line_idx, 1)
+                code_line = pReadLogicalLine(vb_comp_code, line_idx)
                 
                 ' 行が正規表現にマッチするかチェック
                 Dim match_result As MatchCollection
@@ -217,10 +218,47 @@ Private Sub pRunAllTest(ByVal ResultSheet As Worksheet)
                     ' 行を進める
                     row_idx = row_idx + 1
                 End If
-            Next line_idx
+                line_idx = line_idx + 1
+            Loop
         End If
     Next vb_comp
 End Sub
+
+Private Function pReadLogicalLine(ByVal CodeModule As Variant, ByRef LineIndex As Long) As String
+    Dim logical_line As String
+
+    Do While LineIndex <= CodeModule.CountOfLines
+        Dim physical_line As String
+        physical_line = CodeModule.Lines(LineIndex, 1)
+
+        If pHasLineContinuation(physical_line) Then
+            logical_line = logical_line & pRemoveLineContinuation(physical_line) & " "
+            LineIndex = LineIndex + 1
+        Else
+            logical_line = logical_line & physical_line
+            Exit Do
+        End If
+    Loop
+
+    pReadLogicalLine = logical_line
+End Function
+
+Private Function pHasLineContinuation(ByVal CodeLine As String) As Boolean
+    Dim trimmed_line As String
+    trimmed_line = RTrim$(CodeLine)
+    If Len(trimmed_line) < 2 Then Exit Function
+    If Right$(trimmed_line, 1) <> "_" Then Exit Function
+
+    Dim previous_char As String
+    previous_char = Mid$(trimmed_line, Len(trimmed_line) - 1, 1)
+    pHasLineContinuation = (previous_char = " " Or previous_char = vbTab)
+End Function
+
+Private Function pRemoveLineContinuation(ByVal CodeLine As String) As String
+    Dim trimmed_line As String
+    trimmed_line = RTrim$(CodeLine)
+    pRemoveLineContinuation = RTrim$(Left$(trimmed_line, Len(trimmed_line) - 1))
+End Function
 
 Private Sub pRunTestCore(ByVal ResultSheet As Worksheet, ByVal TestModName As String, ByVal TestSubName As String, ByVal RowIndex As Long)
     Dim assert_obj As UnitTestAssert: Set assert_obj = New UnitTestAssert

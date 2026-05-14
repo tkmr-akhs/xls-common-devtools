@@ -16,6 +16,9 @@ Option Explicit
 '!
 ' #############################################################################
 
+Private Const C_ARRAY_COMPARISON_ERROR As String = "Array arguments are not supported by scalar assertions. Use EqualsArray or NotEqualsArray."
+Private Const C_NUMERIC_COMPARISON_ERROR As String = "Numeric assertions require Byte, Integer, Long, LongLong, Single, or Double values."
+
 Private pCallCount As Long
 Private pIsFailed As Boolean
 Private pResultMessage As String
@@ -52,18 +55,23 @@ End Sub
 Public Sub Equals(ByVal ExpectedValue As Variant, ByVal ActualValue As Variant)
     ' すでに失敗済みの時は処理をしない
     If pIsFailed Then Exit Sub
-    
+
+    If pHasArrayArgument(ExpectedValue, ActualValue) Then
+        Call pSetUnsupportedComparisonResult(ExpectedValue, ActualValue, C_ARRAY_COMPARISON_ERROR)
+        Exit Sub
+    End If
+
     Dim expected_str As String
     Dim actual_str As String
     Dim is_equal As Boolean
-    
+
     Call pEqualsCore(is_equal, expected_str, actual_str, ExpectedValue, ActualValue, False)
-    
+
     If Not is_equal Then
         Call pSetResultMessage(expected_str, actual_str)
         pIsFailed = True
     End If
-    
+
     ' 常に行う処理
     pCallCount = pCallCount + 1
 End Sub
@@ -79,18 +87,23 @@ End Sub
 Public Sub NotEquals(ByVal ExpectedValue As Variant, ByVal ActualValue As Variant)
     ' すでに失敗済みの時は処理をしない
     If pIsFailed Then Exit Sub
-    
+
+    If pHasArrayArgument(ExpectedValue, ActualValue) Then
+        Call pSetUnsupportedComparisonResult(ExpectedValue, ActualValue, C_ARRAY_COMPARISON_ERROR)
+        Exit Sub
+    End If
+
     Dim expected_str As String
     Dim actual_str As String
     Dim is_equal As Boolean
-    
+
     Call pEqualsCore(is_equal, expected_str, actual_str, ExpectedValue, ActualValue, False)
-    
+
     If is_equal Then
         Call pSetResultMessage(expected_str, actual_str)
         pIsFailed = True
     End If
-    
+
     ' 常に行う処理
     pCallCount = pCallCount + 1
 End Sub
@@ -107,18 +120,28 @@ End Sub
 Public Sub EqualsNumeric(ByVal ExpectedValue As Variant, ByVal ActualValue As Variant)
     ' すでに失敗済みの時は処理をしない
     If pIsFailed Then Exit Sub
-    
+
+    If pHasArrayArgument(ExpectedValue, ActualValue) Then
+        Call pSetUnsupportedComparisonResult(ExpectedValue, ActualValue, C_ARRAY_COMPARISON_ERROR)
+        Exit Sub
+    End If
+
+    If Not pIsNumericComparisonValue(ExpectedValue) Or Not pIsNumericComparisonValue(ActualValue) Then
+        Call pSetUnsupportedComparisonResult(ExpectedValue, ActualValue, C_NUMERIC_COMPARISON_ERROR)
+        Exit Sub
+    End If
+
     Dim expected_str As String
     Dim actual_str As String
     Dim is_equal As Boolean
-    
+
     Call pEqualsCore(is_equal, expected_str, actual_str, ExpectedValue, ActualValue, True)
-    
+
     If Not is_equal Then
         Call pSetResultMessage(expected_str, actual_str)
         pIsFailed = True
     End If
-    
+
     ' 常に行う処理
     pCallCount = pCallCount + 1
 End Sub
@@ -135,18 +158,28 @@ End Sub
 Public Sub NotEqualsNumeric(ByVal ExpectedValue As Variant, ByVal ActualValue As Variant)
     ' すでに失敗済みの時は処理をしない
     If pIsFailed Then Exit Sub
-    
+
+    If pHasArrayArgument(ExpectedValue, ActualValue) Then
+        Call pSetUnsupportedComparisonResult(ExpectedValue, ActualValue, C_ARRAY_COMPARISON_ERROR)
+        Exit Sub
+    End If
+
+    If Not pIsNumericComparisonValue(ExpectedValue) Or Not pIsNumericComparisonValue(ActualValue) Then
+        Call pSetUnsupportedComparisonResult(ExpectedValue, ActualValue, C_NUMERIC_COMPARISON_ERROR)
+        Exit Sub
+    End If
+
     Dim expected_str As String
     Dim actual_str As String
     Dim is_equal As Boolean
-    
+
     Call pEqualsCore(is_equal, expected_str, actual_str, ExpectedValue, ActualValue, True)
-    
+
     If is_equal Then
         Call pSetResultMessage(expected_str, actual_str)
         pIsFailed = True
     End If
-    
+
     ' 常に行う処理
     pCallCount = pCallCount + 1
 End Sub
@@ -158,45 +191,52 @@ Private Sub pEqualsCore( _
         ByVal ExpectedValue As Variant, _
         ByVal ActualValue As Variant, _
         ByVal IgnoreNumericType As Boolean)
-    
+
     Dim actual_is_object As Boolean
     Dim expected_is_object As Boolean
-    
+
     expected_is_object = IsObject(ExpectedValue)
     actual_is_object = IsObject(ActualValue)
-    
+
+    If pHasArrayArgument(ExpectedValue, ActualValue) Then
+        ExpectedValueString = pAssertValueString(ExpectedValue)
+        ActualValueString = pAssertValueString(ActualValue)
+        CheckResult = False
+        Exit Sub
+    End If
+
     If expected_is_object And Not actual_is_object _
             Or Not expected_is_object And actual_is_object Then
-        
+
         ExpectedValueString = "Entity of " & TypeName(ExpectedValue)
         ActualValueString = "Entity of " & TypeName(ActualValue)
         CheckResult = False
         Exit Sub
     End If
-    
+
     ' ここまでで、片方がプリミティブ型で、片方がオブジェクト型の場合は早期リターンされている
-    
+
     If actual_is_object Then
         ' 両方オブジェクト型
-    
+
         Dim actual_is_nothing As Boolean
         Dim expected_is_nothing As Boolean
-        
+
         actual_is_nothing = (ActualValue Is Nothing)
         expected_is_nothing = (ExpectedValue Is Nothing)
-        
+
         If actual_is_nothing Then
             ActualValueString = "Nothing"
         Else
             ActualValueString = "Entity of " & TypeName(ActualValue)
         End If
-        
+
         If expected_is_nothing Then
             ExpectedValueString = "Nothing"
         Else
             ExpectedValueString = "Entity of " & TypeName(ExpectedValue)
         End If
-        
+
         If expected_is_nothing Or actual_is_nothing Then
             If expected_is_nothing And actual_is_nothing Then
                 CheckResult = True
@@ -205,9 +245,9 @@ Private Sub pEqualsCore( _
             End If
             Exit Sub
         End If
-        
+
         ' ここまでで、どちらかが、あるいはどちらも Nothing の場合は早期リターンされている
-    
+
         If Not ExpectedValue Is ActualValue Then
             CheckResult = False
         Else
@@ -223,34 +263,69 @@ Private Sub pEqualsCore( _
     End If
 End Sub
 
+Private Function pHasArrayArgument(ByVal ExpectedValue As Variant, ByVal ActualValue As Variant) As Boolean
+    pHasArrayArgument = IsArray(ExpectedValue) Or IsArray(ActualValue)
+End Function
+
+Private Sub pSetUnsupportedComparisonResult( _
+        ByVal ExpectedValue As Variant, _
+        ByVal ActualValue As Variant, _
+        ByVal AdditionalInformation As String)
+
+    Call pSetResultMessage(pAssertValueString(ExpectedValue), pAssertValueString(ActualValue), AdditionalInformation)
+    pCallCount = pCallCount + 1
+End Sub
+
+Private Function pAssertValueString(ByVal TargetValue As Variant) As String
+    If IsObject(TargetValue) Then
+        If TargetValue Is Nothing Then
+            pAssertValueString = "Nothing"
+        Else
+            pAssertValueString = "Entity of " & TypeName(TargetValue)
+        End If
+    ElseIf IsArray(TargetValue) Then
+        pAssertValueString = TypeName(TargetValue) & "<Array>"
+    Else
+        pAssertValueString = pPrimitiveValueString(TargetValue)
+    End If
+End Function
+
+Private Function pIsNumericComparisonValue(ByVal TargetValue As Variant) As Boolean
+    If IsObject(TargetValue) Then Exit Function
+    If IsArray(TargetValue) Then Exit Function
+    If pIsSpecialPrimitive(TargetValue) Then Exit Function
+
+    pIsNumericComparisonValue = pIsNumericType(TypeName(TargetValue))
+End Function
+
 Private Sub pEqualsPrimitiveCore( _
         ByRef CheckResult As Boolean, _
         ByRef ExpectedValueString As String, _
         ByRef ActualValueString As String, _
         ByVal ExpectedValue As Variant, _
         ByVal ActualValue As Variant)
-    
-    
+
+
     Dim expect_type As String
     expect_type = TypeName(ExpectedValue)
-    
+
     Dim actual_type As String
     actual_type = TypeName(ActualValue)
-    
+
     ExpectedValueString = pPrimitiveValueString(ExpectedValue)
     ActualValueString = pPrimitiveValueString(ActualValue)
-    
+
     If pIsSpecialPrimitive(ExpectedValue) Or pIsSpecialPrimitive(ActualValue) Then
         CheckResult = pSpecialPrimitivesEqual(ExpectedValue, ActualValue)
         Exit Sub
     End If
-    
+
     If expect_type = "String" And Not actual_type = "String" _
             Or Not expect_type = "String" And actual_type = "String" Then
         CheckResult = False
         Exit Sub
     End If
-    
+
     If ExpectedValue = ActualValue Then
         If TypeName(ExpectedValue) <> TypeName(ActualValue) Then
             CheckResult = False
@@ -268,15 +343,20 @@ Private Sub pEqualsPrimitiveNumericCore( _
         ByRef ActualValueString As String, _
         ByVal ExpectedValue As Variant, _
         ByVal ActualValue As Variant)
-    
+
     ExpectedValueString = pPrimitiveValueString(ExpectedValue)
     ActualValueString = pPrimitiveValueString(ActualValue)
-    
+
+    If Not pIsNumericComparisonValue(ExpectedValue) Or Not pIsNumericComparisonValue(ActualValue) Then
+        CheckResult = False
+        Exit Sub
+    End If
+
     If pIsSpecialPrimitive(ExpectedValue) Or pIsSpecialPrimitive(ActualValue) Then
         CheckResult = False
         Exit Sub
     End If
-    
+
     If ExpectedValue = ActualValue Then
         If pIsNumericType(TypeName(ExpectedValue)) And pIsNumericType(TypeName(ActualValue)) Then
             CheckResult = True
@@ -372,11 +452,11 @@ End Sub
 Public Sub IsTypeOf(ByVal ExpectedTypeName As String, ByVal ActualValue As Variant)
     ' すでに失敗済みの時は処理をしない
     If pIsFailed Then Exit Sub
-    
+
     If TypeName(ActualValue) <> ExpectedTypeName Then
         Call pSetResultMessage("<" & ExpectedTypeName & ">", "<" & TypeName(ActualValue) & ">")
     End If
-    
+
     ' 常に行う処理
     pCallCount = pCallCount + 1
 End Sub
@@ -418,20 +498,20 @@ End Sub
 Public Function ErrorRaised(ByVal ExpectedCode As Long, ByVal ActualCode As Long, ByVal ErrorSource As String, ByVal ErrorDescription As String) As Boolean
     ' すでに失敗済みの時は処理をしない
     If pIsFailed Then Exit Function
-    
+
     Dim expected_str As String
     Dim actual_str As String
     Dim is_error As Boolean
-    
+
     Call pErrorRaisedCore(is_error, expected_str, actual_str, ExpectedCode, ActualCode, ErrorSource, ErrorDescription, False)
-    
+
     If is_error Then
         ErrorRaised = True
     Else
         Call pSetResultMessage(expected_str, actual_str)
         ErrorRaised = False
     End If
-    
+
     ' 常に行う処理
     pCallCount = pCallCount + 1
 End Function
@@ -451,20 +531,20 @@ End Function
 Public Function ErrorNotRaised(ByVal ExpectedCode As Long, ByVal ActualCode As Long, ByVal ErrorSource As String, ByVal ErrorDescription As String) As Boolean
     ' すでに失敗済みの時は処理をしない
     If pIsFailed Then Exit Function
-    
+
     Dim expected_str As String
     Dim actual_str As String
     Dim is_error As Boolean
-    
+
     Call pErrorRaisedCore(is_error, expected_str, actual_str, ExpectedCode, ActualCode, ErrorSource, ErrorDescription, True)
-    
+
     If is_error Then
         Call pSetResultMessage(expected_str, actual_str)
         ErrorNotRaised = False
     Else
         ErrorNotRaised = True
     End If
-    
+
     ' 常に行う処理
     pCallCount = pCallCount + 1
 End Function
@@ -478,7 +558,7 @@ Private Sub pErrorRaisedCore( _
         ByVal ErrorSource As String, _
         ByVal ErrorDescription As String, _
         ByVal AsNotRaised As Boolean)
-    
+
     If ActualCode = 0 Then
         CheckResult = False
         If ExpectedCode = 0 Then
@@ -525,19 +605,19 @@ End Sub
 Public Sub EqualsArray(ByVal ExpectedArray As Variant, ByVal ActualArray As Variant)
     ' すでに失敗済みの時は処理をしない
     If pIsFailed Then Exit Sub
-    
+
     Dim expected_str As String
     Dim actual_str As String
     Dim additional_str As String
     Dim is_equal As Boolean
-    
+
     Call pEqualsArrayCore(is_equal, expected_str, actual_str, additional_str, ExpectedArray, ActualArray, True)
-    
+
     If Not is_equal Then
         Call pSetResultMessage(expected_str, actual_str, AdditionalInformation:=additional_str)
         pIsFailed = True
     End If
-    
+
     ' 常に行う処理
     pCallCount = pCallCount + 1
 End Sub
@@ -553,19 +633,19 @@ End Sub
 Public Sub NotEqualsArray(ByVal ExpectedArray As Variant, ByVal ActualArray As Variant)
     ' すでに失敗済みの時は処理をしない
     If pIsFailed Then Exit Sub
-    
+
     Dim expected_str As String
     Dim actual_str As String
     Dim additional_str As String
     Dim is_equal As Boolean
-    
+
     Call pEqualsArrayCore(is_equal, expected_str, actual_str, additional_str, ExpectedArray, ActualArray, True)
-    
+
     If is_equal Then
         Call pSetResultMessage(expected_str, actual_str, AdditionalInformation:=additional_str)
         pIsFailed = True
     End If
-    
+
     ' 常に行う処理
     pCallCount = pCallCount + 1
 End Sub
@@ -578,28 +658,28 @@ Private Sub pEqualsArrayCore( _
         ByVal ExpectedArray As Variant, _
         ByVal ActualArray As Variant, _
         ByVal IgnoreNumericType As Boolean)
-    
+
     ExpectedValueString = TypeName(ExpectedArray)
     ActualValueString = TypeName(ActualArray)
-    
+
     ' 型が違う場合は失敗
     If ExpectedValueString <> ActualValueString Then
         CheckResult = False
         Exit Sub
     End If
-    
+
     ' どちらかが配列でなければ失敗
     If Not IsArray(ExpectedArray) Or Not IsArray(ActualArray) Then
         CheckResult = False
         Exit Sub
     End If
-    
+
     Dim expect_is_empty As Boolean
     expect_is_empty = IsEmptyArray(ExpectedArray)
-    
+
     Dim actual_is_empty As Boolean
     actual_is_empty = IsEmptyArray(ActualArray)
-    
+
     If expect_is_empty Or actual_is_empty Then
         CheckResult = expect_is_empty And actual_is_empty
         If Not CheckResult Then
@@ -612,23 +692,23 @@ Private Sub pEqualsArrayCore( _
         End If
         Exit Sub
     End If
-    
+
     ' 配列の LBound および UBound を得る
     Dim expect_lb_arr() As Long
     Dim expect_ub_arr() As Long
     Call GetArrayBounds(expect_lb_arr, expect_ub_arr, ExpectedArray)
-    
+
     Dim actual_lb_arr() As Long
     Dim actual_ub_arr() As Long
     Call GetArrayBounds(actual_lb_arr, actual_ub_arr, ActualArray)
-    
+
     ' 配列の次元数を算出
     Dim expect_dimension As Long
     expect_dimension = UBound(expect_lb_arr) - LBound(expect_lb_arr) + 1
-    
+
     Dim actual_dimension As Long
     actual_dimension = UBound(actual_lb_arr) - LBound(actual_lb_arr) + 1
-    
+
     ' 配列の次元数を比較
     If expect_dimension <> actual_dimension Then
         ExpectedValueString = "dimension is " & expect_dimension
@@ -636,7 +716,7 @@ Private Sub pEqualsArrayCore( _
         CheckResult = False
         Exit Sub
     End If
-    
+
     ' 次元ごとの LBound および UBound を比較
     Dim item_idx As Long
     For item_idx = LBound(expect_lb_arr) To UBound(expect_lb_arr)
@@ -646,7 +726,7 @@ Private Sub pEqualsArrayCore( _
             CheckResult = False
             Exit Sub
         End If
-        
+
         If expect_ub_arr(item_idx) <> actual_ub_arr(item_idx) Then
             ExpectedValueString = "ubound of dimension " & (item_idx + 1) & " is " & expect_ub_arr(item_idx)
             ActualValueString = "ubound of dimension " & (item_idx + 1) & " is " & actual_ub_arr(item_idx)
@@ -654,7 +734,7 @@ Private Sub pEqualsArrayCore( _
             Exit Sub
         End If
     Next item_idx
-    
+
     ' expect を 1 次元配列にする
     Dim expect_item As Variant
     Dim expect_arr() As Variant
@@ -668,7 +748,7 @@ Private Sub pEqualsArrayCore( _
         End If
         item_idx = item_idx + 1
     Next expect_item
-    
+
     ' すべての要素を Equals で比較
     ' 注意: 配列比較は型も含めて厳密一致とするため、IgnoreNumericType にかかわらず要素比較では数値型差を無視しない。
     Dim actual_item As Variant
@@ -684,10 +764,10 @@ Private Sub pEqualsArrayCore( _
             AdditionalInformation = "@" & item_idx
             Exit Sub
         End If
-        
+
         item_idx = item_idx + 1
     Next actual_item
-    
+
     CheckResult = True
 End Sub
 

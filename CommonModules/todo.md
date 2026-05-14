@@ -21,15 +21,6 @@
   - 影響: 配列引数を持つ API を個別変換なしでテストダブルに記録できず、任意文字列を同一性に含む値オブジェクトではスタブ値やスパイ結果の照合が不安定になる。
   - 対応案: 配列引数は要素型・次元・境界を含めてキー化するか、サポート外として `Class UnitTestUtils` の明示エラーにする。`IEquatable` / オブジェクト系キーにも同じエスケープと型タグ規則を適用し、衝突テストを追加する。
 
-- [ ] [bug] UnitTestAssert の通常比較で配列引数を実行時エラーにしない
-  - 詳細: `UnitTestAssert.Equals` / `NotEquals` / `EqualsNumeric` / `NotEqualsNumeric` は `pEqualsCore` で配列を特別扱いせず、プリミティブ比較経路の `ExpectedValue = ActualValue` へ進む。`Variant` 配列同士、または配列と非配列を誤って渡すと、アサーション失敗ではなく型不一致の実行時エラーになる。
-  - 影響: テストコードで `EqualsArray` を使い忘れた場合に、期待値・実値の診断メッセージを持つ NG ではなく、テストランナー上の ERR として記録される。失敗原因が比較対象の不一致なのか、テスト対象コードの実行時エラーなのかを切り分けにくい。
-  - 対応案: `IsArray` を `pEqualsCore` の入口で検出し、両方配列なら `pEqualsArrayCore` へ委譲するか、通常比較では配列非対応として `UnitTestAssert` の明示的な失敗メッセージにする。配列同士、配列とスカラー、数値型無視比較へ配列を渡したケースのテストを追加する。
-
-- [ ] [bug] UnitTestAssert の数値比較で非数値プリミティブを実行時エラーにしない
-  - 詳細: `EqualsNumeric` / `NotEqualsNumeric` は `pEqualsPrimitiveNumericCore` で `ExpectedValue = ActualValue` を実行してから `pIsNumericType` を確認している。`"abc"` と `1` のように暗黙変換できない非数値プリミティブを渡すと、アサーション失敗ではなく型不一致の実行時エラーになる。
-  - 影響: 数値比較アサーションの使い方を誤ったテストが `NG` ではなく `ERR` になり、テスト対象コードの実行時エラーとアサーション入力の不備を切り分けにくい。
-  - 対応案: 数値型・数値文字列として扱う範囲を比較前に判定し、対象外は明示的なアサーション不一致として記録する。非数値文字列、数値文字列、Date、Currency / Decimal の扱いをテストで固定する。
 
 - [ ] [bug] Lib_UnitTest の結果シート未作成経路で内部 Err.Number を残さない
   - 詳細: `pPrepareResultSheet` は全件実行時に `On Error Resume Next` で `ThisWorkbook.Worksheets(C_SHEET_NAME)` を探すが、結果シートがない通常初回実行で発生したエラーを `Err.Clear` しないまま新規シート作成へ進む。
@@ -568,6 +559,15 @@
 
 ### 高優先度だったもの
 
+- [x] [bug] UnitTestAssert の通常比較で配列引数を実行時エラーにしない
+  - 詳細: `Equals` / `NotEquals` などの通常比較に配列を渡すと、`CStr` や `ExpectedValue = ActualValue` で型不一致になり得た。
+  - 最終対応: 配列引数を公開メソッド入口と `pEqualsCore` で検出し、通常比較では `EqualsArray` / `NotEqualsArray` の利用を促す明示的な NG メッセージにした。
+  - 確認: `Equals` / `NotEquals` に配列を渡しても実行時エラーにならず、明示メッセージ付きで `IsFailed=True` になることを確認した。`CommonModules.xlsm` の `UnitTestMain` 全件 OK を確認済み。
+
+- [x] [bug] UnitTestAssert の数値比較で非数値プリミティブを実行時エラーにしない
+  - 詳細: `EqualsNumeric` / `NotEqualsNumeric` が数値型確認前に `ExpectedValue = ActualValue` を実行し、`"abc"` と `1` などで型不一致になり得た。
+  - 最終対応: 数値比較の公開メソッド入口で数値比較対象型を先に判定し、対象外は明示的な NG メッセージにした。
+  - 確認: `EqualsNumeric` / `NotEqualsNumeric` に非数値文字列を渡しても実行時エラーにならず、明示メッセージ付きで `IsFailed=True` になることを確認した。`CommonModules.xlsm` の `UnitTestMain` 全件 OK を確認済み。
 - [x] [bug] Lib_UnitTest.UnitTestMain の結果シート AutoFilter を再実行でトグルしない
   - 詳細: `pPrepareResultSheet` が個別再実行でも `Range(...).AutoFilter` を呼び、利用者が絞り込んだ結果シートのフィルター状態を変え得た。
   - 最終対応: 全件実行時だけ既存 AutoFilter を明示解除して再設定し、個別再実行では AutoFilter 状態に触れないようにした。

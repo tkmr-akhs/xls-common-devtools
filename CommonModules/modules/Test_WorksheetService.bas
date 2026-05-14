@@ -226,6 +226,46 @@ Public Sub Test_WriteCell_NumericStringAndConvertFalse_WritesAsString(ByVal Asse
     Assert.Equals "String", TypeName(actual_value)
 End Sub
 
+Public Sub Test_WriteCell_TextWriteError_RestoresNumberFormat(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+
+    target_sheet.Range("B7").NumberFormatLocal = "0.0000"
+    target_sheet.Protect Contents:=True, AllowFormattingCells:=True
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=7, Column:=2, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Err.Clear
+    sheet_srv.WriteCell range_bounds, "ABC123", TypeConvert:=False
+
+    Dim actual_error_number As Long
+    actual_error_number = Err.Number
+
+    Dim actual_error_source As String
+    actual_error_source = Err.Source
+
+    Dim actual_error_description As String
+    actual_error_description = Err.Description
+
+    Dim actual_format As String
+    actual_format = target_sheet.Range("B7").NumberFormatLocal
+
+    target_sheet.Unprotect
+    On Error GoTo 0
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, actual_error_number, actual_error_source, actual_error_description) Then Exit Sub
+    Assert.Equals "0.0000", actual_format
+End Sub
+
 Public Sub Test_WriteCell_DateString_WritesAsDate(ByVal Assert As UnitTestAssert)
     ' Arrange
     Dim target_sheet As Worksheet

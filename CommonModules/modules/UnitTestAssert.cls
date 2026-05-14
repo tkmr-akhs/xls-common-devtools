@@ -18,6 +18,7 @@ Option Explicit
 
 Private Const C_ARRAY_COMPARISON_ERROR As String = "Array arguments are not supported by scalar assertions. Use EqualsArray or NotEqualsArray."
 Private Const C_NUMERIC_COMPARISON_ERROR As String = "Numeric assertions require Byte, Integer, Long, LongLong, Single, or Double values."
+Private Const C_ARRAY_ASSERTION_ARGUMENT_ERROR As String = "Array assertions require array arguments."
 
 Private pCallCount As Long
 Private pIsFailed As Boolean
@@ -265,6 +266,10 @@ End Sub
 
 Private Function pHasArrayArgument(ByVal ExpectedValue As Variant, ByVal ActualValue As Variant) As Boolean
     pHasArrayArgument = IsArray(ExpectedValue) Or IsArray(ActualValue)
+End Function
+
+Private Function pHasNonArrayArgument(ByVal ExpectedValue As Variant, ByVal ActualValue As Variant) As Boolean
+    pHasNonArrayArgument = Not IsArray(ExpectedValue) Or Not IsArray(ActualValue)
 End Function
 
 Private Sub pSetUnsupportedComparisonResult( _
@@ -606,6 +611,11 @@ Public Sub EqualsArray(ByVal ExpectedArray As Variant, ByVal ActualArray As Vari
     ' Ç∑Ç≈Ç…é∏îsçœÇ›ÇÃéûÇÕèàóùÇÇµÇ»Ç¢
     If pIsFailed Then Exit Sub
 
+    If pHasNonArrayArgument(ExpectedArray, ActualArray) Then
+        Call pSetUnsupportedComparisonResult(ExpectedArray, ActualArray, C_ARRAY_ASSERTION_ARGUMENT_ERROR)
+        Exit Sub
+    End If
+
     Dim expected_str As String
     Dim actual_str As String
     Dim additional_str As String
@@ -633,6 +643,11 @@ End Sub
 Public Sub NotEqualsArray(ByVal ExpectedArray As Variant, ByVal ActualArray As Variant)
     ' Ç∑Ç≈Ç…é∏îsçœÇ›ÇÃéûÇÕèàóùÇÇµÇ»Ç¢
     If pIsFailed Then Exit Sub
+
+    If pHasNonArrayArgument(ExpectedArray, ActualArray) Then
+        Call pSetUnsupportedComparisonResult(ExpectedArray, ActualArray, C_ARRAY_ASSERTION_ARGUMENT_ERROR)
+        Exit Sub
+    End If
 
     Dim expected_str As String
     Dim actual_str As String

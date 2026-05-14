@@ -273,6 +273,110 @@ Public Sub Test_EqualsArray_OneEmptyOneNonEmpty_FailsWithoutError(ByVal Assert A
     Assert.IsTrue target_assert.IsFailed
 End Sub
 
+Public Sub Test_EqualsArray_NonArrayArgument_FailsWithExplicitMessage(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_assert As UnitTestAssert
+    Set target_assert = New UnitTestAssert
+
+    Dim actual_arr As Variant
+    actual_arr = Array("value")
+
+    ' Act
+    Call target_assert.EqualsArray("value", actual_arr)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Err.Clear
+    Assert.IsTrue target_assert.IsFailed
+    Assert.EqualsNumeric 1, target_assert.AssertionCount
+    Assert.IsTrue InStr(target_assert.ResultMessage, "Array assertions require") > 0
+End Sub
+
+Public Sub Test_NotEqualsArray_DifferentArrays_DoesNotFail(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_assert As UnitTestAssert
+    Set target_assert = New UnitTestAssert
+
+    Dim expected_arr As Variant
+    expected_arr = Array("expected")
+
+    Dim actual_arr As Variant
+    actual_arr = Array("actual")
+
+    ' Act
+    Call target_assert.NotEqualsArray(expected_arr, actual_arr)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Err.Clear
+    Assert.IsFalse target_assert.IsFailed
+    Assert.EqualsNumeric 1, target_assert.AssertionCount
+End Sub
+
+Public Sub Test_NotEqualsArray_NonArrayExpected_FailsWithExplicitMessage(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_assert As UnitTestAssert
+    Set target_assert = New UnitTestAssert
+
+    Dim actual_arr As Variant
+    actual_arr = Array("value")
+
+    ' Act
+    Call target_assert.NotEqualsArray("value", actual_arr)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Err.Clear
+    Assert.IsTrue target_assert.IsFailed
+    Assert.EqualsNumeric 1, target_assert.AssertionCount
+    Assert.IsTrue InStr(target_assert.ResultMessage, "Array assertions require") > 0
+End Sub
+
+Public Sub Test_NotEqualsArray_NonArrayActual_FailsWithExplicitMessage(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_assert As UnitTestAssert
+    Set target_assert = New UnitTestAssert
+
+    Dim expected_arr As Variant
+    expected_arr = Array("value")
+
+    ' Act
+    Call target_assert.NotEqualsArray(expected_arr, "value")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Err.Clear
+    Assert.IsTrue target_assert.IsFailed
+    Assert.EqualsNumeric 1, target_assert.AssertionCount
+    Assert.IsTrue InStr(target_assert.ResultMessage, "Array assertions require") > 0
+End Sub
+
+Public Sub Test_NotEqualsArray_BothNonArray_FailsWithExplicitMessage(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_assert As UnitTestAssert
+    Set target_assert = New UnitTestAssert
+
+    ' Act
+    Call target_assert.NotEqualsArray("expected", "actual")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Err.Clear
+    Assert.IsTrue target_assert.IsFailed
+    Assert.EqualsNumeric 1, target_assert.AssertionCount
+    Assert.IsTrue InStr(target_assert.ResultMessage, "Array assertions require") > 0
+End Sub
+
 Public Sub Test_EqualsArray_WithSpecialPrimitiveElements_DoesNotFail(ByVal Assert As UnitTestAssert)
     On Error Resume Next
 

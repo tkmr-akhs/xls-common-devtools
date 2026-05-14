@@ -26,6 +26,37 @@ Private Function pPrepareTestSheet(ByRef SheetName As String) As Worksheet
     Set pPrepareTestSheet = target_sheet
 End Function
 
+Private Sub pSetStaleFindFormat(ByVal TargetRange As Range)
+    Application.FindFormat.Clear
+    Application.FindFormat.Interior.Color = RGB(255, 0, 0)
+
+    Dim ignored_cell As Range
+    Set ignored_cell = TargetRange.Find( _
+            What:="__codex_not_found__", _
+            After:=TargetRange.Cells(1), _
+            LookIn:=xlValues, _
+            LookAt:=xlPart, _
+            SearchOrder:=xlByRows, _
+            SearchDirection:=xlNext, _
+            MatchCase:=False, _
+            SearchFormat:=True)
+End Sub
+
+Private Sub pClearStaleFindFormat(ByVal TargetRange As Range)
+    Application.FindFormat.Clear
+
+    Dim ignored_cell As Range
+    Set ignored_cell = TargetRange.Find( _
+            What:="__codex_not_found__", _
+            After:=TargetRange.Cells(1), _
+            LookIn:=xlValues, _
+            LookAt:=xlPart, _
+            SearchOrder:=xlByRows, _
+            SearchDirection:=xlNext, _
+            MatchCase:=False, _
+            SearchFormat:=False)
+End Sub
+
 Private Sub pWriteEmptyStringValue(ByVal TargetCell As Range)
     TargetCell.Formula = "="""""
     Call TargetCell.Copy
@@ -59,6 +90,116 @@ Public Sub Test_Find_EmptyRange_ReturnsEmptyResult(ByVal Assert As UnitTestAsser
     If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
     Assert.IsTrue IsEmptyArray(actual_ranges)
 End Sub
+
+Public Sub Test_Find_IgnoresPreviousSearchFormat(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+    target_sheet.Cells(2, 2).Value = "target"
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=1, Column:=1, FinishRow:=3, FinishColumn:=3, Sheet:="test_output")
+
+    Call pSetStaleFindFormat(target_sheet.Range("A1:C3"))
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Err.Clear
+    Dim actual_ranges() As WorksheetRangeBounds
+    actual_ranges = sheet_srv.Find("target", range_bounds)
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+    Call pClearStaleFindFormat(target_sheet.Range("A1:C3"))
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, actual_error_number, actual_error_source, actual_error_description) Then
+        On Error GoTo 0
+        Exit Sub
+    End If
+    On Error GoTo 0
+
+    Dim actual_is_empty As Boolean
+    actual_is_empty = IsEmptyArray(actual_ranges)
+    Assert.IsFalse actual_is_empty
+    If actual_is_empty Then Exit Sub
+
+    Assert.EqualsNumeric 0, LBound(actual_ranges)
+    Assert.EqualsNumeric 0, UBound(actual_ranges)
+    Assert.EqualsNumeric 2, actual_ranges(0).Row
+    Assert.EqualsNumeric 2, actual_ranges(0).Column
+End Sub
+
+Public Sub Test_Find_PreviousSearchOrder_DoesNotChangeResultOrder(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+    target_sheet.Cells(2, 2).Value = "target"
+    target_sheet.Cells(2, 4).Value = "target"
+    target_sheet.Cells(4, 2).Value = "target"
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=1, Column:=1, FinishRow:=5, FinishColumn:=5, Sheet:="test_output")
+
+    Dim ignored_cell As Range
+    Set ignored_cell = target_sheet.Range("A1:E5").Find( _
+            What:="target", _
+            After:=target_sheet.Range("A1"), _
+            LookIn:=xlValues, _
+            LookAt:=xlWhole, _
+            SearchOrder:=xlByColumns, _
+            SearchDirection:=xlPrevious, _
+            MatchCase:=False, _
+            SearchFormat:=False)
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Err.Clear
+    Dim actual_ranges() As WorksheetRangeBounds
+    actual_ranges = sheet_srv.Find("target", range_bounds)
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+    Call pClearStaleFindFormat(target_sheet.Range("A1:E5"))
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, actual_error_number, actual_error_source, actual_error_description) Then
+        On Error GoTo 0
+        Exit Sub
+    End If
+    On Error GoTo 0
+
+    Dim actual_is_empty As Boolean
+    actual_is_empty = IsEmptyArray(actual_ranges)
+    Assert.IsFalse actual_is_empty
+    If actual_is_empty Then Exit Sub
+
+    Assert.EqualsNumeric 0, LBound(actual_ranges)
+    Assert.EqualsNumeric 2, UBound(actual_ranges)
+    Assert.EqualsNumeric 2, actual_ranges(0).Row
+    Assert.EqualsNumeric 2, actual_ranges(0).Column
+    Assert.EqualsNumeric 2, actual_ranges(1).Row
+    Assert.EqualsNumeric 4, actual_ranges(1).Column
+    Assert.EqualsNumeric 4, actual_ranges(2).Row
+    Assert.EqualsNumeric 2, actual_ranges(2).Column
+End Sub
+
 ' -----------------------------------------------------------------------------
 ' Sort
 ' -----------------------------------------------------------------------------
@@ -963,6 +1104,49 @@ Public Sub Test_GetUsedRangeBounds_NotEmpty_ReturnsCorrectBounds(ByVal Assert As
     Assert.EqualsNumeric 2#, actual_bounds.Column
     Assert.EqualsNumeric 5#, actual_bounds.FinishRow
     Assert.EqualsNumeric 6#, actual_bounds.FinishColumn
+End Sub
+
+Public Sub Test_GetUsedRangeBounds_IgnoresPreviousSearchFormat(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+    target_sheet.Cells(2, 2).Value = "start"
+    target_sheet.Cells(6, 5).Value = "finish"
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=1, Column:=1, FinishRow:=8, FinishColumn:=8, Sheet:="test_output")
+
+    Call pSetStaleFindFormat(target_sheet.Range("A1:H8"))
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Err.Clear
+    Dim actual_bounds As WorksheetRangeBounds
+    Set actual_bounds = sheet_srv.GetUsedRangeBounds(range_bounds, IsUsedStartRow:=False, IsUsedStartColumn:=False)
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+    Call pClearStaleFindFormat(target_sheet.Range("A1:H8"))
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, actual_error_number, actual_error_source, actual_error_description) Then
+        On Error GoTo 0
+        Exit Sub
+    End If
+    On Error GoTo 0
+
+    Assert.EqualsNumeric 2, actual_bounds.Row
+    Assert.EqualsNumeric 2, actual_bounds.Column
+    Assert.EqualsNumeric 6, actual_bounds.FinishRow
+    Assert.EqualsNumeric 5, actual_bounds.FinishColumn
 End Sub
 
 Public Sub Test_GetUsedRangeBounds_Empty_ReturnsEmptyBounds(ByVal Assert As UnitTestAssert)

@@ -59,10 +59,22 @@ Public Function Find( _
     
     ' 1 個目を検索
     Dim first_cell As Range
-    Set first_cell = target_range.Find(What, LookIn:=look_in, LookAt:=look_at, MatchCase:=MatchCase, MatchByte:=MatchByte)
+    Set first_cell = target_range.Find( _
+            What:=What, _
+            After:=target_range.Cells(target_range.Rows.Count, target_range.Columns.Count), _
+            LookIn:=look_in, _
+            LookAt:=look_at, _
+            SearchOrder:=xlByRows, _
+            SearchDirection:=xlNext, _
+            MatchCase:=MatchCase, _
+            MatchByte:=MatchByte, _
+            SearchFormat:=False)
     
     ' 1 個も見つからない場合は即終了
-    If first_cell Is Nothing Then Exit Function
+    If first_cell Is Nothing Then
+        Call pResetFindState(target_sheet)
+        Exit Function
+    End If
     
     Dim result_arr() As WorksheetRangeBounds
     Dim found_cell As Range
@@ -73,7 +85,7 @@ Public Function Find( _
     Loop While found_cell.Address <> first_cell.Address
     
     ' 完全一致を解除する (通常使用時に完全一致は扱いづらい)
-    Call target_sheet.Range("A1:A2").Find("", LookIn:=xlValues, LookAt:=xlPart, MatchCase:=True, MatchByte:=True)
+    Call pResetFindState(target_sheet)
     
     Find = result_arr
 End Function
@@ -92,6 +104,19 @@ Private Function IWorksheetService_Find( _
             MatchCase:=MatchCase, _
             MatchByte:=MatchByte)
 End Function
+
+Private Sub pResetFindState(ByVal TargetSheet As Worksheet)
+    Call TargetSheet.Range("A1:A2").Find( _
+            What:="", _
+            After:=TargetSheet.Range("A1"), _
+            LookIn:=xlValues, _
+            LookAt:=xlPart, _
+            SearchOrder:=xlByRows, _
+            SearchDirection:=xlNext, _
+            MatchCase:=True, _
+            MatchByte:=True, _
+            SearchFormat:=False)
+End Sub
 
 Private Sub pAddItemToRangeBoundsArray(ByRef TargetArray() As WorksheetRangeBounds, ByVal TargetCell As Range)
     Dim item_idx As Long
@@ -1008,7 +1033,7 @@ Public Function GetUsedRangeBounds( _
     End If
     
     ' 完全一致を解除する (通常使用時に完全一致は扱いづらい)
-    Call target_sheet.Range("A1:A2").Find("", LookIn:=xlValues, LookAt:=xlPart, MatchCase:=True, MatchByte:=True)
+    Call pResetFindState(target_sheet)
 End Function
 Private Function IWorksheetService_GetUsedRangeBounds( _
         ByVal RangeBounds As WorksheetRangeBounds, _
@@ -1128,7 +1153,8 @@ Private Function pGetLastRowCore( _
                                  LookIn:=look_in_mode, _
                                  SearchOrder:=xlByRows, _
                                  SearchDirection:=xlPrevious, _
-                                 MatchCase:=False)
+                                 MatchCase:=False, _
+                                 SearchFormat:=False)
     
     If fnd_cell Is Nothing Then
         pGetLastRowCore = 0
@@ -1172,7 +1198,8 @@ Private Function pGetLastColumnCore( _
                                  LookIn:=look_in_mode, _
                                  SearchOrder:=xlByColumns, _
                                  SearchDirection:=xlPrevious, _
-                                 MatchCase:=False)
+                                 MatchCase:=False, _
+                                 SearchFormat:=False)
     
     If fnd_cell Is Nothing Then
         pGetLastColumnCore = 0
@@ -1216,7 +1243,8 @@ Private Function pGetFirstRowCore( _
                                  LookIn:=look_in_mode, _
                                  SearchOrder:=xlByRows, _
                                  SearchDirection:=xlNext, _
-                                 MatchCase:=False)
+                                 MatchCase:=False, _
+                                 SearchFormat:=False)
     
     If fnd_cell Is Nothing Then
         pGetFirstRowCore = 2147483647#
@@ -1260,7 +1288,8 @@ Private Function pGetFirstColumnCore( _
                                  LookIn:=look_in_mode, _
                                  SearchOrder:=xlByColumns, _
                                  SearchDirection:=xlNext, _
-                                 MatchCase:=False)
+                                 MatchCase:=False, _
+                                 SearchFormat:=False)
     
     If fnd_cell Is Nothing Then
         pGetFirstColumnCore = 2147483647#

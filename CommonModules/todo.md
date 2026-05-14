@@ -96,16 +96,6 @@
   - 影響: 読み取り API の呼び出しだけでシートの列幅が変わる可能性があり、表示形式の戻り値もロケール依存の読み書きで不整合になる。
   - 対応案: 列幅は `Double` で退避し、エラー時も復元する。`NumberFormat` の返却値は `NumberFormatLocal` に統一し、列幅保持とローカル表示形式のテストを追加する。
 
-- [ ] [bug] WorksheetService.GetUsedRangeBounds の Find 書式条件依存をなくす
-  - 詳細: `pGetLastRowCore` / `pGetLastColumnCore` / `pGetFirstRowCore` / `pGetFirstColumnCore` は `Range.Find(What:="*")` で `SearchFormat:=False` を明示していない。Excel の検索ダイアログなどで書式検索条件が残っていると、値があるセルでも UsedRange の先頭・末尾検出から漏れる可能性がある。
-  - 影響: `GetUsedRangeBounds`、`CopyRange`、`UserInputSheet.GetItemRange` など使用範囲に依存する処理が、利用者の直前の検索状態で空範囲や狭い範囲を返し得る。
-  - 対応案: UsedRange 検出用の全 `Find` に `SearchFormat:=False` を明示し、検索書式条件が残っている状態で先頭/末尾行列を正しく検出するテストを追加する。
-
-- [ ] [bug] WorksheetService.Find の Excel Find 状態依存をなくす
-  - 詳細: `Range.Find` で `After`、`SearchOrder`、`SearchDirection`、`SearchFormat` を明示していない。Excel の検索ダイアログや直前の `Find` 設定が残っていると、同じ引数でも結果が変わり得る。
-  - 詳細: 検索設定を戻すためのダミー `Find` は検索結果が 0 件のとき実行されず、成功時も `SearchFormat` を明示的に解除していない。
-  - 影響: `WorksheetService.Find` とそれを使う `WorkbookService.Find`、`UserInputSheet.GetItemRange` が、利用者の直前の検索条件や Excel UI 状態に依存して見つかる/見つからないが変わる可能性がある。
-  - 対応案: `SearchFormat:=False` を含めて検索条件を明示し、可能ならダミー検索ではなく呼び出し内で完結する設定にする。検索フォーマット条件が残っている状態、0 件、複数件のテストを追加する。
 
 - [ ] [bug] WorksheetService.ActivateRange で対象シートを確実にアクティブ化する
   - 詳細: `ActivateRange` は `target_sheet.Range(...).Activate` を直接呼ぶだけで、対象ブックや対象シートを先にアクティブにしていない。

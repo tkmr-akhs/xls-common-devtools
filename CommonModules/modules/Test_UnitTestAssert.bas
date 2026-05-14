@@ -212,3 +212,53 @@ Public Sub Test_EqualsArray_WithSpecialPrimitiveElements_DoesNotFail(ByVal Asser
     Err.Clear
     Assert.IsFalse target_assert.IsFailed
 End Sub
+
+Public Sub Test_AssertionCount_NewAssert_ReturnsZero(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_assert As UnitTestAssert
+    Set target_assert = New UnitTestAssert
+
+    ' Act
+    Dim actual_count As Long
+    actual_count = target_assert.AssertionCount
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Err.Clear
+    Assert.EqualsNumeric 0, actual_count
+End Sub
+
+Public Sub Test_AssertionCount_AfterSuccessfulAssertion_ReturnsOne(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_assert As UnitTestAssert
+    Set target_assert = New UnitTestAssert
+
+    ' Act
+    target_assert.Equals "same", "same"
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Err.Clear
+    Assert.EqualsNumeric 1, target_assert.AssertionCount
+End Sub
+
+Public Sub Test_AssertionCount_AfterFailedAssertion_ReturnsOne(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_assert As UnitTestAssert
+    Set target_assert = New UnitTestAssert
+
+    ' Act
+    target_assert.Equals "expected", "actual"
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Err.Clear
+    Assert.IsTrue target_assert.IsFailed
+    Assert.EqualsNumeric 1, target_assert.AssertionCount
+End Sub

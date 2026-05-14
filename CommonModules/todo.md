@@ -15,6 +15,114 @@
 
 ## 高優先度
 
+- [ ] [bug] Lib_UnitTest のテスト候補検出で複数行 Sub 宣言を見落とさない
+  - 詳細: `pRunAllTest` は `CodeModule.Lines(line_idx, 1)` で 1 物理行ずつ読み、正規表現で `Test_...` 手続きを検出している。`_` で改行した `Sub` 宣言は 1 行の宣言として見なされず、テスト候補から外れる。
+  - 影響: 長いテスト名や引数宣言を規約に合わせて折り返しただけで、テストが結果シートに現れず実行もされない。スキップ表示もないため、未実行に気付きにくい。
+  - 対応案: 行継続を連結した論理行で宣言を検出するか、VBIDE の手続き情報を使って列挙する。1 行宣言、行継続宣言、`Public Sub` / `Sub` の各ケースをテストまたは手動プローブで固定する。
+
+- [ ] [bug] Lib_UnitTest のテスト候補検出でコメント行を誤実行しない
+  - 詳細: `pRunAllTest` の正規表現は行頭の `'` コメントは除外できるが、`Rem Public Sub Test_...(Assert As UnitTestAssert)` のような `Rem` コメントや、コメント化されたテスト宣言風の行を構文として判定し得る。
+  - 影響: 無効化したテストや説明コメントがテスト候補として結果シートに出力され、実行時には存在しない手続き呼び出しとして runner error になる。テスト失敗なのかランナーの検出誤りなのかを切り分けにくい。
+  - 対応案: VBIDE の手続き情報で列挙するか、少なくともコメント行・属性行を構文として除外したうえで宣言行だけを検出する。`'` コメント、`Rem` コメント、通常の `Public Sub` / `Sub` の検出テストまたは手動プローブを追加する。
+
+- [ ] [bug] Lib_UnitTest の実行用一時モジュールを既存モジュールと衝突させない
+  - 詳細: `UnitTestMain` は開始時と終了時に `pRemoveRuntimeRunnerModule` で `UnitTestRuntimeRunner` という名前の VBComponent を無条件に削除し、各テスト実行時にも同名コンポーネントの全コード行を削除してランナーコードを書き込む。
+  - 影響: 利用側が同名の通常モジュールを持っていた場合、テストランナーがユーザー定義モジュールを削除または上書きする。ランナーの一時ファイルであることを示すマーカーもなく、衝突時の診断が難しい。
+  - 対応案: 一時モジュールに固有マーカーコメントを入れ、削除・上書き前にマーカーと標準モジュール種別を確認する。既存同名モジュールがマーカーなしの場合は `Class Lib_UnitTest` の明示エラーにするテストを追加する。
+
+- [ ] [bug] Lib_UnitTest.UnitTestMain の結果シート AutoFilter を再実行でトグルしない
+  - 詳細: `pPrepareResultSheet` は全件実行・単体再実行のどちらでも `Range(...).AutoFilter` を無条件に呼ぶ。既に AutoFilter が設定された結果シートで再実行すると、Excel の AutoFilter が解除または再設定され、利用者のフィルタ状態やドロップダウン表示が変わり得る。
+  - 影響: テスト結果を絞り込んだ状態で再実行したときに、結果シートの表示状態がテストランナーの副作用で変わる。単体再実行では、実行結果の更新以外の UI 状態変更が混ざる。
+  - 対応案: 結果シート作成時だけ AutoFilter を設定し、既存シートでは `AutoFilterMode` / `FilterMode` を見て必要な範囲更新だけ行う。全件実行と単体再実行で AutoFilter 状態が維持されるテストまたは手動確認を追加する。
+
+- [ ] [bug] UnitTestUtils の配列引数と区切り文字入り同一性キーを安全に扱う
+  - 詳細: `UnitTestUtils.pGetKeyCore` は非オブジェクト引数を `pGetPrimitiveKey` へ渡し、最終的に `CStr(ArgItem)` するため、テストダブル対象メソッドの引数を配列のままキー化すると型不一致になる。
+  - 詳細: `IEquatable` 引数では `GetIdentityString()` をそのまま `|` 連結に使い、プリミティブ値のような `|` / `<` / `>` のエスケープを行っていない。実装クラスの同一性文字列に区切り文字が入ると、複数引数キーの衝突や誤読が起こり得る。
+  - 影響: 配列引数を持つ API を個別変換なしでテストダブルに記録できず、任意文字列を同一性に含む値オブジェクトではスタブ値やスパイ結果の照合が不安定になる。
+  - 対応案: 配列引数は要素型・次元・境界を含めてキー化するか、サポート外として `Class UnitTestUtils` の明示エラーにする。`IEquatable` / オブジェクト系キーにも同じエスケープと型タグ規則を適用し、衝突テストを追加する。
+
+- [ ] [bug] UnitTestAssert の通常比較で配列引数を実行時エラーにしない
+  - 詳細: `UnitTestAssert.Equals` / `NotEquals` / `EqualsNumeric` / `NotEqualsNumeric` は `pEqualsCore` で配列を特別扱いせず、プリミティブ比較経路の `ExpectedValue = ActualValue` へ進む。`Variant` 配列同士、または配列と非配列を誤って渡すと、アサーション失敗ではなく型不一致の実行時エラーになる。
+  - 影響: テストコードで `EqualsArray` を使い忘れた場合に、期待値・実値の診断メッセージを持つ NG ではなく、テストランナー上の ERR として記録される。失敗原因が比較対象の不一致なのか、テスト対象コードの実行時エラーなのかを切り分けにくい。
+  - 対応案: `IsArray` を `pEqualsCore` の入口で検出し、両方配列なら `pEqualsArrayCore` へ委譲するか、通常比較では配列非対応として `UnitTestAssert` の明示的な失敗メッセージにする。配列同士、配列とスカラー、数値型無視比較へ配列を渡したケースのテストを追加する。
+
+- [ ] [bug] UnitTestAssert の数値比較で非数値プリミティブを実行時エラーにしない
+  - 詳細: `EqualsNumeric` / `NotEqualsNumeric` は `pEqualsPrimitiveNumericCore` で `ExpectedValue = ActualValue` を実行してから `pIsNumericType` を確認している。`"abc"` と `1` のように暗黙変換できない非数値プリミティブを渡すと、アサーション失敗ではなく型不一致の実行時エラーになる。
+  - 影響: 数値比較アサーションの使い方を誤ったテストが `NG` ではなく `ERR` になり、テスト対象コードの実行時エラーとアサーション入力の不備を切り分けにくい。
+  - 対応案: 数値型・数値文字列として扱う範囲を比較前に判定し、対象外は明示的なアサーション不一致として記録する。非数値文字列、数値文字列、Date、Currency / Decimal の扱いをテストで固定する。
+
+- [ ] [bug] Lib_UnitTest の結果シート未作成経路で内部 Err.Number を残さない
+  - 詳細: `pPrepareResultSheet` は全件実行時に `On Error Resume Next` で `ThisWorkbook.Worksheets(C_SHEET_NAME)` を探すが、結果シートがない通常初回実行で発生したエラーを `Err.Clear` しないまま新規シート作成へ進む。
+  - 影響: `UnitTestMain` 自体は成功しても、呼び出し側や自動化側が `On Error Resume Next` 後の `Err.Number` を確認する運用では、正常な初回実行を失敗扱いする可能性がある。テストランナー内部の探索エラーと実際のテスト失敗も切り分けにくい。
+  - 対応案: 想定内の未検出エラーは分岐直後に `Err.Clear` し、結果シート既存/未作成それぞれで `Err.Number = 0` のまま戻ることを手動プローブまたはテストで固定する。
+
+- [ ] [bug] WorksheetRangeBounds.Item の負インデックスを範囲外として拒否する
+  - 詳細: `WorksheetRangeBounds.Item` は `pGetCellVertical` / `pGetCellHorizontal` で `ItemIndex Mod ...` から行・列を計算するが、`ItemIndex < 0` を入口で拒否していない。負数を渡すと、範囲外エラーではなく開始位置より前のセルを返したり、正規化された別範囲になる可能性がある。
+  - 影響: `WorksheetRangeBoundsEnumerator` 経由では通常発生しないが、公開 API として `Item(-1)` が意図しないセルを返すと、呼び出し側が範囲外アクセスを検出できず誤ったセルを読み書きする。
+  - 対応案: `Item` の入口で `ItemIndex < 0 Or Count <= ItemIndex` を範囲外として明示エラーにする。縦方向・横方向それぞれで `-1`、`0`、`Count - 1`、`Count` のテストを追加する。
+
+- [ ] [bug] WorksheetRangeBounds.ToString の絶対 A1 アドレス生成を失敗させない
+  - 詳細: `WorksheetRangeBounds.ToString(IsAbsoluteStartRow:=True...)` は `RangeAddress` に `ReferenceRow:=0` / `ReferenceColumn:=0` を渡すが、`RangeAddress` は絶対参照指定時に基準行・列が 1 未満だとエラーにしている。絶対参照では基準値を使わないため、`$A$1` のようなアドレス生成が不要に失敗し得る。
+  - 詳細: 列範囲の A1 生成では、終了列の絶対指定に `IsAbsoluteFinishColumn` ではなく `IsAbsoluteStartColumn` を使っており、開始列と終了列で絶対/相対指定を変えた場合に表記が崩れる。
+  - 影響: `WorksheetRangeBounds` の表示、同一性文字列、診断メッセージ、アドレス生成ヘルパーを絶対参照付きで使う呼び出しが、範囲値自体は正しいのに実行時エラーまたは誤ったアドレスになる。
+  - 対応案: A1 の基準値検証は相対参照を生成する場合だけ行い、列範囲の終了列には `IsAbsoluteFinishColumn` を渡す。絶対セル、絶対行範囲、絶対列範囲、開始/終了で絶対指定が異なる列範囲のテストを追加する。
+
+- [ ] [bug] WorksheetService.WriteCell の内部型変換失敗で Err.Number を残さない
+  - 詳細: `WriteCell(TypeConvert:=True)` は `CBool` / `CDate` / `CCur` を `On Error Resume Next` で順に試し、すべて失敗した場合に `Err.Clear` しないまま文字列書き込みへ進む。処理自体は成功しても、呼び出し元の `Err.Number` に内部変換失敗の値が残り得る。
+  - 影響: 呼び出し側が `On Error Resume Next` と `Err.Number` で `WriteCell` の成否を見ている場合、正常に文字列として書き込めた値を失敗扱いする。テストでも基盤 API 内部の探索的変換エラーと実際の書き込みエラーを区別しづらい。
+  - 対応案: 型変換試行の最後で `Err.Clear` してから通常のエラーハンドリングへ戻す。数値/Boolean/Date/Currency に変換できない文字列を書き込んだあと、`Err.Number = 0` で戻るテストを追加する。
+
+- [ ] [bug] WorksheetService.WriteCell の文字列書き込みで表示形式を必ず復元する
+  - 詳細: `WriteCell(TypeConvert:=False)` または型変換に失敗した文字列書き込みでは、現在の `NumberFormatLocal` を退避してから一時的に `@` に変更し、値設定後に元へ戻している。値設定や復元前の処理でエラーになると、セルの表示形式が `@` のまま残る。
+  - 影響: 書き込み自体は失敗しても、シート側には表示形式変更だけが副作用として残り、後続の数値・日付入力が文字列扱いになる可能性がある。基盤書き込み API として失敗時の状態が予測しにくい。
+  - 対応案: 表示形式の変更から復元までをエラーハンドリングで囲み、成功時・失敗時とも元の表示形式へ戻してから再送出する。入力規則違反や保護セルなど、値設定失敗時の復元テストを追加する。
+
+- [ ] [bug] WorksheetService.WriteRange の配列サイズを対象範囲と照合する
+  - 詳細: `WriteRange` は `ValuesArray` をそのまま `target_range.Value` に代入しており、配列の次元数、下限、行数、列数が `RangeBounds` と一致するかを確認していない。Excel 側の代入仕様により、不足要素が `#N/A` になったり、余剰要素が書き込まれない可能性がある。
+  - 影響: 呼び出し側の配列整形ミスが明示エラーではなくシート上のデータ破壊として表面化する。表データ書き込みの基盤 API として、意図しない `#N/A` や欠落に気付きにくい。
+  - 対応案: `ValuesArray` は 2 次元配列かつ `RowCount` / `ColumnCount` と一致することを入口で検証する。1 セル、1 行、1 列、下限 0/1、過不足配列、スカラー入力の契約をテストで固定する。
+
+- [ ] [bug] WorksheetService.InsertRows / DeleteRows で行範囲以外を拒否する
+  - 詳細: `InsertRows` / `DeleteRows` は `RangeBounds.Row` から `RangeBounds.FinishRow` だけを使って `"行:行"` の Range を作るため、列範囲や通常のセル範囲を渡しても行全体の挿入・削除として実行される。特に `A:A` のような列範囲では全行相当を対象にし得る。
+  - 影響: 呼び出し側が範囲オブジェクトを誤って渡したとき、明示エラーではなくシート構造を大きく変更する可能性がある。基盤 API として、範囲単位操作と行単位操作の境界が危険に曖昧になる。
+  - 対応案: `RangeBounds.IsEntireRow` または行方向の範囲だけを受け付ける契約に固定し、列範囲、セル範囲、複数行範囲、空範囲のテストを追加する。
+
+- [ ] [bug] ObjectList / ObjectSet の検索・削除 API で要素型を検査する
+  - 詳細: `ObjectList.Exists` / `GetIndexByItem` / `RemoveItem` は特殊値チェックだけで `pCheckItemType` を通さず、プリミティブ比較では `ItemObject1 = ItemObject2` の暗黙変換に任せている。そのため数値 `1` のリストに文字列 `"1"` を渡すと同一扱いになり得る。
+  - 詳細: `ObjectSet.Exists` / `GetContains` / `RemoveItem` も追加時と同じ型検査を通さず、`IDuplicateCheckable` / `IEquatable` のキー生成経路では型違いの値が実装詳細由来の実行時エラーになる可能性がある。
+  - 影響: 追加・更新では型を固定しているのに、検索・削除では型違いを False、暗黙一致、実行時エラーのどれにするかが揃わない。コレクション基盤として「同じ要素」の意味が操作ごとに変わる。
+  - 対応案: 検索・削除系 API でも保存済み型との照合を行い、型違いは明示エラーまたは常に不一致のどちらかに統一する。数値と数値文字列、Boolean と数値、IEquatable 実装と非オブジェクト引数のテストを追加する。
+
+- [ ] [bug] WorksheetService.CopyRange でコピー先がシート端を超える場合を明示的に扱う
+  - 詳細: `CopyRange` はコピー先範囲を `New_RangeBounds` で作るため、`FinishRow` / `FinishColumn` が Excel 上限を超えると範囲オブジェクト側で上限へ丸められる。一方でコピー処理のループ回数は `src_bounds.RowCount` / `ColumnCount` と `dst_bounds.RowCount` / `ColumnCount` の大きい方で決まるため、コピー元の方が大きい場合に `DestinationSheet.Cells(DestinationRow + row_idx, ...)` がシート外を参照し得る。
+  - 影響: シート最終行・最終列付近へ範囲コピーしたとき、範囲作成時には失敗しないのにコピー途中で Excel の実行時エラーになる。部分コピー、明示エラー、事前拒否のどれが仕様かも呼び出し側から判断しにくい。
+  - 対応案: コピー先がシート上限を超える入力を事前に検出して明示エラーにするか、コピー可能な交差範囲だけを処理する仕様に固定する。最終行・最終列付近への `CopyRange` テストを追加する。
+
+- [ ] [bug] WorksheetService.SetSheetOutlineLevel の既定値 0 を Excel に渡さない
+  - 詳細: `SetSheetOutlineLevel` は `RowLevels:=0`、`ColumnLevels:=0` を既定値にし、そのまま `target_sheet.Outline.ShowLevels(RowLevels:=RowLevels, ColumnLevels:=ColumnLevels)` へ渡している。Excel のアウトラインレベルは 1 以上の指定または引数省略が前提で、0 を渡すと実行時エラーになり得る。
+  - 影響: 引数省略で「変更しない」つもりの呼び出しや、行だけ・列だけを指定する呼び出しが、アウトライン操作ではなく基盤 API 側の既定値で失敗する。
+  - 対応案: `0` は未指定を表す値として扱い、行・列それぞれ 1 以上のときだけ `ShowLevels` へ渡す。`0`、行のみ、列のみ、両方指定、範囲外値のテストを追加する。
+
+- [ ] [bug] WorksheetService.Sort のキー列番号と並び順を事前検証する
+  - 詳細: `WorksheetService.Sort` は `SortKeyAndOrder` の個数が偶数であることだけを確認し、キー列番号が `RangeBounds` の列数内か、並び順が `xlAscending` / `xlDescending` かを検証していない。`0`、負数、範囲外列、無効な並び順が Excel 呼び出しへそのまま渡る。
+  - 影響: 呼び出し側の指定ミスで、対象範囲外の列をキーにしたソートや Excel 由来の実行時エラーが発生する。データ並べ替えの基盤 API として、誤ったデータ移動の原因を特定しにくい。
+  - 対応案: キー列番号は `1 To RangeBounds.ColumnCount`、並び順は未指定時の既定値または Excel の有効値だけに制限する。`0`、負数、列数超過、無効な並び順のテストを追加する。
+
+- [ ] [bug] WorksheetService.Sort で空範囲を他の範囲 API と同じく no-op にする
+  - 詳細: `WorksheetService.Sort` は `WriteCell`、`WriteRange`、`CopyCell`、`ClearRange` などと異なり、`RangeBounds.IsEmpty` を入口で確認しない。空範囲を渡すと `RangeBounds.ToString(CellOnly:=True)` の空範囲表記を Excel `Range` として解釈しようとして、ソート対象なしの no-op ではなく実行時エラーになり得る。
+  - 影響: `GetUsedRangeBounds` や `Intersect` の結果をそのままソートへ渡す呼び出し側が、空データのときだけ個別分岐を強いられる。空範囲を no-op とする他の `WorksheetService` API と契約が揃わない。
+  - 対応案: `pSortCore` の先頭で空範囲を検出して終了する。空範囲、キーなし、キーあり空範囲のテストを追加し、空データ処理で例外が出ないことを固定する。
+
+- [ ] [bug] WorksheetService.Find で空範囲を空結果として扱う
+  - 詳細: `Find` は `RangeBounds.IsEmpty` を入口で確認せず、空範囲の `ToString(CellOnly:=True)` を Excel `Range` に渡す。`GetUsedRangeBounds` や `Intersect` の結果が空の場合、検索結果 0 件ではなく実行時エラーになり得る。
+  - 影響: 空データのシートや空の交差範囲を検索する呼び出し側が、`Find` の前だけ個別分岐を強いられる。`WorkbookService.Find` や `UserInputSheet.GetItemRange` など、検索を基盤 API として使う処理でも空範囲時に落ちる可能性がある。
+  - 対応案: `Find` の先頭で空範囲を検出して未初期化配列を返すか、空の `WorksheetRangeBounds()` を返す契約に固定する。空範囲、空シート、非空範囲 0 件のテストを追加する。
+
+- [ ] [bug] WorksheetService.RemoveDuplicates の重複判定列を対象範囲内に検証する
+  - 詳細: `RemoveDuplicates` は `DuplicateColumns` をそのまま Excel `Range.RemoveDuplicates` に渡しており、0、負数、対象範囲の列数超過、空配列、絶対列番号の誤指定を基盤側で検出しない。
+  - 影響: 呼び出し側の指定ミスが Excel 由来の実行時エラーになるか、意図と違う列を基準にした行削除として実行される可能性がある。行削除系 API として失敗時の影響が大きい。
+  - 対応案: 判定列は `1 To RangeBounds.ColumnCount` の相対列番号に統一し、Scalar / Array の双方で全要素を検証する。空配列、0、負数、範囲外、正常複数列のテストを追加する。
+
 - [ ] [bug] WorkbookService.ActivateWorksheet で対象ブックを先にアクティブ化する
   - 詳細: `WorkbookService.ActivateWorksheet` は `target_sheet.Activate` を直接呼ぶだけで、対象ブックを先にアクティブにしていない。
   - 影響: 対象シートがアクティブでない別ブックにある場合、`Worksheet.Activate` が失敗したり、呼び出し側が期待したブック・シートへ移動できない可能性がある。
@@ -24,6 +132,32 @@
   - 詳細: `WorkbookService.CloseWorkbook` は `Force:=False` のとき確認画面を表示する契約だが、実装は `Workbooks(Book).Close(SaveChanges:=Not Force)` となっており、確認なしで保存して閉じる可能性がある。
   - 影響: 利用者が確認してから保存可否を判断する前提の処理で、意図しない変更をブックへ保存してしまう可能性がある。
   - 対応案: `Force:=False` では `SaveChanges` を省略して Excel の確認に委ねる、または確認を独自に行う。`Force:=True` の保存/破棄方針もインターフェイスコメントと合わせてテストで固定する。
+
+- [ ] [bug] WorkbookService の存在確認・重複名チェックで内部探索エラーを残さない
+  - 詳細: `ExistsWorkbook` / `ExistsWorksheet` / `AddWorksheet` / `CopyWorksheet` は、存在しないブックやシートを `On Error Resume Next` で探索するが、想定内の未検出エラーを `Err.Clear` しない経路がある。
+  - 影響: API の戻り値や処理自体は成功しても、呼び出し側が `Err.Number` を確認する運用では、存在しないことを調べただけの内部エラーを実処理の失敗として扱う可能性がある。
+  - 対応案: 期待される未検出エラーは分岐直後に必ず `Err.Clear` する。存在しないブック、存在しないシート、追加先名未使用、複製先名未使用の各ケースで `Err.Number = 0` を確認するテストを追加する。
+
+- [ ] [bug] WorkbookService.AddWorksheet でアクティブブック・シートを復元する
+  - 詳細: `AddWorksheet` は対象ブックへ `Worksheets.Add` するため、Excel のアクティブブックとアクティブシートが追加先・追加シートへ移るが、`CopyWorksheet` や `SaveWorkbook` のような退避復元を行っていない。
+  - 影響: 利用側が `WorksheetRangeBounds` や明示ブック名で操作していても、シート追加後の後続処理で `ActiveWorkbook` / `ActiveSheet` に依存する既存コードが別ブック・別シートを対象にしてしまう可能性がある。基盤サービス呼び出しの副作用として UI 状態も変わる。
+  - 対応案: 追加前の `ActiveWorkbook` と対象ブックのアクティブシートを退避し、成功時・エラー時とも復元する。非アクティブブックへの追加、ThisWorkbook への追加、既存名エラー時の復元テストを追加する。
+
+- [ ] [bug] WorkbookService.AddWorksheet / CopyWorksheet の名前設定失敗時に追加済みシートを残さない
+  - 詳細: `AddWorksheet` は `Worksheets.Add` 後に `added_sheet.Name = Sheet` を実行し、`CopyWorksheet` も `src_sheet.Copy` 後に `added_sheet.Name = DestinationWorksheetName` を実行する。31 文字超過や禁止文字などで名前変更が失敗すると、追加または複製されたシートだけが残る。
+  - 影響: API はエラーで戻るのにブック構成は変更済みとなり、リトライ時の重複シート、後続処理の対象ずれ、手作業での残骸削除が発生し得る。
+  - 対応案: シート名を追加前に検証するか、名前設定失敗時に追加済みシートを削除してから再送出する。禁止文字、31 文字超過、既存名、正常追加・複製のテストを追加する。
+
+- [ ] [bug] WorkbookService.RemoveWorksheet でアクティブブック・シートを復元する
+  - 詳細: `RemoveWorksheet` は削除対象ブックを操作し、最後の 1 シートを削除する場合は代替シートも追加するが、処理前の `ActiveWorkbook` や対象ブックのアクティブシートを退避復元していない。
+  - 影響: 非アクティブブックのシート削除や最後のシート削除の後、Excel のアクティブ状態が削除先ブック・追加シートへ移り、後続処理が `ActiveWorkbook` / `ActiveSheet` 依存の場合に対象を誤る可能性がある。
+  - 対応案: `CopyWorksheet` と同様に現在のアクティブブックと対象ブックのアクティブシートを退避し、成功時・エラー時とも復元する。最後の 1 シート削除、非アクティブブック削除、削除失敗時の復元テストを追加する。
+
+- [ ] [bug] WorkbookService.RemoveVBComponents の削除前検証を行う
+  - 詳細: `RemoveVBComponents` は `VBComponents` を走査しながら一致したモジュールを即時削除するため、後続で一致した `ThisWorkbook` やシートモジュールなど削除できないコンポーネントに当たると、それ以前の標準モジュールだけが削除済みの中途半端な状態になり得る。
+  - 詳細: `ComponentNames` は `Variant` だが、`pContainsComponentName` は配列要素やスカラー値を直接 `CStr` するため、`Null`、`CVErr(...)`、未初期化配列などの入力で、削除対象名の検証前に実行時エラーになり得る。
+  - 影響: 不正な削除対象指定や削除不能モジュール混在時に、VBProject の一部だけが変更される。モジュール適用前のクリーンアップ API として、失敗時の復旧や診断が難しい。
+  - 対応案: 削除前に `ComponentNames` を型付きの名前集合へ正規化し、存在有無、コンポーネント種別、削除可能性を全件検証してから削除する。標準モジュールと Document モジュール混在、`Null` / `CVErr` / 空配列 / 未初期化配列のテストを追加する。
 
 - [ ] [bug] WorksheetService の Excel エラー値文字列化を安全にする
   - 詳細: `WorksheetService.pConvertErrorToString` は `Select Case ErrValue` と `Case CVErr(...)` で Excel エラー値を判定しており、`CVErr(...)` を含む Variant の直接比較で型不一致になる可能性がある。
@@ -68,15 +202,50 @@
   - 影響: 呼び出し側の初期化漏れが早期に失敗せず、意図しない `Sheet1` / `ThisWorkbook` 起点の範囲や不安定な同一性文字列として扱われる可能性がある。
   - 対応案: `ToString` の診断用途を残すかを決めたうえで、通常利用の公開メンバーは `pCheckInit` に統一する。未初期化 `TransformAbsolute`、`Equals`、`GetIdentityString` のテストを追加する。
 
+- [ ] [bug] WorksheetRangeBounds.Initialize で開始行・開始列の Excel 上限超過を拒否する
+  - 詳細: `pWellFormBounds` は `FinishRow` / `FinishColumn` が Excel 上限を超えた場合は丸めるが、`Row` / `Column` 自体が `G_ROW_MAX` / `G_COL_MAX` を超えた場合はそのまま保持する。開始行が上限超過で終了行だけ丸められると、Excel シート上に存在しない開始位置を持つ空範囲が作れてしまう。
+  - 影響: `WorksheetService` 側で `Cells(RangeBounds.Row, RangeBounds.Column)` や `Range(...)` に渡した段階で Excel 実行時エラーになり、範囲値オブジェクトの生成時点で入力不正を検出できない。`TransformAbsolute` やコピー先範囲計算でも同じ不正範囲が伝播する。
+  - 対応案: 開始行・開始列が 1 未満または Excel 上限超過の場合は明示エラーにするか、空範囲として許す条件を仕様化する。開始行・開始列・終了行・終了列それぞれの上限超過テストを追加する。
+
+- [ ] [bug] WorksheetRangeBounds.Shift / Transform の加減算桁あふれを事前検出する
+  - 詳細: `Shift` は `pRow + Row` / `pFinishRow + Row`、`Transform` は `pFinishRow + AddRow` / `pFinishColumn + AddColumn` を先に `Long` 同士で計算し、その後に 1 未満や Excel 上限超過を検証している。大きな正負の移動量を渡すと、検証前に VBA の Overflow が発生する。
+  - 影響: 呼び出し側には `Class WorksheetRangeBounds` の範囲エラーではなく実行時エラー 6 が返り、どの範囲操作が不正だったかを診断しづらい。範囲計算の入力検証としても `Initialize` / `Shift` の契約が揃わない。
+  - 対応案: 加減算前に `Long` の範囲と Excel 行列上限を事前判定するか、`Double` など一時的に広い型で計算してから明示エラーにする。上限付近の正方向・負方向シフト、空範囲の `Transform` のテストを追加する。
+
+- [ ] [bug] WorksheetRangeBoundsEnumerator.Initialize で Nothing の列挙対象を拒否する
+  - 詳細: `Initialize(TargetCollection As WorksheetRangeBounds)` は `TargetCollection Is Nothing` を確認せず、`Target` に `Nothing` を設定したまま初期化済みにできる。`pCalculateLength` は `pRangeBounds Is Nothing` で何もせず、列挙子は長さ 0 のように振る舞う。
+  - 影響: 呼び出し側の範囲生成漏れが初期化時に検出されず、`MoveNext` が False を返すだけの空列挙として扱われる。`Target` や `Current` で後から落ちる場合もあり、基盤列挙子として原因を追いにくい。
+  - 対応案: `Initialize` の入口で `Nothing` を `Class WorksheetRangeBoundsEnumerator` の明示エラーにする。`Nothing`、空範囲、通常範囲の初期化テストを追加する。
+
+- [ ] [bug] WorksheetRangeBounds.Intersect で Nothing を明示的に拒否する
+  - 詳細: `Intersect(ByVal OtherRangeBounds As WorksheetRangeBounds)` は `OtherRangeBounds Is Nothing` を確認せず、すぐに `OtherRangeBounds.WorksheetName` / `WorkbookName` / `Row` などを参照する。
+  - 影響: 呼び出し側の範囲生成漏れが `Class WorksheetRangeBounds` の説明付きエラーではなく、VBA の汎用的な「オブジェクト変数または With ブロック変数が設定されていません。」として表面化する。範囲交差を使う `WorksheetService.GetUsedRangeBounds` などでも原因を追いにくい。
+  - 対応案: 入口で `Nothing` を明示エラーにし、`Nothing`、未初期化範囲、空範囲、非交差範囲、正常交差範囲のテストを分けて追加する。
+
 - [ ] [bug] ObjectList / ObjectSet の特殊 Variant 値の扱いを固定する
   - 詳細: `ObjectList.pItemsEqual` はプリミティブ比較で `ItemObject1 = ItemObject2` を直接 Boolean に代入するため、`Null` や `CVErr(...)` で比較自体が失敗し得る。`ObjectSet` は `Null` / `CVErr(...)` / `Empty` を Dictionary キーとして渡す経路があり、`ConvertToStringArray` でも特殊値の文字列化方針がない。
   - 影響: Excel Range から読んだ値や外部入力をそのまま基盤コレクションへ入れると、追加、存在判定、削除、重複除去、文字列化のどこで失敗するかが値によって変わる。
   - 対応案: `Null`、`Empty`、`CVErr(...)` をサポートするか明示エラーにするかを決め、`ObjectList` / `ObjectSet` / `Enumerator` の取得・比較・文字列化テストを追加する。
 
+- [ ] [bug] ObjectList / ObjectSet の配列要素サポート有無を実装と揃える
+  - 詳細: `ObjectList.pCheckUnsupportedSpecialValue` と `ObjectSet.pCheckUnsupportedSpecialValue` は配列を許可しているが、`ObjectList.pItemsEqual` は配列同士を `ItemObject1 = ItemObject2` で比較し、`ConvertToStringArray` でも配列を `String` 要素へ直接代入するため型不一致になり得る。`ObjectSet.pGetKey` も配列をそのまま Dictionary キーに渡す経路がある。
+  - 影響: 配列要素を追加できるように見える一方で、存在判定、削除、重複削除、文字列化、集合追加のどこかで実行時エラーになる。Range 値や分割結果を要素として扱う利用者が、どの操作まで安全か判断できない。
+  - 対応案: 配列要素をサポート外として追加時に明示エラーにするか、次元・境界・要素を含む比較/キー化/文字列化仕様を実装する。`ObjectList` と `ObjectSet` の配列追加、Exists、RemoveItem、RemoveDuplicate、ConvertToStringArray、Add のテストを追加する。
+
+- [ ] [bug] ObjectSet.Update のキー不一致エラーでオブジェクトキーを安全に表示する
+  - 詳細: `Update` は旧キーと新キーが異なる場合に `old_key` / `new_key` をそのまま文字列連結してエラー説明を作る。参照同一性をキーにするオブジェクト集合で別インスタンスへ更新しようとすると、意図した `Class ObjectSet` のキー不一致エラーではなく、オブジェクトの文字列変換エラーになり得る。
+  - 影響: 更新禁止条件そのものは検出しているのに、呼び出し側には原因が読めるエラーが返らない。`Enumerator.Update` 経由で `ObjectSet` を更新する場合も診断しづらい。
+  - 対応案: キー表示用の安全な文字列化ヘルパーを追加し、オブジェクトは `TypeName` と `ObjPtr`、`Nothing`、`CVErr` などを型付きで表示する。オブジェクト参照キー、`IEquatable` キー、`CVErr` キーの不一致テストを追加する。
+
 - [ ] [bug] ObjectList.Sort の等価要素と降順比較を修正する
   - 詳細: `ObjectList.Sort` は `IComparable` でも降順時に `Not IsLessThan` を使うため、等価要素を「小さい」扱いし得る。
   - 影響: 等価要素を含む並び替えで不要な入れ替えが発生し、安定性や比較契約に依存する処理の前提が崩れる可能性がある。
   - 対応案: 昇順・降順とも「小さい」「大きい」「等価」を分けて判定し、等価要素を入れ替えないテストを追加する。
+
+- [ ] [bug] ObjectList / ObjectSet の Sort で Nothing 要素を明示的に扱う
+  - 詳細: `ObjectList` / `ObjectSet` は `Nothing` を通常要素として許可するが、`ObjectList.Sort` は `pIsComparable` / `pIsDuplicateCheckable` / `pIsStringable` の比較経路で `Me.Item(...)` を各インターフェイス変数へ `Set` するため、`Nothing` 要素を含むとオブジェクト変数未設定の実行時エラーになり得る。どの位置に並べるか、または Sort 対象外とするかの契約もない。
+  - 影響: 集合・リストとしては追加、存在判定、削除できる `Nothing` が、ソート時だけ不安定に失敗する。`ObjectSet.Sort` は内部で `ObjectList.Sort` を使うため同じ影響を受ける。
+  - 対応案: `Nothing` の順序を先頭/末尾のどちらかに固定するか、Sort では非対応として入口で明示エラーにする。`Nothing` のみ、`Nothing` と比較可能オブジェクト混在、`ObjectSet.Sort` のテストを追加する。
 
 ## 中優先度
 
@@ -86,6 +255,11 @@
   - 詳細: `TextFileEntity` は `OpenFile` で `FreeFile` により開いたファイルを、`CloseFile` が明示的に呼ばれた場合だけ閉じる。`Class_Terminate` での保険がなく、未オープン状態の close などを `Debug.Print` で扱う箇所もある。
   - 影響: 追記モード、ロック指定、書き込み用ファイルの EOF 判定、明示 Close 漏れが、実ファイルとテストダブルで異なる結果やファイルハンドル残りにつながる。
   - 対応案: `Input` / `Output` / `Append` と読み取り・書き込みロック、`CloseFile`、`Class_Terminate` の契約を表で仕様化する。実装とテストダブルに、各モード、Close 後、Append + lock、明示 Close 漏れのテストを追加する。
+
+- [ ] [bug] TextFileEntity.Initialize の再初期化とオープン中呼び出しを拒否する
+  - 詳細: `TextFileEntity.Initialize` は `pIsInitialized` や `pIsOpen` を確認せず、既存インスタンスの `pFilePath` をいつでも上書きできる。ファイルを開いた後に再初期化すると、`pFileDesc` は元のファイルを指したまま、`FilePath` やエラー文言だけが別パスになる。
+  - 影響: 読み書き対象と診断情報がずれ、`CloseFile` や後続の `OpenFile` でどのファイルを扱っているか追跡しづらくなる。テストダブルやサービス層でインスタンス再利用した場合に、実ファイルハンドルの状態とオブジェクト状態が分離する。
+  - 対応案: 初期化済みインスタンスの再初期化を明示エラーにし、必要なら `Reset` / 新規インスタンス生成を使う契約にする。未初期化、初期化済み、オープン中、クローズ後再初期化のテストを追加する。
 
 - [ ] [bug] DiffStringArray の空配列入力と下限契約を修正する
   - 詳細: `DiffStringArray` は入力配列に対してすぐ `LBound` / `UBound` を呼ぶため、未初期化または空配列を渡すと差分結果ではなく実行時エラーになる。コメントでは `ChangeTypeArray` の下限を `OldArray` と揃えると読めるが、実装は常に `0 To ...` へ `ReDim` している。
@@ -133,6 +307,28 @@
   - 影響: メッセージ表示系の補助 API に不正なページサイズが渡ると処理が戻らない、または大きなページサイズで型変換エラーになる可能性がある。
   - 対応案: `PageSize >= 1` を入口で検証し、`pTakeString` の `LengthByte` を `Long` に揃える。`PageSize` が 0、負数、32767 超、マルチバイト境界のテストを追加する。
 
+- [ ] [bug] Lib_Common の配列境界・列挙ヘルパーの空配列と多次元配列契約を揃える
+  - 詳細: `GetArrayBounds` は未初期化動的配列で 1 次元目の `LBound` / `UBound` が失敗すると、出力側の `LBoundArray` / `UBoundArray` も未初期化のまま返す。
+  - 詳細: `GetArrayEnumerator` / `Enumerator` は `LBound` / `UBound` と `pArray(pIndex)` を 1 次元配列前提で使うため、`ReadRange` の戻り値のような 2 次元配列では列挙中に実行時エラーになる。
+  - 影響: 空配列、未初期化配列、2 次元配列を共通配列ヘルパーへ渡したとき、入口で契約違反として落ちるのではなく、利用途中の別箇所で失敗する。呼び出し側ごとに防御分岐が増える。
+  - 対応案: 1 次元配列専用 API と多次元配列対応 API を分け、サポート外は入口で明示エラーにする。空配列、未初期化配列、1 次元/2 次元配列のテストを追加する。
+
+- [ ] [bug] Lib_IPv4.ParseIpAddressAndMask でマスク省略入力を明示的に扱う
+  - 詳細: `G_IPV4_NW_RE` と `WellFormedAddress` はマスクなし IPv4 も扱えるように見えるが、`ParseIpAddressAndMask` は `Split(..., "/")` 後に `ip_arr(1)` を無条件参照する。`"192.168.0.1"` のようにマスク部がない入力では、形式エラーや `/32` 扱いではなく添字範囲外の実行時エラーになる。
+  - 影響: IP アドレス単体をホスト `/32` として扱いたい呼び出しや、入力検証で正規表現を通した後の解析が、基盤 API 由来の分かりにくいエラーになる。
+  - 対応案: `ParseIpAddressAndMask` 側でマスク省略を `/32` とするか明示的な形式エラーにする。`WellFormedAddress` との責務分担を決め、マスクなし、`/24`、`/255.255.255.0`、空マスクのテストを追加する。
+
+- [ ] [bug] Lib_IPv4.NarrowNetwork の狭小化上限をコメントと実装で揃える
+  - 詳細: `NarrowNetwork` のコメントは「マスク長が 32 に達している場合」にエラーと説明しているが、実装は `29 < MaskLength And MaskLength < 33` で `/30` と `/31` も拒否している。`/30` から `/31`、`/31` から `/32` を作るべきか、仕様として禁止するのかがコードから読み取れない。
+  - 影響: IPv4 範囲を機械的に細分化する呼び出しで、まだ狭められるネットワークが基盤 API 側で止まる可能性がある。逆に `/31` や `/32` を扱わない方針なら、利用側がコメントを信じて境界条件を誤る。
+  - 対応案: `/30`、`/31`、`/32` の扱いを仕様化し、実装・コメント・テストを揃える。ホストルート、ポイントツーポイント用途の `/31` を扱うかも合わせて決める。
+
+- [ ] [bug] Lib_Common のビット演算・符号なし Long 演算の極端値を明示的に扱う
+  - 詳細: `SubtractUnsignLong` は `ValueA < 0` かつ `0 <= ValueB` の分岐で `On Error Resume Next` を有効にしたまま `AddUnsignLong` を呼ぶため、補助関数側のエラーを握りつぶして後続計算へ進む可能性がある。
+  - 詳細: `BitLeft` / `BitRight` は負のシフト数を逆方向シフトとして扱うが、`ShiftCount = -2147483648` のような `Long` 最小値では `-ShiftCount` 自体がオーバーフローする。32 ビット幅を超えるシフトを 0 埋めにするのか、明示エラーにするのかも固定されていない。
+  - 影響: IPv4 計算など 32 ビット境界値を扱う基盤処理で、極端値だけ誤った結果、握りつぶされたエラー、または実行時エラーになる可能性がある。
+  - 対応案: エラー制御を最小範囲に閉じ、シフト範囲と境界値の契約を入口で検証する。`0`、`31`、`32`、負数、`Long` 最小値、`&H80000000`、`&HFFFFFFFF` のテストを追加する。
+
 - [ ] [spec] WorkbookService.OpenWorkbook の名称と実挙動を揃える
   - 詳細: `OpenWorkbook` は `Workbooks.Open` ではなく `Workbooks.Add(Template:=file_path)` でテンプレートから非表示ブックを作成している。コメントには元ファイルをロックしない旨があるが、API 名からは通常の open と誤解しやすい。
   - 影響: 呼び出し側が既存ブックを開いて操作する API と誤認し、保存先やロック、元ファイル更新の前提を取り違える可能性がある。
@@ -176,7 +372,22 @@
   - 影響: 範囲オブジェクトの基本プロパティ参照やセル列挙が、大きな範囲だけ実行時エラーになり、基盤 API として安全に扱えない。
   - 対応案: 対応可能な最大セル数を仕様化し、桁あふれ前に明示エラーにするか、戻り値型・列挙契約を見直す。全シート、全列、`Long` 上限付近の範囲テストを追加する。
 
+- [ ] [spec] WorksheetRangeBounds.GetEnumerator で降順列挙を公開 API から指定できるようにする
+  - 詳細: `WorksheetRangeBoundsEnumerator.Initialize` は `Descending` を受け取り、列挙子本体も降順移動に対応しているが、`WorksheetRangeBounds.GetEnumerator` の公開引数には `Descending` がない。行・列・セルの列挙方向指定と並び順指定の入口が揃っていない。
+  - 影響: 呼び出し側が範囲を下から上、右から左へ走査したい場合、公開 API からは指定できず、列挙子クラスを直接生成する必要がある。基盤型としての使い勝手が落ちる。
+  - 対応案: `GetEnumerator(Optional EnumerateType..., Optional ColumnDirection..., Optional Descending As Boolean = False)` に拡張するか、`GetDescendingEnumerator` のような別 API を追加する。既存呼び出し互換を保つ引数順に注意する。
+
 ## 低優先度
+
+- [ ] [spec] WorksheetService.Sort のキー指定を型付きで表現する
+  - 詳細: `Sort(ByVal RangeBounds As WorksheetRangeBounds, ParamArray SortKeyAndOrder() As Variant)` は、キー列番号と並び順を交互に並べる呼び出し規約になっている。呼び出し側では `Sort bounds, 2, xlAscending, 1, xlDescending` のような値の意味が読み取りにくく、テストダブルも生の配列として保持している。
+  - 影響: キー列番号と並び順の入れ替え、片方だけの指定漏れ、既定値の解釈違いが起こりやすい。将来、キーごとのオプションを増やす場合も ParamArray の位置規約がさらに複雑になる。
+  - 対応案: `WorksheetSortKey` や `WorksheetSortSpec` のような型、または `New_SortKey(ColumnIndex, Order)` 形式の薄いファクトリを追加し、既存 ParamArray API は互換ラッパーとして扱う。
+
+- [ ] [spec] WorksheetService.EvaluateFormula の ContextRangeBounds 契約を明確にする
+  - 詳細: `EvaluateFormula(ByVal ContextRangeBounds, ByVal Formula)` は `ContextRangeBounds` から対象シートだけを取り出し、`target_sheet.Evaluate(Formula)` を呼ぶ。引数名からはセル位置を含む評価コンテキストに見えるが、相対参照や R1C1 参照をどのセル基準で評価するかは契約化されていない。
+  - 影響: 呼び出し側が `ContextRangeBounds` の左上セルを基準に評価されると期待すると、式の書き方によっては結果がアクティブ状態や Excel の評価仕様に依存して読み取りにくくなる。
+  - 対応案: シートコンテキストだけを扱うなら `EvaluateOnWorksheet` などへ改名またはコメント明記する。セル基準評価を扱うなら、対象セルの `Range.Evaluate` 相当または一時セル評価などの方針を決め、A1 / R1C1 / 名前参照のテストを追加する。
 
 - [ ] [ref] Tmp_ManualTest の残存コードを整理する
   - 詳細: `Tmp_ManualTest.bas` は `Option Explicit` がなく、個人環境の絶対パスや `Debug.Print` を含む手動確認コードが残っている。対応済み欄の「手動検証用モジュールを整理する」では `Module1.bas` の削除のみが最終対応になっており、この残件が open 項目として追跡されていない。
@@ -233,6 +444,16 @@
   - 詳細: `Test_*.bas` が直接対応していない共通モジュールに、`ArrayObject.cls`、`Counter.cls`、`CounterSet.cls`、`DebugInformation.cls`、`Enumerator.cls`、`Lib_IPv4.bas`、`ObjectSet.cls`、`UnitTestAssert.cls`、`UnitTestUtils.cls`、`UserInputSheet.cls` がある。
   - 対応案: VBProject 走査、テスト候補抽出、結果出力を小さな関数に分ける。未テスト領域は、実バグが見つかっている `ObjectSet`、`Counter`、`UnitTestAssert`、`DebugInformation`、実務ロジック境界を担う `Lib_IPv4` から追加する。
 
+- [ ] [ux] UnitTestAssert.EqualsArray の差分位置を多次元座標で表示する
+  - 詳細: `EqualsArray` は多次元配列の境界は比較するが、要素差分の位置は `For Each` の線形インデックス `@0`、`@1` ... として出力する。`ReadRange` のような 2 次元配列では、どの行・列の不一致かを結果メッセージから直接読めない。
+  - 影響: 2 次元の表データ比較で NG になったとき、線形位置から行列位置へ手作業で戻す必要があり、テスト失敗調査に時間がかかる。
+  - 対応案: 配列の次元と LBound / UBound を使って、差分位置を `@(row=..., col=...)` のように表示する。1 次元、2 次元、非 0 ベース配列の失敗メッセージをテストで固定する。
+
+- [ ] [ux] UnitTestAssert のエラーアサーション API を呼び出しやすくする
+  - 詳細: `ErrorRaised` / `ErrorNotRaised` は他のアサーションと異なり `Function` として Boolean を返しつつ、内部の失敗状態も更新する。呼び出し側は `Err.Number` / `Err.Source` / `Err.Description` を個別に退避して渡す必要があり、`On Error Resume Next` と `Err.Clear` の定型コードがテストごとに散る。
+  - 影響: エラー発生を確認するテストの形が統一されず、戻り値をさらに `Assert.IsTrue` するのか、呼び捨てでよいのかも読み取りにくい。エラー捕捉コードの書き漏れで、直前の `Err` が混ざるリスクもある。
+  - 対応案: 既存 API の互換性を保ちながら、エラー捕捉とアサーションをまとめるヘルパー、または `Sub` 形式の明示的なアサーション名を追加する。既存コメントの `ActualCodeCode` typo も合わせて直す。
+
 - [ ] [test] ObjectList の多段拡張境界をテストする
   - 詳細: `ObjectList` は 16 要素固定の `ArrayObject` を多段化して可変長を実現しているが、既存テストは主に 20 件程度までで、`256`、`4096` など複数段拡張の境界を直接確認していない。
   - 詳細: `Remove` は要素を前詰めし、内部ツリーは縮小しないため、多段拡張後の削除・更新・コピー・列挙が境界をまたいで正しく動くかも固定したい。
@@ -243,6 +464,26 @@
   - 詳細: `ObjectSet.Item` / `Update` / `Remove` は範囲外インデックスの明示チェックがなく、`pDict.Keys(Index)` などの Dictionary 側のエラーに依存している。
   - 影響: 空集合、負数、`Count` 以上の指定時に、エラーの発生元と説明が呼び出し側から追跡しづらい。
   - 対応案: 有効範囲を `0 <= Index < Count` として `ObjectSet` 自身のエラーを送出し、`Item` / `Update` / `Remove` の境界テストを追加する。
+
+- [ ] [spec] WorksheetRangeBounds.Item のインデックス基準を他メソッドと揃える
+  - 詳細: `WorksheetRangeBounds.Item` は 0 オリジンでセルを返す一方、`GetRow` / `GetColumn` / `GetCell` は 1 オリジンの `RowIndex` / `ColumnIndex` を受ける。`Item` のコメントは「番号」とだけ書かれており、基準の違いが公開 API から読み取りにくい。
+  - 影響: 範囲を直接走査する利用者が `Item(1)` を先頭セルと誤解すると、2 番目のセルから処理してしまう。`WorksheetRangeBoundsEnumerator` 経由では 0 オリジンが内部実装として隠れているため、直接利用時だけ罠になる。
+  - 対応案: 既存 `Item` の互換性を保つなら、コメントと引数名で 0 オリジンを明示する。1 オリジンで公開する API が必要なら、`GetCellByIndex` など別名で追加し、`Item` は列挙子向けの低レベル API と位置付ける。
+
+- [ ] [ref] WorksheetRangeBoundsEnumerator.Initialize の TargetCollection 引数名を範囲に合わせる
+  - 詳細: `Initialize(ByVal TargetCollection As WorksheetRangeBounds, ...)` は実際には `WorksheetRangeBounds` を受け取るが、引数名とコメントは汎用列挙子と同じ「コレクション」になっている。範囲値オブジェクトを渡す専用列挙子であることが公開 API から伝わりにくい。
+  - 影響: 呼び出し側やテストで、配列や `ObjectList` 用の汎用 `Enumerator` と同じ契約だと誤読しやすい。`WorksheetRangeBounds` 専用列挙子として、どの型を列挙対象にするのかも読み取りにくい。
+  - 対応案: named argument 互換性を考慮しつつ、`TargetRangeBounds` など範囲であることが分かる名前やファクトリ API へ移行する。少なくともコメントは「列挙対象の範囲」に修正し、汎用 `Enumerator` との命名差を整理する。
+
+- [ ] [ref] WorkbookServiceTestDouble の CloseWorkbook 記録名とコメントを実 API 名へ揃える
+  - 詳細: `WorkbookServiceTestDouble` の公開 Dictionary が `ColoseWorkbook_Results` という綴りになっており、`CloseWorkbook` と一致していない。周辺コメントにも `SaveWorkbook` や `RemoveWorksheet` の説明が残っている。
+  - 影響: テストで記録結果を確認するときに自然な `CloseWorkbook_Results` という名前を使えず、テストダブルの公開 API に typo を広げることになる。コメントからもどのメソッドのスパイ結果か読み取りづらい。
+  - 対応案: 互換性が必要なら旧名を段階廃止扱いにしつつ、正しい `CloseWorkbook_Results` へ移行する。コメントと既存テストの参照名も合わせて更新する。
+
+- [ ] [spec] ObjectList / ObjectSet の空集合化後の型固定契約を決める
+  - 詳細: `ObjectList.Remove` や `ObjectSet.RemoveItem` / `Remove` で要素数が 0 になっても、`pTypeName` や `pIsObject` などの型状態は残る。一方で `RemoveAll` は型状態をリセットするため、空になった経路によって次に追加できる型が変わる。
+  - 影響: 利用者から見ると同じ空のコレクションでも、個別削除後は過去の型に縛られ、`RemoveAll` 後は新しい型を受け入れる。値コレクション基盤として、空集合の再利用可否が操作履歴に依存して分かりにくい。
+  - 対応案: 空になっても型固定するのか、最後の要素削除時に型状態もリセットするのかを仕様化する。`Remove` / `RemoveItem` / `RemoveAll` 後に別型を追加するテストを `ObjectList` / `ObjectSet` 両方へ追加する。
 
 - [ ] [ref] 共通サービス初期化とテストダブル記録・キー生成を統一する
   - 詳細: `Lib_Common.bas` の `WbSrv` / `WsSrv`、`Lib_FileSystem.bas` の `FsSrv`、`Lib_TextFile.bas` の `TfSrv` が別々にグローバル管理され、`UserInputSheet.cls` などでは直接 `New WorkbookService` / `New FileSystemService` している箇所もある。
@@ -313,6 +554,22 @@
   - 影響: 呼び出し側が意図しない型変換に依存しやすく、テストや補完から契約を読み取りにくい。
   - 対応案: 互換性を確認して戻り値・引数型を明示的な型へ移行し、必要なら旧シグネチャのラッパーを残す。
 
+- [ ] [spec] 改行エスケープ API の空エスケープ文字と未知エスケープの扱いを決める
+  - 詳細: `EscapeLineSeparator(... EscSeqChar:="")` は空文字を既定の `\` として扱う一方、`UnescapeLineSeparator(... EscSeqChar:="")` は空文字をそのまま受け付け、実質的にアンエスケープしない。
+  - 詳細: `UnescapeLineSeparator` は未知のエスケープ列でエスケープ文字を捨て、後続文字だけを残す。未知列を許容するのか、エラーにするのか、元の文字列を保つのかが契約として読みにくい。
+  - 影響: 文字列の保存・復元で、空のエスケープ文字や未知列を含む入力だけ往復変換の結果が読み手の期待とずれる可能性がある。
+  - 対応案: 空のエスケープ文字、末尾だけのエスケープ文字、`\\`、未知エスケープ列の扱いを仕様化し、`EscapeLineSeparator` / `UnescapeLineSeparator` の往復テストを追加する。
+
+- [ ] [ref] TextFileEntity の状態プロパティ名を読み取りやすくする
+  - 詳細: `AsRead` / `AsWrite` / `AsAppend` / `GetReadLock` / `GetWriteLock` は Boolean の状態プロパティだが、一般的な `Is...` / `Has...` 形式ではない。特に `GetReadLock` / `GetWriteLock` はロックを取得する操作のように読める。
+  - 影響: ファイル状態を参照するだけのプロパティか、副作用を持つ操作かを名前から判断しにくい。共通テキスト入出力基盤として、利用側の読みやすさが落ちる。
+  - 対応案: 互換性を保ちながら `IsReadMode`、`IsWriteMode`、`IsAppendMode`、`HasReadLock`、`HasWriteLock` などの読み取り専用プロパティを追加するか、既存名のコメントで状態値であることを明示する。
+
+- [ ] [ref] UserInputSheet の表レイアウト前提を共通設定リーダーとして整理する
+  - 詳細: `GetItemRange` は 1 列目に大項目、右隣に小項目見出し、その下に値が並ぶ表を前提にしているが、`UserInputSheet` という名前からは二段見出しの設定表専用ロジックであることが読み取りにくい。
+  - 影響: 汎用の入力シート操作クラスなのか、特定レイアウトの設定テーブルリーダーなのか責務が曖昧になり、同種の読み取り処理を追加するときに置き場所を判断しづらい。
+  - 対応案: `ParameterSheetReader` / `TwoLevelParameterTable` のようなレイアウトが分かる型へ切り出し、`UserInputSheet` は互換用の薄いラッパーまたは入口名にする。
+
 ## TODO 整理メモ
 
 - `CloseWorkbook` は保存確認契約のバグ、`OpenWorkbook` は API 名とテンプレート作成挙動の仕様改善として分ける。WorkbookService 内の話でも、バグと非バグは混ぜない。
@@ -331,6 +588,10 @@
 
 ### 高優先度だったもの
 
+- [x] [bug] Lib_UnitTest / UnitTestAssert でアサーション 0 件のテストを OK にしない
+  - 詳細: `UnitTestAssert` はアサーション実行数を内部で数えていたが、テストランナー側は `IsFailed` だけで結果判定していたため、`Assert.*` を 1 回も呼ばないテストが OK になっていた。
+  - 最終対応: `UnitTestAssert.AssertionCount` を公開し、`Lib_UnitTest.pWriteResult` で `AssertionCount <= 0` のテストを `ERR` として記録するようにした。Description には `No assertions were executed.` を出力する。
+  - 確認: `Test_UnitTestAssert.bas` にアサーション件数のテストを追加し、一時プローブで 0 アサーションのテストが `ERR` になることを確認した。`CommonModules.xlsm` の `UnitTestMain` 全件 OK を確認済み。
 - [x] [bug] WorksheetRangeBounds の空範囲を Shift / Transform 系で維持する
   - 詳細: 空範囲は `FinishRow = 0` や `FinishColumn = 0` で表現されるが、`Shift` で負方向へ移動すると `pFinishRow + Row` / `pFinishColumn + Column` が負値になり、`Initialize` の `pWellFormBounds` が「省略」と解釈して開始行・開始列へ補完していた。
   - 最終対応: `Shift` では開始行・開始列だけをシフトし、`FinishRow` / `FinishColumn` が `0` の場合は空方向の番兵として `0` を維持するようにした。`0` 以外の終了位置はシフト後 1 未満または上限超過をエラーにする。

@@ -30,6 +30,11 @@ Public Property Get ResultMessage() As String
     ResultMessage = pResultMessage
 End Property
 
+'* Às‚³‚ê‚½ assert ‚ÌŒ”
+Public Property Get AssertionCount() As Long
+    AssertionCount = pCallCount
+End Property
+
 Private Sub Class_Initialize()
     pCallCount = 0
     pIsFailed = False

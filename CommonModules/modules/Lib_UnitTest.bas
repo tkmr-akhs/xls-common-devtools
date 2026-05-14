@@ -21,6 +21,7 @@ Private Const C_SUB_MAIN As String = "UnitTestMain"
 Private Const C_RESULT_OK As String = "OK"
 Private Const C_RESULT_NG As String = "NG"
 Private Const C_RESULT_ERR As String = "ERR"
+Private Const C_NO_ASSERTION_MESSAGE As String = "No assertions were executed."
 Private Const C_RUNTIME_RUNNER_MODULE As String = "UnitTestRuntimeRunner"
 Private Const C_RUNTIME_RUNNER_FUNCTION As String = "Run"
 Private Const C_VBEXT_CT_STDMODULE As Long = 1
@@ -310,10 +311,15 @@ End Function
 Private Sub pWriteResult(ByVal ResultSheet As Worksheet, ByVal RowIndex As Long, ByVal ModuleName As String, ByVal TestSubName As String, ByVal AssertObject As UnitTestAssert)
     ResultSheet.Cells(RowIndex, C_COL_MOD).Value = ModuleName
     ResultSheet.Cells(RowIndex, C_COL_SUB).Value = TestSubName
-    ResultSheet.Cells(RowIndex, C_COL_DESC).Value = AssertObject.ResultMessage
-    If AssertObject.IsFailed Then
+
+    If AssertObject.AssertionCount <= 0 Then
+        ResultSheet.Cells(RowIndex, C_COL_DESC).Value = C_NO_ASSERTION_MESSAGE
+        Call pWriteResultStatus(ResultSheet, RowIndex, C_RESULT_ERR, RGB(255, 192, 0))
+    ElseIf AssertObject.IsFailed Then
+        ResultSheet.Cells(RowIndex, C_COL_DESC).Value = AssertObject.ResultMessage
         Call pWriteResultStatus(ResultSheet, RowIndex, C_RESULT_NG, RGB(255, 128, 128))
     Else
+        ResultSheet.Cells(RowIndex, C_COL_DESC).Value = AssertObject.ResultMessage
         Call pWriteResultStatus(ResultSheet, RowIndex, C_RESULT_OK, RGB(128, 255, 128))
     End If
 End Sub

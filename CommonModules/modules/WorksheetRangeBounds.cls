@@ -448,28 +448,40 @@ Private Function pGetDefaultWorkbookName() As String
 End Function
 
 Private Sub pWellFormBounds(ByRef Row As Long, ByRef Column As Long, ByRef FinishRow As Long, ByRef FinishColumn As Long)
-    If Row < 1 Then
+    If Row = G_OMIT_CELL_INDEX Then
         Row = 1
-        If FinishRow < 0 Then
+        If FinishRow = G_OMIT_CELL_INDEX Then
             FinishRow = G_ROW_MAX
         End If
+    ElseIf Row < 1 Then
+        Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "開始行は 1 以上を指定してください。(" & Row & ")"
+    ElseIf G_ROW_MAX < Row Then
+        Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "開始行が " & G_ROW_MAX & " を超過しています。(" & Row & ")"
     End If
     
-    If Column < 1 Then
+    If Column = G_OMIT_CELL_INDEX Then
         Column = 1
-        If FinishColumn < 0 Then
+        If FinishColumn = G_OMIT_CELL_INDEX Then
             FinishColumn = G_COL_MAX
         End If
+    ElseIf Column < 1 Then
+        Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "開始列は 1 以上を指定してください。(" & Column & ")"
+    ElseIf G_COL_MAX < Column Then
+        Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "開始列が " & G_COL_MAX & " を超過しています。(" & Column & ")"
     End If
     
-    If FinishRow < 0 Then
+    If FinishRow = G_OMIT_CELL_INDEX Then
         FinishRow = Row
+    ElseIf FinishRow < 0 Then
+        Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "終了行に負数は指定できません。(" & FinishRow & ")"
     ElseIf FinishRow < Row Then
         FinishRow = 0
     End If
     
-    If FinishColumn < 0 Then
+    If FinishColumn = G_OMIT_CELL_INDEX Then
         FinishColumn = Column
+    ElseIf FinishColumn < 0 Then
+        Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "終了列に負数は指定できません。(" & FinishColumn & ")"
     ElseIf FinishColumn < Column Then
         FinishColumn = 0
     End If
@@ -503,26 +515,38 @@ Public Function TransformAbsolute( _
     Dim s_row As Long, f_row As Long
     Dim s_col As Long, f_col As Long
     
-    If Row <= 0 Then
+    If Row = G_OMIT_CELL_INDEX Then
         s_row = pRow
+    ElseIf Row < 1 Then
+        Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "開始行は 1 以上を指定してください。(" & Row & ")"
+    ElseIf G_ROW_MAX < Row Then
+        Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "開始行が " & G_ROW_MAX & " を超過しています。(" & Row & ")"
     Else
         s_row = Row
     End If
     
-    If FinishRow < 0 Then
+    If FinishRow = G_OMIT_CELL_INDEX Then
         f_row = pFinishRow
+    ElseIf FinishRow < 0 Then
+        Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "終了行に負数は指定できません。(" & FinishRow & ")"
     Else
         f_row = FinishRow
     End If
     
-    If Column <= 0 Then
+    If Column = G_OMIT_CELL_INDEX Then
         s_col = pColumn
+    ElseIf Column < 1 Then
+        Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "開始列は 1 以上を指定してください。(" & Column & ")"
+    ElseIf G_COL_MAX < Column Then
+        Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "開始列が " & G_COL_MAX & " を超過しています。(" & Column & ")"
     Else
         s_col = Column
     End If
     
-    If FinishColumn < 0 Then
+    If FinishColumn = G_OMIT_CELL_INDEX Then
         f_col = pFinishColumn
+    ElseIf FinishColumn < 0 Then
+        Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "終了列に負数は指定できません。(" & FinishColumn & ")"
     Else
         f_col = FinishColumn
     End If

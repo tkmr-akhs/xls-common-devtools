@@ -15,16 +15,6 @@
 
 ## 高優先度
 
-- [ ] [bug] WorksheetService.GetUsedRangeBounds で値なし書式セルを空扱いしない
-  - 詳細: `pGetRawUsedRange` は UsedRange が 1 セルだけの場合、値が空で四辺の罫線がないことだけを見て空範囲としている。塗りつぶし、フォント、表示形式、コメント、ハイパーリンク、入力規則など、値以外の使用状態を確認していない。
-  - 影響: 書式だけを持つセルを `GetUsedRangeBounds(GetRawRange:=True)` が空範囲として返し、`CopyRange(CopyNumberFormat:=True)` など UsedRange に依存する処理で書式のみの使用セルが落ちる可能性がある。
-  - 対応案: 「使用中」に含める書式・コメント・リンクの範囲を仕様化し、Raw UsedRange は Excel の UsedRange 境界を尊重するか、空判定で対象とする書式要素を明示的に検査する。値なしで表示形式、塗りつぶし、コメントだけがあるケースのテストを追加する。
-
-- [ ] [bug] WorksheetRangeBounds の省略値と明示的な不正行列番号を区別する
-  - 詳細: `Initialize` は省略値を `G_OMIT_CELL_INDEX` として受ける一方、`pWellFormBounds` は `Row < 1` / `Column < 1` をすべて 1 へ丸める。`TransformAbsolute` も `Row <= 0` / `Column <= 0` を「元の値を維持」と扱うため、呼び出し側が明示的に `0` や不正な負数を渡してもエラーにならない。
-  - 影響: 行列番号の計算ミスが範囲生成時に検出されず、先頭行・先頭列や元範囲を対象にした正しそうな `WorksheetRangeBounds` として伝播する。行削除、範囲クリア、コピーなどの破壊的操作では、誤った大きな範囲を処理する危険がある。
-  - 対応案: 省略を表す値と明示的な不正値を分け、`0` や許可していない負数は `Class WorksheetRangeBounds` の明示エラーにする。省略指定、`0`、`-2`、開始行列の上限超過を分けたテストを追加する。
-
 - [ ] [bug] WorksheetService.CopyRange の同一シート内重複コピーでコピー元を上書きしない
   - 詳細: `CopyRange` は左上から右下へセル単位で `pCopyCellCore` を実行する。コピー元とコピー先が同じシートで重なり、コピー先がコピー元より下または右にずれる場合、先に書いたコピー先セルを後続のコピー元セルとして読み直す。
   - 影響: `A1:A2` を `A2:A3` にコピーするような重複移動で、`A3` へ元の `A2` ではなくコピー後の `A2` が入るなど、Excel の範囲コピーと異なるデータ破壊が起こり得る。
@@ -551,4 +541,7 @@
 
 ## 対応しないと決定した事項
 
-なし
+- [x] [spec] WorksheetService.GetUsedRangeBounds で値なし書式セルを空扱いしない
+  - 詳細: `pGetRawUsedRange` は UsedRange が 1 セルだけの場合、値が空で四辺の罫線がないことだけを見て空範囲としている。塗りつぶし、フォント、表示形式、コメント、ハイパーリンク、入力規則など、値以外の使用状態を確認していない。
+  - 影響: 書式だけを持つセルを `GetUsedRangeBounds(GetRawRange:=True)` が空範囲として返し、`CopyRange(CopyNumberFormat:=True)` など UsedRange に依存する処理で書式のみの使用セルが落ちる可能性がある。
+  - 結論: 罫線と値のないその他書式のみのセルは空扱いする現行動作を仕様とする。書式だけを使用範囲として保持する対応は行わない。

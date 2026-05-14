@@ -201,20 +201,20 @@ Public Sub Test_Initialize_StartColumn5FinishColumn3_BecomesEmpty(ByVal Assert A
     Assert.EqualsNumeric 0, rng_bds.FinishColumn
 End Sub
 
-Public Sub Test_Initialize_StartRowNegative_Becomes1(ByVal Assert As UnitTestAssert)
+Public Sub Test_Initialize_StartRowNegative_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
     ' Arrange
     Dim rng_bds As WorksheetRangeBounds
     Set rng_bds = New WorksheetRangeBounds
 
     ' Act
-    ' row=-1 => corrected to row=1
     rng_bds.Initialize Row:=-1, Column:=2, FinishRow:=5, FinishColumn:=6
 
     ' Assert
-    Assert.EqualsNumeric 1, rng_bds.Row
-    Assert.EqualsNumeric 2, rng_bds.Column
-    Assert.EqualsNumeric 5, rng_bds.FinishRow
-    Assert.EqualsNumeric 6, rng_bds.FinishColumn
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Class WorksheetRangeBounds", Err.Source
+    Err.Clear
 End Sub
 
 Public Sub Test_Initialize_FinishRowTooBig_ClampedToG_ROW_MAX(ByVal Assert As UnitTestAssert)
@@ -262,17 +262,68 @@ Public Sub Test_Initialize_StartRowGreaterThanFinishRow_BecomesEmpty(ByVal Asser
     Assert.EqualsNumeric 4, rng.FinishColumn
 End Sub
 
-Public Sub Test_Initialize_NegativeRow_ClampsTo1(ByVal Assert As UnitTestAssert)
+Public Sub Test_Initialize_StartColumnZero_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
     ' Arrange
     Dim rng As WorksheetRangeBounds
     Set rng = New WorksheetRangeBounds
 
     ' Act
-    rng.Initialize Row:=-1, Column:=-1
+    rng.Initialize Row:=1, Column:=0
 
     ' Assert
-    Assert.EqualsNumeric 1, rng.Row
-    Assert.EqualsNumeric 1, rng.Column
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Class WorksheetRangeBounds", Err.Source
+    Err.Clear
+End Sub
+
+Public Sub Test_Initialize_FinishRowNegative_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim rng As WorksheetRangeBounds
+    Set rng = New WorksheetRangeBounds
+
+    ' Act
+    rng.Initialize Row:=1, Column:=1, FinishRow:=-1, FinishColumn:=1
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Class WorksheetRangeBounds", Err.Source
+    Err.Clear
+End Sub
+
+Public Sub Test_Initialize_FinishColumnNegative_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim rng As WorksheetRangeBounds
+    Set rng = New WorksheetRangeBounds
+
+    ' Act
+    rng.Initialize Row:=1, Column:=1, FinishRow:=1, FinishColumn:=-1
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Class WorksheetRangeBounds", Err.Source
+    Err.Clear
+End Sub
+
+Public Sub Test_Initialize_StartRowTooBig_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim rng As WorksheetRangeBounds
+    Set rng = New WorksheetRangeBounds
+
+    ' Act
+    rng.Initialize Row:=G_ROW_MAX + 1, Column:=1
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Class WorksheetRangeBounds", Err.Source
+    Err.Clear
 End Sub
 
 ' -----------------------------------------------------------------------------
@@ -336,26 +387,75 @@ Public Sub Test_Transform_WhenFinishNotSpecified_KeepFinishRowFinishColumn(ByVal
     Assert.EqualsNumeric 9, transform_bds.FinishColumn
 End Sub
 
-Public Sub Test_Transform_WithZeroNegativeRowColumn_KeepsOriginal(ByVal Assert As UnitTestAssert)
+Public Sub Test_Transform_WithOmittedIndexes_KeepsOriginal(ByVal Assert As UnitTestAssert)
     ' Arrange
     Dim rng_bds As WorksheetRangeBounds
-    ' Row=2,Col=2,FinishRow=5,FinishColumn=7
     Set rng_bds = New_RangeBounds(Row:=2, Column:=2, FinishRow:=5, FinishColumn:=7)
 
     ' Act
-    ' Row=-1 => keep pRow
-    ' Column=0 => keep pColumn
-    ' FinishRow=-999 => keep pFinishRow
-    ' FinishColumn=G_OMIT_CELL_INDEX => keep pFinishColumn ( < 0 )
     Dim tf_bds As WorksheetRangeBounds
-    Set tf_bds = rng_bds.TransformAbsolute(Row:=-1, Column:=0, FinishRow:=-999, FinishColumn:=G_OMIT_CELL_INDEX)
+    Set tf_bds = rng_bds.TransformAbsolute( _
+            Row:=G_OMIT_CELL_INDEX, _
+            Column:=G_OMIT_CELL_INDEX, _
+            FinishRow:=G_OMIT_CELL_INDEX, _
+            FinishColumn:=G_OMIT_CELL_INDEX)
 
     ' Assert
-    ' => Row=2,Col=2,FinishRow=5,FinishColumn=7 remains
     Assert.EqualsNumeric 2, tf_bds.Row
     Assert.EqualsNumeric 2, tf_bds.Column
     Assert.EqualsNumeric 5, tf_bds.FinishRow
     Assert.EqualsNumeric 7, tf_bds.FinishColumn
+End Sub
+
+Public Sub Test_Transform_RowZero_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim rng_bds As WorksheetRangeBounds
+    Set rng_bds = New_RangeBounds(Row:=2, Column:=2, FinishRow:=5, FinishColumn:=7)
+
+    ' Act
+    Dim tf_bds As WorksheetRangeBounds
+    Set tf_bds = rng_bds.TransformAbsolute(Row:=0)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Class WorksheetRangeBounds", Err.Source
+    Err.Clear
+End Sub
+
+Public Sub Test_Transform_ColumnNegative_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim rng_bds As WorksheetRangeBounds
+    Set rng_bds = New_RangeBounds(Row:=2, Column:=2, FinishRow:=5, FinishColumn:=7)
+
+    ' Act
+    Dim tf_bds As WorksheetRangeBounds
+    Set tf_bds = rng_bds.TransformAbsolute(Column:=-1)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Class WorksheetRangeBounds", Err.Source
+    Err.Clear
+End Sub
+
+Public Sub Test_Transform_FinishRowNegative_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim rng_bds As WorksheetRangeBounds
+    Set rng_bds = New_RangeBounds(Row:=2, Column:=2, FinishRow:=5, FinishColumn:=7)
+
+    ' Act
+    Dim tf_bds As WorksheetRangeBounds
+    Set tf_bds = rng_bds.TransformAbsolute(FinishRow:=-1)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Class WorksheetRangeBounds", Err.Source
+    Err.Clear
 End Sub
 
 Public Sub Test_Transform_EmptyRange_RemainsOrReformed(ByVal Assert As UnitTestAssert)

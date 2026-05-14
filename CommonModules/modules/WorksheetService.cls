@@ -619,6 +619,7 @@ Public Sub CopyRange( _
         Optional ByVal CopyNumberFormat As Boolean = False)
     
     If SourceRangeBounds.IsEmpty Then Exit Sub
+    Call pRaiseIfCopyRangeDestinationOutOfSheet(SourceRangeBounds, DestinationRangeBounds)
 '    If DestinationRangeBounds.IsEmpty Then Exit Sub
 '    If Not DestinationRangeBounds.IsCell Then Err.Raise vbObjectError + 1, "Class WorksheetService", "DestinationRangeBounds がセルではありません。(" & DestinationRangeBounds.ToString() & ")"
     
@@ -707,6 +708,23 @@ Private Sub IWorksheetService_CopyRange( _
         Optional ByVal CopyNumberFormat As Boolean = False)
     
     Call CopyRange(SourceRangeBounds, DestinationRangeBounds, AsValue:=AsValue, CopyNumberFormat:=CopyNumberFormat)
+End Sub
+
+Private Sub pRaiseIfCopyRangeDestinationOutOfSheet( _
+        ByVal SourceRangeBounds As WorksheetRangeBounds, _
+        ByVal DestinationRangeBounds As WorksheetRangeBounds)
+
+    Dim destination_finish_row As Long
+    destination_finish_row = DestinationRangeBounds.Row + SourceRangeBounds.RowCount - 1
+    If G_ROW_MAX < destination_finish_row Then
+        Err.Raise vbObjectError + 1, "Class WorksheetService", "コピー先範囲の終了行がシート上限を超過しています。(row: " & DestinationRangeBounds.Row & ", row_count: " & SourceRangeBounds.RowCount & ", finish_row: " & destination_finish_row & ")"
+    End If
+
+    Dim destination_finish_column As Long
+    destination_finish_column = DestinationRangeBounds.Column + SourceRangeBounds.ColumnCount - 1
+    If G_COL_MAX < destination_finish_column Then
+        Err.Raise vbObjectError + 1, "Class WorksheetService", "コピー先範囲の終了列がシート上限を超過しています。(column: " & DestinationRangeBounds.Column & ", column_count: " & SourceRangeBounds.ColumnCount & ", finish_column: " & destination_finish_column & ")"
+    End If
 End Sub
 
 Private Sub pAddItemToStringArray(ByRef TargetArray() As String, ByVal ItemToBeAdded As String)
@@ -831,8 +849,18 @@ Private Sub pCopyCellCore( _
                 ' マルチセル配列の起点セル以外は何もしない
             End If
         Else
-            dst_cell = src_cell.FormulaR1C1
-            If CopyNumberFormat Then dst_cell.NumberFormatLocal = src_cell.NumberFormatLocal
+            Dim dst_number_format As String
+            dst_number_format = dst_cell.NumberFormatLocal
+
+            On Error GoTo RESTORE_FORMULA_COPY_NUMBER_FORMAT_ON_ERROR
+            dst_cell.NumberFormat = "General"
+            dst_cell.FormulaR1C1 = src_cell.FormulaR1C1
+            If CopyNumberFormat Then
+                dst_cell.NumberFormatLocal = src_cell.NumberFormatLocal
+            Else
+                dst_cell.NumberFormatLocal = dst_number_format
+            End If
+            On Error GoTo 0
         End If
     Else
         ' 値コピー
@@ -843,6 +871,23 @@ Private Sub pCopyCellCore( _
         End If
         If CopyNumberFormat Then dst_cell.NumberFormatLocal = src_cell.NumberFormatLocal
     End If
+    Exit Sub
+
+RESTORE_FORMULA_COPY_NUMBER_FORMAT_ON_ERROR:
+    Dim err_num As Long
+    err_num = Err.Number
+
+    Dim err_source As String
+    err_source = Err.Source
+
+    Dim err_desc As String
+    err_desc = Err.Description
+
+    On Error Resume Next
+    dst_cell.NumberFormatLocal = dst_number_format
+    On Error GoTo 0
+
+    Err.Raise Number:=err_num, Source:=err_source, Description:=err_desc
 End Sub
 
 '

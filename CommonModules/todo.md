@@ -6,7 +6,7 @@
 
 | タグ名 | 短縮タグ | 意味 |
 | --- | --- | --- |
-| バグ | `[bug]` | 現仕様・期待動作に対する誤動作。実務データで誤った結果になるもの。 |
+| バグ | `[bug]` | 現仕様に対する誤動作。実務データで誤った結果になるもの。 |
 | 要リファクタリング | `[ref]` | 動いてはいるが、設計・責務・依存関係・テスト容易性に問題があるもの。 |
 | 仕様改善 | `[spec]` | 仕様の明確化、境界条件の整理、仕様上の矛盾、現仕様として明確だが著しく不便なものの見直し。 |
 | 必須機能不足 | `[req]` | 実務利用に必要だが、現時点で仕様として欠けているもの。 |
@@ -31,10 +31,6 @@
   - 影響: 追加・更新では型を固定しているのに、検索・削除では型違いを False、暗黙一致、実行時エラーのどれにするかが揃わない。コレクション基盤として「同じ要素」の意味が操作ごとに変わる。
   - 対応案: 検索・削除系 API でも保存済み型との照合を行い、型違いは明示エラーまたは常に不一致のどちらかに統一する。数値と数値文字列、Boolean と数値、IEquatable 実装と非オブジェクト引数のテストを追加する。
 
-- [ ] [bug] WorksheetService.CopyRange でコピー先がシート端を超える場合を明示的に扱う
-  - 詳細: `CopyRange` はコピー先範囲を `New_RangeBounds` で作るため、`FinishRow` / `FinishColumn` が Excel 上限を超えると範囲オブジェクト側で上限へ丸められる。一方でコピー処理のループ回数は `src_bounds.RowCount` / `ColumnCount` と `dst_bounds.RowCount` / `ColumnCount` の大きい方で決まるため、コピー元の方が大きい場合に `DestinationSheet.Cells(DestinationRow + row_idx, ...)` がシート外を参照し得る。
-  - 影響: シート最終行・最終列付近へ範囲コピーしたとき、範囲作成時には失敗しないのにコピー途中で Excel の実行時エラーになる。部分コピー、明示エラー、事前拒否のどれが仕様かも呼び出し側から判断しにくい。
-  - 対応案: コピー先がシート上限を超える入力を事前に検出して明示エラーにするか、コピー可能な交差範囲だけを処理する仕様に固定する。最終行・最終列付近への `CopyRange` テストを追加する。
 
 - [ ] [bug] WorksheetService.SetSheetOutlineLevel の既定値 0 を Excel に渡さない
   - 詳細: `SetSheetOutlineLevel` は `RowLevels:=0`、`ColumnLevels:=0` を既定値にし、そのまま `target_sheet.Outline.ShowLevels(RowLevels:=RowLevels, ColumnLevels:=ColumnLevels)` へ渡している。Excel のアウトラインレベルは 1 以上の指定または引数省略が前提で、0 を渡すと実行時エラーになり得る。
@@ -93,10 +89,6 @@
   - 影響: `ReadCell`、`XLookup`、`pGetFormulaLiteral` など、Excel エラー値を読み取る・式へ埋め込む経路で、テスト対象ではなく基盤側の変換処理が失敗する。
   - 対応案: `IsError` 分岐後は `WorksheetFunction.Error_Type` 相当の安定した判定に寄せ、7 種類の Excel エラー値を文字列へ変換するテストを追加する。
 
-- [ ] [bug] WorksheetService の通常数式コピーで相対参照を保持する
-  - 詳細: `WorksheetService.CopyCell` / `CopyRange` の通常数式コピー分岐で `dst_cell = src_cell.FormulaR1C1` としており、`dst_cell.FormulaR1C1 = src_cell.FormulaR1C1` になっていない。
-  - 影響: `=A2` のような相対参照を含む通常数式をコピーしたとき、コピー先で参照先がずれる、または数式として解釈できない値になる可能性がある。
-  - 対応案: 通常数式のコピー先プロパティを明示し、A1 形式と R1C1 形式の期待動作を固定する。相対参照を含む通常数式の `CopyCell` / `CopyRange` テストを追加する。
 
 - [ ] [bug] WorksheetService.ReadCell(GetText:=True) の副作用と表示形式戻り値を修正する
   - 詳細: `ReadCell(GetText:=True)` は `Range.Text` を読むために列幅を変更するが、元の `ColumnWidth` を `Long` に保存しているため、小数を含む列幅を正確に復元できない。途中でエラーが発生した場合に列幅が戻らない経路もある。
@@ -119,11 +111,6 @@
   - 詳細: `ActivateRange` は `target_sheet.Range(...).Activate` を直接呼ぶだけで、対象ブックや対象シートを先にアクティブにしていない。
   - 影響: 対象シートがアクティブでない状態では `Range.Activate` が失敗したり、呼び出し側が期待した範囲が選択されない可能性がある。
   - 対応案: UI 操作用 API として対象ブック、対象シート、対象範囲のアクティブ化順序を明示し、非アクティブブック/非アクティブシートからの呼び出しをテストする。
-
-- [ ] [bug] WorksheetService の配列数式コピーでコピー元を破壊しない
-  - 詳細: `WorksheetService.pCopyCellCore` は配列数式コピー時に `src_cell = formula_str` でコピー元セルを通常数式へ一時変更し、後続処理が成功した場合だけ `src_cell.FormulaArray = formula_str` で戻している。
-  - 影響: `Application.ConvertFormula`、コピー先への代入、配列数式の再設定でエラーが発生すると、コピー処理の失敗だけでコピー元の配列数式が壊れる可能性がある。読み取り・コピー系 API として副作用が大きい。
-  - 対応案: コピー元セルを書き換えずに相対参照を変換する方法へ変更する。やむを得ず一時変更する場合はエラー時も必ず復元するガードを置き、コピー先失敗時にコピー元が維持されるテストを追加する。
 
 - [ ] [bug] WorksheetRangeBounds の未初期化状態を全公開メンバーで拒否する
   - 詳細: `WorksheetRangeBounds.TransformAbsolute` は `pCheckInit` を呼ばず、未初期化インスタンスでも既定値から新しい範囲を返し得る。`GetIdentityString` / `Equals` も `ToString` の `UNINITIALIZED(...)` 表記に寄るため、未初期化状態をキーや比較に流せてしまう。
@@ -572,6 +559,10 @@
   - 保留解除条件: 必要とされたら
 
 ## 対応しないと決定した事項
+
+- [x] [spec] WorksheetService の配列数式コピーでコピー元を破壊しない
+  - 詳細: `WorksheetService.pCopyCellCore` は配列数式コピー時に `src_cell = formula_str` でコピー元セルを通常数式へ一時変更しているため、コピー先エラー時にコピー元が壊れる懸念があった。
+  - 結論: 指摘誤り。失敗系ユニットテストでコピー先エラー時もコピー元の配列数式が維持されることを確認したため、破壊バグは存在しないものとして扱う。実装修正は行わない。
 
 - [x] [ux] Lib_UnitTest の実行用一時モジュール削除を生成済みモジュールだけに限定する
   - 詳細: `pRemoveRuntimeRunnerModule` は `pRuntimeRunnerModuleName` と一致するモジュールだけでなく、`Tmp_UTRUN[A-Z]{22}` に一致する標準モジュールをすべて削除する。テスト実行前は `pRuntimeRunnerModuleName` が空のため、同じ命名規則に偶然一致した利用者作成モジュールや調査用モジュールも削除対象になる。

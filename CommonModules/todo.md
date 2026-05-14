@@ -15,11 +15,6 @@
 
 ## 高優先度
 
-- [ ] [bug] Lib_UnitTest のテスト候補検出を標準モジュールに限定する
-  - 詳細: `Lib_UnitTest.pRunAllTest` は `ThisWorkbook.VBProject.VBComponents` の全コンポーネントを走査し、`vb_comp.Type` を見ずに `Public Sub Test_...(ByVal Assert As UnitTestAssert)` 形式を拾う。クラス、シート、`ThisWorkbook` のメソッドが一致すると、一時実行モジュールは `ComponentName.TestName(AssertObject)` を標準モジュールの手続きとして呼び出すため、テストではないメンバーを ERR として記録し得る。
-  - 影響: テストダブルやシートイベント周辺の補助メソッドが `Test_` で始まるだけで、全テスト実行結果に偽の ERR が混ざる。実際の失敗と検出器の誤検出を切り分けにくい。
-  - 対応案: 検出対象を `C_VBEXT_CT_STDMODULE` に限定するか、クラス/ドキュメントモジュールのテストを正式対応するなら生成コードと呼び出し規約を別途定義する。標準モジュール、クラスモジュール、シートモジュールの検出テストを追加する。
-
 - [ ] [bug] WorksheetService.CopyRange の同一シート内重複コピーでコピー元を上書きしない
   - 詳細: `CopyRange` は左上から右下へセル単位で `pCopyCellCore` を実行する。コピー元とコピー先が同じシートで重なり、コピー先がコピー元より下または右にずれる場合、先に書いたコピー先セルを後続のコピー元セルとして読み直す。
   - 影響: `A1:A2` を `A2:A3` にコピーするような重複移動で、`A3` へ元の `A2` ではなくコピー後の `A2` が入るなど、Excel の範囲コピーと異なるデータ破壊が起こり得る。
@@ -575,6 +570,11 @@
 ## 対応済み事項
 
 ### 高優先度だったもの
+
+- [x] [bug] Lib_UnitTest のテスト候補検出を標準モジュールに限定する
+  - 詳細: `pRunAllTest` が `VBComponents` の種別を見ずに `Test_...` 手続きを拾い、クラスやドキュメントモジュールのメンバーを誤検出し得た。
+  - 最終対応: `vb_comp.Type <> C_VBEXT_CT_STDMODULE` のコンポーネントを走査対象から除外し、標準モジュールだけをテスト候補検出対象にした。
+  - 確認: `Test_...` 手続きを持つクラスモジュールを追加しても結果シートに検出されないことを確認した。`CommonModules.xlsm` の `UnitTestMain` 全件 OK を確認済み。
 
 - [x] [bug] WorksheetRangeBounds.Item の負インデックスを範囲外として拒否する
   - 詳細: `Item(-1)` が `pGetCellVertical` / `pGetCellHorizontal` の `Mod` 計算へ進み、下位の行・列範囲エラーとして扱われていた。

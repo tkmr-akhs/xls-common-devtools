@@ -182,56 +182,58 @@ Private Sub pRunAllTest(ByVal ResultSheet As Worksheet)
     Dim sub_re As RegExp
     Set sub_re = New RegExp
     sub_re.Pattern = "^\s*(?:Public\s+)?Sub\s+(Test_[^\s(]+)\s*\([^,]*\s+As\s+UnitTestAssert.*\).*$"
-    
+
     ' プロジェクト オブジェクトのコンポーネントすべてについて処理
     Dim row_idx As Long: row_idx = 2
     Dim vb_comp As Variant 'VBIDE.VBComponent
     For Each vb_comp In vb_proj.VBComponents
-        ' モジュール名の取得
-        Dim mod_name As String
-        On Error Resume Next
-        mod_name = vb_comp.Name
-        If Err.Number <> 0 Then
-            Debug.Print "<" & row_idx & "> [&H" & Hex(Err.Number) & "] " & Err.Source & " | " & Err.Description
-            Err.Clear
-            On Error GoTo 0
-        Else
-            On Error GoTo 0
-            
-            'Debug.Print "Search " & mod_name
-            
-            ' コンポーネントのコード モジュールを得る
-            Dim vb_comp_code As Variant 'VBIDE.CodeModule
-            Set vb_comp_code = vb_comp.CodeModule
-            
-            ' コード モジュールのすべての行を処理する
-            Dim line_idx As Long
-            line_idx = 1
-            Do While line_idx <= vb_comp_code.CountOfLines
-                Dim code_line As String
-                code_line = pReadLogicalLine(vb_comp_code, line_idx)
-                
-                ' 行が正規表現にマッチするかチェック
-                Dim match_result As MatchCollection
-                Set match_result = sub_re.Execute(code_line)
-                
-                If 0 < match_result.Count Then
-                    'Debug.Print "Found " & TestName
-                        
-                    Dim sub_name As String
-                    sub_name = match_result.Item(0).SubMatches(0)
-                    
-                    ' テストを実行する
-                    Call pRunTestCore(ResultSheet, mod_name, sub_name, row_idx)
-                    
-                    ' ボタンを追加する
-                    Call AddButton(ResultSheet, row_idx, C_COL_BTN, "再実行", pBuildWorkbookMacroName(C_SUB_MAIN), row_idx)
-                    
-                    ' 行を進める
-                    row_idx = row_idx + 1
-                End If
-                line_idx = line_idx + 1
-            Loop
+        If vb_comp.Type = C_VBEXT_CT_STDMODULE Then
+            ' モジュール名の取得
+            Dim mod_name As String
+            On Error Resume Next
+            mod_name = vb_comp.Name
+            If Err.Number <> 0 Then
+                Debug.Print "<" & row_idx & "> [&H" & Hex(Err.Number) & "] " & Err.Source & " | " & Err.Description
+                Err.Clear
+                On Error GoTo 0
+            Else
+                On Error GoTo 0
+
+                'Debug.Print "Search " & mod_name
+
+                ' コンポーネントのコード モジュールを得る
+                Dim vb_comp_code As Variant 'VBIDE.CodeModule
+                Set vb_comp_code = vb_comp.CodeModule
+
+                ' コード モジュールのすべての行を処理する
+                Dim line_idx As Long
+                line_idx = 1
+                Do While line_idx <= vb_comp_code.CountOfLines
+                    Dim code_line As String
+                    code_line = pReadLogicalLine(vb_comp_code, line_idx)
+
+                    ' 行が正規表現にマッチするかチェック
+                    Dim match_result As MatchCollection
+                    Set match_result = sub_re.Execute(code_line)
+
+                    If 0 < match_result.Count Then
+                        'Debug.Print "Found " & TestName
+
+                        Dim sub_name As String
+                        sub_name = match_result.Item(0).SubMatches(0)
+
+                        ' テストを実行する
+                        Call pRunTestCore(ResultSheet, mod_name, sub_name, row_idx)
+
+                        ' ボタンを追加する
+                        Call AddButton(ResultSheet, row_idx, C_COL_BTN, "再実行", pBuildWorkbookMacroName(C_SUB_MAIN), row_idx)
+
+                        ' 行を進める
+                        row_idx = row_idx + 1
+                    End If
+                    line_idx = line_idx + 1
+                Loop
+            End If
         End If
     Next vb_comp
 End Sub

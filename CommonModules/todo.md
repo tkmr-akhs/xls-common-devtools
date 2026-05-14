@@ -15,11 +15,6 @@
 
 ## 高優先度
 
-- [ ] [bug] Lib_UnitTest.UnitTestMain の結果シート AutoFilter を再実行でトグルしない
-  - 詳細: `pPrepareResultSheet` は全件実行・単体再実行のどちらでも `Range(...).AutoFilter` を無条件に呼ぶ。既に AutoFilter が設定された結果シートで再実行すると、Excel の AutoFilter が解除または再設定され、利用者のフィルタ状態やドロップダウン表示が変わり得る。
-  - 影響: テスト結果を絞り込んだ状態で再実行したときに、結果シートの表示状態がテストランナーの副作用で変わる。単体再実行では、実行結果の更新以外の UI 状態変更が混ざる。
-  - 対応案: 結果シート作成時だけ AutoFilter を設定し、既存シートでは `AutoFilterMode` / `FilterMode` を見て必要な範囲更新だけ行う。全件実行と単体再実行で AutoFilter 状態が維持されるテストまたは手動確認を追加する。
-
 - [ ] [bug] UnitTestUtils の配列引数と区切り文字入り同一性キーを安全に扱う
   - 詳細: `UnitTestUtils.pGetKeyCore` は非オブジェクト引数を `pGetPrimitiveKey` へ渡し、最終的に `CStr(ArgItem)` するため、テストダブル対象メソッドの引数を配列のままキー化すると型不一致になる。
   - 詳細: `IEquatable` 引数では `GetIdentityString()` をそのまま `|` 連結に使い、プリミティブ値のような `|` / `<` / `>` のエスケープを行っていない。実装クラスの同一性文字列に区切り文字が入ると、複数引数キーの衝突や誤読が起こり得る。
@@ -573,6 +568,11 @@
 
 ### 高優先度だったもの
 
+- [x] [bug] Lib_UnitTest.UnitTestMain の結果シート AutoFilter を再実行でトグルしない
+  - 詳細: `pPrepareResultSheet` が個別再実行でも `Range(...).AutoFilter` を呼び、利用者が絞り込んだ結果シートのフィルター状態を変え得た。
+  - 最終対応: 全件実行時だけ既存 AutoFilter を明示解除して再設定し、個別再実行では AutoFilter 状態に触れないようにした。
+  - 確認: フィルター適用済みの `UNIT_TEST_SHEET` で個別再実行しても AutoFilter と絞り込みが維持されることを確認した。`CommonModules.xlsm` の `UnitTestMain` 全件 OK を確認済み。
+
 - [x] [bug] Lib_UnitTest の実行用一時モジュールを既存モジュールと衝突させない
   - 詳細: `UnitTestMain` は `UnitTestRuntimeRunner` という固定名の VBComponent を削除・上書きしていたため、同名の既存モジュールと衝突し得た。
   - 最終対応: 実行用一時モジュール名を `Tmp_UTRUN` + ランダム大文字 22 文字で生成し、実行中に保持した名前だけを削除するようにした。
@@ -582,6 +582,7 @@
   - 詳細: `pRunAllTest` のテスト候補検出正規表現が `^[^']*Public.*\sSub` を許していたため、`Rem Public Sub Test_...` のようなコメント行をテスト候補として拾い得た。
   - 最終対応: 正規表現を行頭の空白と任意の `Public` に続く `Sub Test_...` 宣言だけへ限定し、宣言風のコメントや文字列を候補外にした。
   - 確認: `Test_Lib_UnitTest.bas` に `Rem Public Sub Test_...` の回帰行を追加し、`CommonModules.xlsm` の `UnitTestMain` 全件 OK を確認済み。
+
 - [x] [bug] Lib_UnitTest のテスト候補検出で複数行 Sub 宣言を見落とさない
   - 詳細: `pRunAllTest` がコードを 1 物理行ずつ正規表現にかけていたため、`_` で折り返した `Test_...` 手続き宣言を検出できなかった。
   - 最終対応: `_` による行継続を連結して論理行を作成し、その論理行を既存のテスト候補検出正規表現にかけるようにした。

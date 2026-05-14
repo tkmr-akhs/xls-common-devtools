@@ -159,7 +159,13 @@ Private Function pPrepareResultSheet(ByVal TestIndex As Long) As Worksheet
     result_sheet.Cells(1, C_COL_SUB).Value = "Test Item"
     result_sheet.Cells(1, C_COL_OKNG).Value = "Result"
     result_sheet.Cells(1, C_COL_DESC).Value = "Description"
-    Call result_sheet.Range(RangeAddress(StartColumn:=1, FinishColumn:=C_COL_END)).AutoFilter
+    If TestIndex = 0 Then
+        If result_sheet.AutoFilterMode Then
+            result_sheet.AutoFilterMode = False
+        End If
+
+        Call result_sheet.Range(RangeAddress(StartColumn:=1, FinishColumn:=C_COL_END)).AutoFilter
+    End If
     
     Set pPrepareResultSheet = result_sheet
 End Function

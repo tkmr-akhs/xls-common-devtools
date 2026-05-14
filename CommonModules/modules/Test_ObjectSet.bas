@@ -876,3 +876,73 @@ Public Sub Test_GetEnumerator_WhenCalled_IteratesOverItems(ByVal Assert As UnitT
     If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
     Assert.Equals "alpha,beta,gamma", actual_value
 End Sub
+
+' -----------------------------------------------------------------------------
+' Special Variant values
+' -----------------------------------------------------------------------------
+
+Public Sub Test_Add_Empty_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_set As ObjectSet
+    Set obj_set = New ObjectSet
+
+    ' Act
+    Call obj_set.Add(Empty)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Err.Clear
+    Assert.EqualsNumeric 0, obj_set.Count
+End Sub
+
+Public Sub Test_Add_Null_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_set As ObjectSet
+    Set obj_set = New ObjectSet
+
+    ' Act
+    Call obj_set.Add(Null)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Err.Clear
+    Assert.EqualsNumeric 0, obj_set.Count
+End Sub
+
+Public Sub Test_Update_CVErrWithSameError_DoesNotRaise(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_set As ObjectSet
+    Set obj_set = New ObjectSet
+    Call obj_set.Add(CVErr(xlErrNA))
+
+    ' Act
+    Call obj_set.Update(0, CVErr(xlErrNA))
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.EqualsNumeric 1, obj_set.Count
+    Assert.IsTrue IsError(obj_set.Item(0))
+End Sub
+
+Public Sub Test_ConvertToStringArray_CVErr_ReturnsErrorString(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_set As ObjectSet
+    Set obj_set = New ObjectSet
+    Call obj_set.Add(CVErr(xlErrNA))
+
+    ' Act
+    Dim actual_arr() As String
+    actual_arr = obj_set.ConvertToStringArray()
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "#N/A", actual_arr(0)
+End Sub

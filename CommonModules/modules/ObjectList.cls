@@ -188,7 +188,11 @@ Public Function ConvertToStringArray() As String()
                 End If
             End If
         Else
-            result_value(item_idx) = Item(item_idx)
+            If IsError(Item(item_idx)) Then
+                result_value(item_idx) = pConvertErrorToString(Item(item_idx))
+            Else
+                result_value(item_idx) = Item(item_idx)
+            End If
         End If
     Next item_idx
 
@@ -349,6 +353,8 @@ End Sub
 '* - このリストの要素が IEquatable であれば、Equals の結果に基づいて処理します。
 '* - IEquotable かつ IDuplicateCheckable の場合は、IDuplicateCheckable としての扱いが優先されます。
 Public Function RemoveItem(ByVal ItemObject As Variant) As Boolean
+    Call pCheckUnsupportedSpecialValue(ItemObject)
+
     Dim item_idx As Long
     Dim is_removed As Boolean
 
@@ -396,6 +402,14 @@ Private Function pItemsEqual(ByVal ItemObject1 As Variant, ByVal ItemObject2 As 
         End If
     Else
         If IsObject(ItemObject1) Or IsObject(ItemObject2) Then Exit Function
+        If IsError(ItemObject1) Or IsError(ItemObject2) Then
+            If IsError(ItemObject1) And IsError(ItemObject2) Then
+                pItemsEqual = pErrorValuesEqual(ItemObject1, ItemObject2)
+                Exit Function
+            End If
+            pItemsEqual = False
+            Exit Function
+        End If
         pItemsEqual = (ItemObject1 = ItemObject2)
     End If
 End Function
@@ -469,6 +483,8 @@ End Function
 '* @details
 '* 等しいものを探しインデックスを返します。
 Public Function GetIndexByItem(ByVal ItemObject As Variant, Optional ByVal StartIndex As Long = -1, Optional ByVal Reverse As Variant = False) As Long
+    Call pCheckUnsupportedSpecialValue(ItemObject)
+
     If Count <= 0 _
             Or pCount <= StartIndex And Not Reverse Then
         GetIndexByItem = -1
@@ -521,6 +537,8 @@ End Function
 '* @details
 '* 等しいものが含まれるかを確認します。
 Public Function Exists(ByVal ItemObject As Variant) As Boolean
+    Call pCheckUnsupportedSpecialValue(ItemObject)
+
     Dim item_idx As Long
     item_idx = pGetIndexByItemCore(ItemObject, 0, pCount - 1, 1)
     If 0 <= item_idx Then
@@ -674,6 +692,8 @@ Private Sub pExpandIfNeed(ByVal RemainIndex As Long)
 End Sub
 
 Private Sub pInitializeItemType(ByVal ItemObject As Variant)
+    Call pCheckUnsupportedSpecialValue(ItemObject)
+
     Dim item_is_obj As Boolean
     item_is_obj = IsObject(ItemObject)
 
@@ -705,6 +725,8 @@ Private Sub pInitializeItemType(ByVal ItemObject As Variant)
 End Sub
 
 Private Sub pCheckItemType(ByVal ItemObject As Variant)
+    Call pCheckUnsupportedSpecialValue(ItemObject)
+
     If pIsObject Then
         If Not IsObject(ItemObject) Then
             Err.Raise vbObjectError + 1, "Class ObjectList", "最初の要素はオブジェクト型でしたが、新しい要素はオブジェクト型ではありません。(" & pTypeName & ")"
@@ -716,3 +738,35 @@ Private Sub pCheckItemType(ByVal ItemObject As Variant)
         Err.Raise vbObjectError + 1, "Class ObjectList", "最初に設定された要素と型が異なります。(list: " & pTypeName & ", item: " & TypeName(ItemObject) & ")"
     End If
 End Sub
+
+Private Sub pCheckUnsupportedSpecialValue(ByVal ItemObject As Variant)
+    If IsObject(ItemObject) Then Exit Sub
+    If IsArray(ItemObject) Then Exit Sub
+    If IsEmpty(ItemObject) Then Err.Raise vbObjectError + 1, "Class ObjectList", "Empty は要素として使用できません。"
+    If IsNull(ItemObject) Then Err.Raise vbObjectError + 1, "Class ObjectList", "Null は要素として使用できません。"
+End Sub
+
+Private Function pConvertErrorToString(ByVal ErrorValue As Variant) As String
+    Dim error_texts As Dictionary
+    Set error_texts = New Dictionary
+    Call error_texts.Add(CVErr(xlErrNull), "#NULL!")
+    Call error_texts.Add(CVErr(xlErrDiv0), "#DIV/0!")
+    Call error_texts.Add(CVErr(xlErrValue), "#VALUE!")
+    Call error_texts.Add(CVErr(xlErrRef), "#REF!")
+    Call error_texts.Add(CVErr(xlErrName), "#NAME?")
+    Call error_texts.Add(CVErr(xlErrNum), "#NUM!")
+    Call error_texts.Add(CVErr(xlErrNA), "#N/A")
+
+    If error_texts.Exists(ErrorValue) Then
+        pConvertErrorToString = error_texts(ErrorValue)
+    Else
+        pConvertErrorToString = "Unknown error"
+    End If
+End Function
+
+Private Function pErrorValuesEqual(ByVal ErrorValue1 As Variant, ByVal ErrorValue2 As Variant) As Boolean
+    Dim error_values As Dictionary
+    Set error_values = New Dictionary
+    Call error_values.Add(ErrorValue1, True)
+    pErrorValuesEqual = error_values.Exists(ErrorValue2)
+End Function

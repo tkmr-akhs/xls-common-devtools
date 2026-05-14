@@ -1030,3 +1030,116 @@ Public Sub Test_GetEnumerator_WhenCalled_IteratesOverElements(ByVal Assert As Un
     Assert.Equals 3&, Count
     Assert.ErrorNotRaised 0, Err.Number, Err.Source, Err.Description
 End Sub
+
+' ----------------------------------------------------------------------------
+' Special Variant values
+' ----------------------------------------------------------------------------
+
+Public Sub Test_Add_Empty_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_list As ObjectList
+    Set obj_list = New ObjectList
+
+    ' Act
+    Call obj_list.Add(Empty)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Err.Clear
+    Assert.EqualsNumeric 0, obj_list.Count
+End Sub
+
+Public Sub Test_Add_Null_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_list As ObjectList
+    Set obj_list = New ObjectList
+
+    ' Act
+    Call obj_list.Add(Null)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Err.Clear
+    Assert.EqualsNumeric 0, obj_list.Count
+End Sub
+
+Public Sub Test_Exists_CVErr_ReturnsTrueForSameError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_list As ObjectList
+    Set obj_list = New ObjectList
+    Call obj_list.Add(CVErr(xlErrNA))
+
+    ' Act
+    Dim actual_exists As Boolean
+    actual_exists = obj_list.Exists(CVErr(xlErrNA))
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.IsTrue actual_exists
+End Sub
+
+Public Sub Test_ConvertToStringArray_CVErr_ReturnsErrorString(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_list As ObjectList
+    Set obj_list = New ObjectList
+    Call obj_list.Add(CVErr(xlErrNA))
+
+    ' Act
+    Dim actual_arr() As String
+    actual_arr = obj_list.ConvertToStringArray()
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "#N/A", actual_arr(0)
+End Sub
+
+Public Sub Test_ConvertToStringArray_ArrayItem_RaisesTypeMismatch(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_list As ObjectList
+    Set obj_list = New ObjectList
+
+    Dim item_arr As Variant
+    item_arr = Array("alpha")
+    Call obj_list.Add(item_arr)
+
+    ' Act
+    Dim actual_arr() As String
+    actual_arr = obj_list.ConvertToStringArray()
+
+    ' Assert
+    If Not Assert.ErrorRaised(13, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Err.Clear
+End Sub
+
+Public Sub Test_Exists_ArrayItem_RaisesTypeMismatch(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_list As ObjectList
+    Set obj_list = New ObjectList
+
+    Dim item_arr As Variant
+    item_arr = Array("alpha")
+    Call obj_list.Add(item_arr)
+
+    Dim search_arr As Variant
+    search_arr = Array("alpha")
+
+    ' Act
+    Dim actual_exists As Boolean
+    actual_exists = obj_list.Exists(search_arr)
+
+    ' Assert
+    If Not Assert.ErrorRaised(13, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Err.Clear
+End Sub

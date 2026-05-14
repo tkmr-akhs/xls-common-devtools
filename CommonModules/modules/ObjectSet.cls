@@ -150,7 +150,11 @@ Public Function ConvertToStringArray() As String()
                 End If
             End If
         Else
-            result_value(item_idx) = pDict(dict_key)
+            If IsError(pDict(dict_key)) Then
+                result_value(item_idx) = pConvertErrorToString(pDict(dict_key))
+            Else
+                result_value(item_idx) = pDict(dict_key)
+            End If
         End If
         item_idx = item_idx + 1
     Next dict_key
@@ -392,6 +396,8 @@ Public Function GetEnumerator(Optional ByVal Descending As Boolean = False, Opti
 End Function
 
 Private Sub pInitializeItemType(ByVal ItemObject As Variant)
+    Call pCheckUnsupportedSpecialValue(ItemObject)
+
     Dim item_is_obj As Boolean
     item_is_obj = IsObject(ItemObject)
     
@@ -423,6 +429,8 @@ Private Sub pInitializeItemType(ByVal ItemObject As Variant)
 End Sub
 
 Private Sub pCheckItemType(ByVal ItemObject As Variant)
+    Call pCheckUnsupportedSpecialValue(ItemObject)
+
     If pIsObject Then
         If Not IsObject(ItemObject) Then
             Err.Raise vbObjectError + 1, "Class ObjectSet", "最初の要素はオブジェクト型でしたが、新しい要素はオブジェクト型ではありません。(" & pTypeName & ")"
@@ -436,6 +444,8 @@ Private Sub pCheckItemType(ByVal ItemObject As Variant)
 End Sub
 
 Private Sub pGetKey(ByRef ObjectKey As Variant, ByVal ObjectItem As Variant)
+    Call pCheckUnsupportedSpecialValue(ObjectItem)
+
     If IsObject(ObjectItem) Then
         If ObjectItem Is Nothing Then
             Set ObjectKey = ObjectItem
@@ -458,6 +468,37 @@ Private Sub pGetKey(ByRef ObjectKey As Variant, ByVal ObjectItem As Variant)
     End If
 End Sub
 
+Private Sub pCheckUnsupportedSpecialValue(ByVal ItemObject As Variant)
+    If IsObject(ItemObject) Then Exit Sub
+    If IsArray(ItemObject) Then Exit Sub
+    If IsEmpty(ItemObject) Then Err.Raise vbObjectError + 1, "Class ObjectSet", "Empty は要素として使用できません。"
+    If IsNull(ItemObject) Then Err.Raise vbObjectError + 1, "Class ObjectSet", "Null は要素として使用できません。"
+End Sub
+
+Private Function pConvertErrorToString(ByVal ErrorValue As Variant) As String
+    Dim error_texts As Dictionary
+    Set error_texts = New Dictionary
+    Call error_texts.Add(CVErr(xlErrNull), "#NULL!")
+    Call error_texts.Add(CVErr(xlErrDiv0), "#DIV/0!")
+    Call error_texts.Add(CVErr(xlErrValue), "#VALUE!")
+    Call error_texts.Add(CVErr(xlErrRef), "#REF!")
+    Call error_texts.Add(CVErr(xlErrName), "#NAME?")
+    Call error_texts.Add(CVErr(xlErrNum), "#NUM!")
+    Call error_texts.Add(CVErr(xlErrNA), "#N/A")
+
+    If error_texts.Exists(ErrorValue) Then
+        pConvertErrorToString = error_texts(ErrorValue)
+    Else
+        pConvertErrorToString = "Unknown error"
+    End If
+End Function
+
+Private Function pErrorValuesEqual(ByVal ErrorValue1 As Variant, ByVal ErrorValue2 As Variant) As Boolean
+    Dim error_values As Dictionary
+    Set error_values = New Dictionary
+    Call error_values.Add(ErrorValue1, True)
+    pErrorValuesEqual = error_values.Exists(ErrorValue2)
+End Function
 Private Function pKeyEquals(ByVal ItemKey1 As Variant, ByVal ItemKey2 As Variant) As Boolean
     If IsObject(ItemKey1) Then
         If IsObject(ItemKey2) Then
@@ -468,6 +509,12 @@ Private Function pKeyEquals(ByVal ItemKey1 As Variant, ByVal ItemKey2 As Variant
         End If
     Else
         If Not IsObject(ItemKey2) Then
+            If IsError(ItemKey1) Or IsError(ItemKey2) Then
+                If IsError(ItemKey1) And IsError(ItemKey2) Then
+                    pKeyEquals = pErrorValuesEqual(ItemKey1, ItemKey2)
+                End If
+                Exit Function
+            End If
             If ItemKey1 = ItemKey2 Then
                 pKeyEquals = True
                 Exit Function

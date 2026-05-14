@@ -54,6 +54,35 @@ Public Sub Test_GetValue_StoredObject_ReturnsSameObject(ByVal Assert As UnitTest
     Assert.EqualsNumeric 1, values.Count
 End Sub
 
+Public Sub Test_GetValue_WithIEquatableArgumentWithoutPublicIdentityMember_ReturnsValue(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim test_util As UnitTestUtils
+    Set test_util = New UnitTestUtils
+
+    Dim values As Dictionary
+    Set values = New Dictionary
+
+    Dim stored_arg As Test_ObjectSetEquatableDouble
+    Set stored_arg = New Test_ObjectSetEquatableDouble
+    stored_arg.IdentityKey = "same-key"
+    Call test_util.SetValue(values, "stored", stored_arg)
+
+    Dim lookup_arg As Test_ObjectSetEquatableDouble
+    Set lookup_arg = New Test_ObjectSetEquatableDouble
+    lookup_arg.IdentityKey = "same-key"
+
+    ' Act
+    Dim actual_value As String
+    actual_value = test_util.GetValue(values, lookup_arg)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "stored", actual_value
+    Assert.EqualsNumeric 1, values.Count
+End Sub
+
 Public Sub Test_GetValue_MissingKey_RaisesErrorAndDoesNotAddKey(ByVal Assert As UnitTestAssert)
     On Error Resume Next
 

@@ -91,7 +91,9 @@ Private Function pGetKeyCore(ByVal ArgItem As Variant) As String
         If ArgItem Is Nothing Then
             pGetKeyCore = "<Nothing>"
         ElseIf TypeOf ArgItem Is IEquatable Then
-            pGetKeyCore = ArgItem.GetIdentityString() & "<" & TypeName(ArgItem) & ">"
+            Dim eq_item As IEquatable
+            Set eq_item = ArgItem
+            pGetKeyCore = eq_item.GetIdentityString() & "<" & TypeName(ArgItem) & ">"
         Else
             pGetKeyCore = Hex(ObjPtr(ArgItem)) & "<" & TypeName(ArgItem) & ">"
         End If

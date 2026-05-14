@@ -112,67 +112,6 @@ ON_ERROR:
     Err.Raise err_num, err_source, err_desc, err_help_file, err_help_context
 End Sub
 
-Private Function pBuildWorkbookMacroName(ByVal MacroName As String) As String
-    pBuildWorkbookMacroName = "'" & Replace(ThisWorkbook.Name, "'", "''") & "'!" & MacroName
-End Function
-
-Private Function pPrepareResultSheet(ByVal TestIndex As Long) As Worksheet
-    Dim result_sheet As Worksheet
-    If C_NEW_BOOK Then
-        ' 新しいブックに出力
-        Dim result_book As Workbook
-        Set result_book = Workbooks.Add
-        
-        Set result_sheet = result_book.Worksheets(1)
-        Call AddButton(result_sheet, 1, C_COL_MBTN, "すべて実行", pBuildWorkbookMacroName(C_SUB_MAIN), "Button_UnitTestMain")
-    Else
-        ' ThisWorkbook に出力
-        If TestIndex = 0 Then
-            ' 全テスト実行の場合
-            
-            ' シート作成を試行
-            On Error Resume Next
-            Set result_sheet = ThisWorkbook.Worksheets(C_SHEET_NAME)
-            If Err.Number <> 0 Then
-                Err.Clear
-            End If
-            On Error GoTo 0
-            If result_sheet Is Nothing Then
-                ' 新規シート
-                Set result_sheet = ThisWorkbook.Worksheets.Add()
-                result_sheet.Name = C_SHEET_NAME
-            Else
-                ' 既存シート
-                result_sheet.Columns(C_COL_OKNG).Interior.Color = C_COLOR_RESET_BG
-                result_sheet.Columns(C_COL_OKNG).Font.Color = C_COLOR_RESET_FG
-                Call result_sheet.Cells.ClearContents
-                Call ClearButton(result_sheet)
-            End If
-            Call AddButton(result_sheet, 1, C_COL_MBTN, "すべて実行", pBuildWorkbookMacroName(C_SUB_MAIN), "Button_UnitTestMain")
-        Else
-            Set result_sheet = ThisWorkbook.Worksheets(C_SHEET_NAME)
-            result_sheet.Cells(TestIndex, C_COL_OKNG).Interior.Color = C_COLOR_RESET_BG
-            result_sheet.Cells(TestIndex, C_COL_OKNG).Font.Color = C_COLOR_RESET_FG
-            Call result_sheet.Cells(TestIndex, C_COL_OKNG).ClearContents
-            Call result_sheet.Cells(TestIndex, C_COL_DESC).ClearContents
-        End If
-    End If
-    
-    result_sheet.Cells(1, C_COL_MOD).Value = "Category"
-    result_sheet.Cells(1, C_COL_SUB).Value = "Test Item"
-    result_sheet.Cells(1, C_COL_OKNG).Value = "Result"
-    result_sheet.Cells(1, C_COL_DESC).Value = "Description"
-    If TestIndex = 0 Then
-        If result_sheet.AutoFilterMode Then
-            result_sheet.AutoFilterMode = False
-        End If
-
-        Call result_sheet.Range(RangeAddress(StartColumn:=1, FinishColumn:=C_COL_END)).AutoFilter
-    End If
-    
-    Set pPrepareResultSheet = result_sheet
-End Function
-
 Private Sub pRunAllTest(ByVal ResultSheet As Worksheet)
     ' VBIDE のプロジェクト オブジェクトを取得
     Dim vb_proj As Variant 'VBIDE.VBProject
@@ -181,7 +120,7 @@ Private Sub pRunAllTest(ByVal ResultSheet As Worksheet)
     ' テスト サブ プロシージャを抽出するための正規表現の準備
     Dim sub_re As RegExp
     Set sub_re = New RegExp
-    sub_re.Pattern = "^\s*(?:Public\s+)?Sub\s+(Test_[^\s(]+)\s*\([^,]*\s+As\s+UnitTestAssert.*\).*$"
+    sub_re.Pattern = "^\s*(?:Public\s+)?Sub\s+(Test_[^\s(]+)\s*\(\s*(?:ByVal\s+|ByRef\s+)?[^\s,()]+\s+As\s+UnitTestAssert\s*(?:,\s*Optional\s+[^,)]+)*\).*$"
 
     ' プロジェクト オブジェクトのコンポーネントすべてについて処理
     Dim row_idx As Long: row_idx = 2
@@ -238,42 +177,6 @@ Private Sub pRunAllTest(ByVal ResultSheet As Worksheet)
     Next vb_comp
 End Sub
 
-Private Function pReadLogicalLine(ByVal CodeModule As Variant, ByRef LineIndex As Long) As String
-    Dim logical_line As String
-
-    Do While LineIndex <= CodeModule.CountOfLines
-        Dim physical_line As String
-        physical_line = CodeModule.Lines(LineIndex, 1)
-
-        If pHasLineContinuation(physical_line) Then
-            logical_line = logical_line & pRemoveLineContinuation(physical_line) & " "
-            LineIndex = LineIndex + 1
-        Else
-            logical_line = logical_line & physical_line
-            Exit Do
-        End If
-    Loop
-
-    pReadLogicalLine = logical_line
-End Function
-
-Private Function pHasLineContinuation(ByVal CodeLine As String) As Boolean
-    Dim trimmed_line As String
-    trimmed_line = RTrim$(CodeLine)
-    If Len(trimmed_line) < 2 Then Exit Function
-    If Right$(trimmed_line, 1) <> "_" Then Exit Function
-
-    Dim previous_char As String
-    previous_char = Mid$(trimmed_line, Len(trimmed_line) - 1, 1)
-    pHasLineContinuation = (previous_char = " " Or previous_char = vbTab)
-End Function
-
-Private Function pRemoveLineContinuation(ByVal CodeLine As String) As String
-    Dim trimmed_line As String
-    trimmed_line = RTrim$(CodeLine)
-    pRemoveLineContinuation = RTrim$(Left$(trimmed_line, Len(trimmed_line) - 1))
-End Function
-
 Private Sub pRunTestCore(ByVal ResultSheet As Worksheet, ByVal TestModName As String, ByVal TestSubName As String, ByVal RowIndex As Long)
     Dim assert_obj As UnitTestAssert: Set assert_obj = New UnitTestAssert
     Dim run_result As Variant
@@ -300,9 +203,207 @@ RUNNER_ERROR:
     Call pWriteRunnerErrorResult(ResultSheet, RowIndex, TestModName, TestSubName, err_num, err_source, err_desc)
 End Sub
 
+Private Sub pRemoveRuntimeRunnerModule()
+    Dim vb_proj As Object: Set vb_proj = ThisWorkbook.VBProject
+    Dim remove_names As Collection: Set remove_names = New Collection
+    Dim vb_comp As Object
+
+    For Each vb_comp In vb_proj.VBComponents
+        If vb_comp.Type = C_VBEXT_CT_STDMODULE Then
+            If vb_comp.Name = pRuntimeRunnerModuleName Or pIsRuntimeRunnerModuleName(vb_comp.Name) Then
+                Call remove_names.Add(vb_comp.Name)
+            End If
+        End If
+    Next vb_comp
+
+    Dim remove_name As Variant
+    For Each remove_name In remove_names
+        Call vb_proj.VBComponents.Remove(vb_proj.VBComponents.Item(CStr(remove_name)))
+    Next remove_name
+
+    pRuntimeRunnerModuleName = ""
+End Sub
+
 Private Sub pInitializeRuntimeRunnerModuleName()
     pRuntimeRunnerModuleName = pCreateRuntimeRunnerModuleName()
 End Sub
+
+Private Function pEnsureRuntimeRunnerModule() As Object
+    Dim vb_proj As Object: Set vb_proj = ThisWorkbook.VBProject
+
+    If pRuntimeRunnerModuleName = "" Then
+        Call pInitializeRuntimeRunnerModuleName
+    End If
+
+    On Error Resume Next
+    Set pEnsureRuntimeRunnerModule = vb_proj.VBComponents.Item(pRuntimeRunnerModuleName)
+    If Err.Number <> 0 Then
+        Err.Clear
+        Set pEnsureRuntimeRunnerModule = Nothing
+    End If
+    On Error GoTo 0
+
+    If pEnsureRuntimeRunnerModule Is Nothing Then
+        Set pEnsureRuntimeRunnerModule = vb_proj.VBComponents.Add(C_VBEXT_CT_STDMODULE)
+        pEnsureRuntimeRunnerModule.Name = pRuntimeRunnerModuleName
+    End If
+End Function
+
+Private Function pPrepareResultSheet(ByVal TestIndex As Long) As Worksheet
+    Dim result_sheet As Worksheet
+    If C_NEW_BOOK Then
+        ' 新しいブックに出力
+        Dim result_book As Workbook
+        Set result_book = Workbooks.Add
+
+        Set result_sheet = result_book.Worksheets(1)
+        Call AddButton(result_sheet, 1, C_COL_MBTN, "すべて実行", pBuildWorkbookMacroName(C_SUB_MAIN), "Button_UnitTestMain")
+    Else
+        ' ThisWorkbook に出力
+        If TestIndex = 0 Then
+            ' 全テスト実行の場合
+
+            ' シート作成を試行
+            On Error Resume Next
+            Set result_sheet = ThisWorkbook.Worksheets(C_SHEET_NAME)
+            If Err.Number <> 0 Then
+                Err.Clear
+            End If
+            On Error GoTo 0
+            If result_sheet Is Nothing Then
+                ' 新規シート
+                Set result_sheet = ThisWorkbook.Worksheets.Add()
+                result_sheet.Name = C_SHEET_NAME
+            Else
+                ' 既存シート
+                result_sheet.Columns(C_COL_OKNG).Interior.Color = C_COLOR_RESET_BG
+                result_sheet.Columns(C_COL_OKNG).Font.Color = C_COLOR_RESET_FG
+                Call result_sheet.Cells.ClearContents
+                Call ClearButton(result_sheet)
+            End If
+            Call AddButton(result_sheet, 1, C_COL_MBTN, "すべて実行", pBuildWorkbookMacroName(C_SUB_MAIN), "Button_UnitTestMain")
+        Else
+            Set result_sheet = ThisWorkbook.Worksheets(C_SHEET_NAME)
+            result_sheet.Cells(TestIndex, C_COL_OKNG).Interior.Color = C_COLOR_RESET_BG
+            result_sheet.Cells(TestIndex, C_COL_OKNG).Font.Color = C_COLOR_RESET_FG
+            Call result_sheet.Cells(TestIndex, C_COL_OKNG).ClearContents
+            Call result_sheet.Cells(TestIndex, C_COL_DESC).ClearContents
+        End If
+    End If
+
+    result_sheet.Cells(1, C_COL_MOD).Value = "Category"
+    result_sheet.Cells(1, C_COL_SUB).Value = "Test Item"
+    result_sheet.Cells(1, C_COL_OKNG).Value = "Result"
+    result_sheet.Cells(1, C_COL_DESC).Value = "Description"
+    If TestIndex = 0 Then
+        If result_sheet.AutoFilterMode Then
+            result_sheet.AutoFilterMode = False
+        End If
+
+        Call result_sheet.Range(RangeAddress(StartColumn:=1, FinishColumn:=C_COL_END)).AutoFilter
+    End If
+
+    Set pPrepareResultSheet = result_sheet
+End Function
+
+Private Function pReadLogicalLine(ByVal CodeModule As Variant, ByRef LineIndex As Long) As String
+    Dim logical_line As String
+
+    Do While LineIndex <= CodeModule.CountOfLines
+        Dim physical_line As String
+        physical_line = CodeModule.Lines(LineIndex, 1)
+
+        If pHasLineContinuation(physical_line) Then
+            logical_line = logical_line & pRemoveLineContinuation(physical_line) & " "
+            LineIndex = LineIndex + 1
+        Else
+            logical_line = logical_line & physical_line
+            Exit Do
+        End If
+    Loop
+
+    pReadLogicalLine = logical_line
+End Function
+
+Private Function pBuildWorkbookMacroName(ByVal MacroName As String) As String
+    pBuildWorkbookMacroName = "'" & Replace(ThisWorkbook.Name, "'", "''") & "'!" & MacroName
+End Function
+
+Private Sub pWriteRuntimeRunnerModule(ByVal TestModName As String, ByVal TestSubName As String)
+    Dim runner_comp As Object: Set runner_comp = pEnsureRuntimeRunnerModule()
+    Dim runner_code As Object: Set runner_code = runner_comp.CodeModule
+
+    If runner_code.CountOfLines > 0 Then
+        runner_code.DeleteLines 1, runner_code.CountOfLines
+    End If
+
+    runner_code.AddFromString pBuildRuntimeRunnerCode(TestModName, TestSubName)
+End Sub
+
+Private Sub pWriteRuntimeErrorResult( _
+        ByVal ResultSheet As Worksheet, _
+        ByVal RowIndex As Long, _
+        ByVal ModuleName As String, _
+        ByVal TestSubName As String, _
+        ByVal ErrorNumber As Long, _
+        ByVal ErrorSource As String, _
+        ByVal ErrorDescription As String)
+
+    ResultSheet.Cells(RowIndex, C_COL_MOD).Value = ModuleName
+    ResultSheet.Cells(RowIndex, C_COL_SUB).Value = TestSubName
+    ResultSheet.Cells(RowIndex, C_COL_DESC).Value = _
+            "Runtime error [&H" & Hex(ErrorNumber) & "] @<" & ErrorSource & "> """ & ErrorDescription & """"
+    Call pWriteResultStatus(ResultSheet, RowIndex, C_RESULT_ERR, RGB(255, 192, 0))
+End Sub
+
+Private Sub pWriteResult(ByVal ResultSheet As Worksheet, ByVal RowIndex As Long, ByVal ModuleName As String, ByVal TestSubName As String, ByVal AssertObject As UnitTestAssert)
+    ResultSheet.Cells(RowIndex, C_COL_MOD).Value = ModuleName
+    ResultSheet.Cells(RowIndex, C_COL_SUB).Value = TestSubName
+
+    If AssertObject.AssertionCount <= 0 Then
+        ResultSheet.Cells(RowIndex, C_COL_DESC).Value = C_NO_ASSERTION_MESSAGE
+        Call pWriteResultStatus(ResultSheet, RowIndex, C_RESULT_ERR, RGB(255, 192, 0))
+    ElseIf AssertObject.IsFailed Then
+        ResultSheet.Cells(RowIndex, C_COL_DESC).Value = AssertObject.ResultMessage
+        Call pWriteResultStatus(ResultSheet, RowIndex, C_RESULT_NG, RGB(255, 128, 128))
+    Else
+        ResultSheet.Cells(RowIndex, C_COL_DESC).Value = AssertObject.ResultMessage
+        Call pWriteResultStatus(ResultSheet, RowIndex, C_RESULT_OK, RGB(128, 255, 128))
+    End If
+End Sub
+
+Private Sub pWriteRunnerErrorResult( _
+        ByVal ResultSheet As Worksheet, _
+        ByVal RowIndex As Long, _
+        ByVal ModuleName As String, _
+        ByVal TestSubName As String, _
+        ByVal ErrorNumber As Long, _
+        ByVal ErrorSource As String, _
+        ByVal ErrorDescription As String)
+
+    ResultSheet.Cells(RowIndex, C_COL_MOD).Value = ModuleName
+    ResultSheet.Cells(RowIndex, C_COL_SUB).Value = TestSubName
+    ResultSheet.Cells(RowIndex, C_COL_DESC).Value = _
+            "Runner error [&H" & Hex(ErrorNumber) & "] @<" & ErrorSource & "> """ & ErrorDescription & """"
+    Call pWriteResultStatus(ResultSheet, RowIndex, C_RESULT_ERR, RGB(255, 192, 0))
+End Sub
+
+Private Function pHasLineContinuation(ByVal CodeLine As String) As Boolean
+    Dim trimmed_line As String
+    trimmed_line = RTrim$(CodeLine)
+    If Len(trimmed_line) < 2 Then Exit Function
+    If Right$(trimmed_line, 1) <> "_" Then Exit Function
+
+    Dim previous_char As String
+    previous_char = Mid$(trimmed_line, Len(trimmed_line) - 1, 1)
+    pHasLineContinuation = (previous_char = " " Or previous_char = vbTab)
+End Function
+
+Private Function pRemoveLineContinuation(ByVal CodeLine As String) As String
+    Dim trimmed_line As String
+    trimmed_line = RTrim$(CodeLine)
+    pRemoveLineContinuation = RTrim$(Left$(trimmed_line, Len(trimmed_line) - 1))
+End Function
 
 Private Function pCreateRuntimeRunnerModuleName() As String
     Const C_MAX_ATTEMPT As Long = 100
@@ -349,48 +450,6 @@ Private Function pVBComponentExists(ByVal ModuleName As String) As Boolean
     pVBComponentExists = Not target_comp Is Nothing
 End Function
 
-Private Function pEnsureRuntimeRunnerModule() As Object
-    Dim vb_proj As Object: Set vb_proj = ThisWorkbook.VBProject
-
-    If pRuntimeRunnerModuleName = "" Then
-        Call pInitializeRuntimeRunnerModuleName
-    End If
-
-    On Error Resume Next
-    Set pEnsureRuntimeRunnerModule = vb_proj.VBComponents.Item(pRuntimeRunnerModuleName)
-    If Err.Number <> 0 Then
-        Err.Clear
-        Set pEnsureRuntimeRunnerModule = Nothing
-    End If
-    On Error GoTo 0
-
-    If pEnsureRuntimeRunnerModule Is Nothing Then
-        Set pEnsureRuntimeRunnerModule = vb_proj.VBComponents.Add(C_VBEXT_CT_STDMODULE)
-        pEnsureRuntimeRunnerModule.Name = pRuntimeRunnerModuleName
-    End If
-End Function
-
-Private Sub pRemoveRuntimeRunnerModule()
-    Dim vb_proj As Object: Set vb_proj = ThisWorkbook.VBProject
-    Dim remove_names As Collection: Set remove_names = New Collection
-    Dim vb_comp As Object
-
-    For Each vb_comp In vb_proj.VBComponents
-        If vb_comp.Type = C_VBEXT_CT_STDMODULE Then
-            If vb_comp.Name = pRuntimeRunnerModuleName Or pIsRuntimeRunnerModuleName(vb_comp.Name) Then
-                Call remove_names.Add(vb_comp.Name)
-            End If
-        End If
-    Next vb_comp
-
-    Dim remove_name As Variant
-    For Each remove_name In remove_names
-        Call vb_proj.VBComponents.Remove(vb_proj.VBComponents.Item(CStr(remove_name)))
-    Next remove_name
-
-    pRuntimeRunnerModuleName = ""
-End Sub
-
 Private Function pIsRuntimeRunnerModuleName(ByVal ModuleName As String) As Boolean
     Static runtime_runner_name_re As RegExp
 
@@ -403,17 +462,6 @@ Private Function pIsRuntimeRunnerModuleName(ByVal ModuleName As String) As Boole
 
     pIsRuntimeRunnerModuleName = runtime_runner_name_re.Test(ModuleName)
 End Function
-
-Private Sub pWriteRuntimeRunnerModule(ByVal TestModName As String, ByVal TestSubName As String)
-    Dim runner_comp As Object: Set runner_comp = pEnsureRuntimeRunnerModule()
-    Dim runner_code As Object: Set runner_code = runner_comp.CodeModule
-
-    If runner_code.CountOfLines > 0 Then
-        runner_code.DeleteLines 1, runner_code.CountOfLines
-    End If
-
-    runner_code.AddFromString pBuildRuntimeRunnerCode(TestModName, TestSubName)
-End Sub
 
 Private Function pBuildRuntimeRunnerCode(ByVal TestModName As String, ByVal TestSubName As String) As String
     pBuildRuntimeRunnerCode = _
@@ -429,54 +477,6 @@ Private Function pBuildRuntimeRunnerCode(ByVal TestModName As String, ByVal Test
             "    " & C_RUNTIME_RUNNER_FUNCTION & " = Array(True, Err.Number, Err.Source, Err.Description)" & vbCrLf & _
             "End Function" & vbCrLf
 End Function
-
-Private Sub pWriteResult(ByVal ResultSheet As Worksheet, ByVal RowIndex As Long, ByVal ModuleName As String, ByVal TestSubName As String, ByVal AssertObject As UnitTestAssert)
-    ResultSheet.Cells(RowIndex, C_COL_MOD).Value = ModuleName
-    ResultSheet.Cells(RowIndex, C_COL_SUB).Value = TestSubName
-
-    If AssertObject.AssertionCount <= 0 Then
-        ResultSheet.Cells(RowIndex, C_COL_DESC).Value = C_NO_ASSERTION_MESSAGE
-        Call pWriteResultStatus(ResultSheet, RowIndex, C_RESULT_ERR, RGB(255, 192, 0))
-    ElseIf AssertObject.IsFailed Then
-        ResultSheet.Cells(RowIndex, C_COL_DESC).Value = AssertObject.ResultMessage
-        Call pWriteResultStatus(ResultSheet, RowIndex, C_RESULT_NG, RGB(255, 128, 128))
-    Else
-        ResultSheet.Cells(RowIndex, C_COL_DESC).Value = AssertObject.ResultMessage
-        Call pWriteResultStatus(ResultSheet, RowIndex, C_RESULT_OK, RGB(128, 255, 128))
-    End If
-End Sub
-
-Private Sub pWriteRuntimeErrorResult( _
-        ByVal ResultSheet As Worksheet, _
-        ByVal RowIndex As Long, _
-        ByVal ModuleName As String, _
-        ByVal TestSubName As String, _
-        ByVal ErrorNumber As Long, _
-        ByVal ErrorSource As String, _
-        ByVal ErrorDescription As String)
-
-    ResultSheet.Cells(RowIndex, C_COL_MOD).Value = ModuleName
-    ResultSheet.Cells(RowIndex, C_COL_SUB).Value = TestSubName
-    ResultSheet.Cells(RowIndex, C_COL_DESC).Value = _
-            "Runtime error [&H" & Hex(ErrorNumber) & "] @<" & ErrorSource & "> """ & ErrorDescription & """"
-    Call pWriteResultStatus(ResultSheet, RowIndex, C_RESULT_ERR, RGB(255, 192, 0))
-End Sub
-
-Private Sub pWriteRunnerErrorResult( _
-        ByVal ResultSheet As Worksheet, _
-        ByVal RowIndex As Long, _
-        ByVal ModuleName As String, _
-        ByVal TestSubName As String, _
-        ByVal ErrorNumber As Long, _
-        ByVal ErrorSource As String, _
-        ByVal ErrorDescription As String)
-
-    ResultSheet.Cells(RowIndex, C_COL_MOD).Value = ModuleName
-    ResultSheet.Cells(RowIndex, C_COL_SUB).Value = TestSubName
-    ResultSheet.Cells(RowIndex, C_COL_DESC).Value = _
-            "Runner error [&H" & Hex(ErrorNumber) & "] @<" & ErrorSource & "> """ & ErrorDescription & """"
-    Call pWriteResultStatus(ResultSheet, RowIndex, C_RESULT_ERR, RGB(255, 192, 0))
-End Sub
 
 Private Sub pWriteResultStatus(ByVal ResultSheet As Worksheet, ByVal RowIndex As Long, ByVal ResultText As String, ByVal BackgroundColor As Long)
     ResultSheet.Cells(RowIndex, C_COL_OKNG).Value = ResultText

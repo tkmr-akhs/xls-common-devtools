@@ -15,23 +15,6 @@
 
 ## 高優先度
 
-- [ ] [bug] UnitTestUtils の IEquatable 引数キー生成をインターフェイス経由にする
-  - 詳細: `UnitTestUtils.pGetKeyCore` は `TypeOf ArgItem Is IEquatable` のとき、`ArgItem.GetIdentityString()` を直接呼んでいる。`Implements IEquatable` したクラスが `Private Function IEquatable_GetIdentityString()` だけを持ち、公開 `GetIdentityString` を持たない場合、IEquatable としては正しい実装でも実行時エラーになる。
-  - 詳細: CommonModules 内でも `Test_ObjectSetEquatableDouble` / `Test_ObjectSetKeyPriorityDouble` はこの実装形で、`ObjectSet` 側は `Dim eq_item As IEquatable: Set eq_item = ObjectItem` としてから呼んでいるため方針が揺れている。
-  - 影響: テストダブルの引数キーに IEquatable 実装オブジェクトを使っただけで、スタブ値の登録・取得が失敗する。テスト支援基盤として、正しいインターフェイス実装を受け付けない。
-  - 対応案: `IEquatable` へ代入してから `GetIdentityString` を呼ぶ。公開ラッパーなしの IEquatable 実装、公開ラッパーありの実装、非 IEquatable オブジェクトのキー生成テストを追加する。
-
-- [ ] [bug] Lib_UnitTest のテスト検出で UnitTestAssert 以外の必須引数を除外する
-  - 詳細: `pRunAllTest` の正規表現は `UnitTestAssert` 引数を含む `Sub Test_...` を拾うが、後続の追加引数を禁止していない。そのため `Public Sub Test_X(ByVal Assert As UnitTestAssert, ByVal Other As Long)` のようなテストでない手続きも検出し、実行用一時モジュールは `AssertObject` だけを渡して呼び出す。
-  - 影響: 検出段階では正常なテストとして結果シートへ載る一方、実行時には runner error になり、テスト本体の失敗とテスト定義の不正が区別しづらい。
-  - 対応案: テスト手続きのシグネチャは `UnitTestAssert` 1 引数だけに限定するか、追加引数がすべて Optional かを明示的に検証する。追加必須引数、Optional 引数、ByRef/ByVal、改行された宣言の検出テストを追加する。
-
-- [ ] [bug] WorksheetService.CopyRange のコピー先範囲を空範囲・複数セルのまま受け付けない
-  - 詳細: `CopyRange` では `DestinationRangeBounds.IsEmpty` と `DestinationRangeBounds.IsCell` の検査がコメントアウトされているが、実処理では `DestinationRangeBounds.Row` / `Column` をコピー先左上として使い、`FinishRow` / `FinishColumn` は無視している。空範囲でも保持している開始行・列へコピーされ、複数セル範囲を渡しても形状不一致を検出しない。
-  - 影響: 呼び出し側が「コピー先なし」または「この範囲へコピー」と考えて渡した `WorksheetRangeBounds` が、意図しない左上セル起点の上書きとして実行され得る。
-  - 対応案: コピー先は単一セルアンカーだけを受け付ける、またはコピー先範囲の行列数がコピー元と一致する場合だけ許可する、のどちらかに契約を固定する。空範囲、単一セル、同形複数セル、形状不一致のテストを追加する。
-
-
 - [ ] [bug] WorksheetService.WriteCell の文字列書き込みで表示形式を必ず復元する
   - 詳細: `WriteCell(TypeConvert:=False)` または型変換に失敗した文字列書き込みでは、現在の `NumberFormatLocal` を退避してから一時的に `@` に変更し、値設定後に元へ戻している。値設定や復元前の処理でエラーになると、セルの表示形式が `@` のまま残る。
   - 影響: 書き込み自体は失敗しても、シート側には表示形式変更だけが副作用として残り、後続の数値・日付入力が文字列扱いになる可能性がある。基盤書き込み API として失敗時の状態が予測しにくい。
@@ -564,6 +547,11 @@
   - 保留解除条件: 必要とされたら
 
 ## 対応しないと決定した事項
+
+- [x] [spec] WorksheetService.CopyRange のコピー先範囲を空範囲・複数セルのまま受け付けない
+  - 詳細: `CopyRange` では `DestinationRangeBounds.IsEmpty` と `DestinationRangeBounds.IsCell` の検査がコメントアウトされているが、実処理では `DestinationRangeBounds.Row` / `Column` をコピー先左上として使い、`FinishRow` / `FinishColumn` は無視している。空範囲でも保持している開始行・列へコピーされ、複数セル範囲を渡しても形状不一致を検出しない。
+  - 影響: 呼び出し側が「コピー先なし」または「この範囲へコピー」と考えて渡した `WorksheetRangeBounds` が、意図しない左上セル起点の上書きとして実行され得る。
+  - 結論: `CopyRange` のコピー先は範囲ではなく左上セルアンカーとして扱う現行動作を仕様とする。空範囲や複数セル範囲を追加検査で拒否する対応は行わない。
 
 - [x] [spec] WorksheetService.GetUsedRangeBounds で値なし書式セルを空扱いしない
   - 詳細: `pGetRawUsedRange` は UsedRange が 1 セルだけの場合、値が空で四辺の罫線がないことだけを見て空範囲としている。塗りつぶし、フォント、表示形式、コメント、ハイパーリンク、入力規則など、値以外の使用状態を確認していない。

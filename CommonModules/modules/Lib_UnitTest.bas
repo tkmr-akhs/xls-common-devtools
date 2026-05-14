@@ -22,12 +22,14 @@ Private Const C_RESULT_OK As String = "OK"
 Private Const C_RESULT_NG As String = "NG"
 Private Const C_RESULT_ERR As String = "ERR"
 Private Const C_NO_ASSERTION_MESSAGE As String = "No assertions were executed."
-Private Const C_RUNTIME_RUNNER_MODULE As String = "UnitTestRuntimeRunner"
+Private Const C_RUNTIME_RUNNER_MODULE_PREFIX As String = "Tmp_UTRUN"
+Private Const C_RUNTIME_RUNNER_MODULE_SUFFIX_LENGTH As Long = 22
 Private Const C_RUNTIME_RUNNER_FUNCTION As String = "Run"
 Private Const C_VBEXT_CT_STDMODULE As Long = 1
 Private Const C_COLOR_RESET_BG As Long = &H404040
 Private Const C_COLOR_RESET_FG As Long = &HC0C0C0
 
+Private pRuntimeRunnerModuleName As String
 
 '* ユニット テストのエントリ ポイントです。
 '*
@@ -57,6 +59,7 @@ Public Sub UnitTestMain()
 
     Call app_state.DisableUpdates(StopEvents:=False)
     Call pRemoveRuntimeRunnerModule
+    Call pInitializeRuntimeRunnerModuleName
     Call pEnsureRuntimeRunnerModule
 
     ' テスト番号の取得
@@ -266,7 +269,7 @@ Private Sub pRunTestCore(ByVal ResultSheet As Worksheet, ByVal TestModName As St
 
     On Error GoTo RUNNER_ERROR
     Call pWriteRuntimeRunnerModule(TestModName, TestSubName)
-    run_result = Application.Run(pBuildWorkbookMacroName(C_RUNTIME_RUNNER_MODULE & "." & C_RUNTIME_RUNNER_FUNCTION), assert_obj)
+    run_result = Application.Run(pBuildWorkbookMacroName(pRuntimeRunnerModuleName & "." & C_RUNTIME_RUNNER_FUNCTION), assert_obj)
     On Error GoTo 0
 
     If CBool(run_result(0)) Then
@@ -286,11 +289,64 @@ RUNNER_ERROR:
     Call pWriteRunnerErrorResult(ResultSheet, RowIndex, TestModName, TestSubName, err_num, err_source, err_desc)
 End Sub
 
+Private Sub pInitializeRuntimeRunnerModuleName()
+    pRuntimeRunnerModuleName = pCreateRuntimeRunnerModuleName()
+End Sub
+
+Private Function pCreateRuntimeRunnerModuleName() As String
+    Const C_MAX_ATTEMPT As Long = 100
+
+    Randomize
+
+    Dim attempt_idx As Long
+    For attempt_idx = 1 To C_MAX_ATTEMPT
+        Dim candidate_name As String
+        candidate_name = C_RUNTIME_RUNNER_MODULE_PREFIX & pRandomUppercaseString(C_RUNTIME_RUNNER_MODULE_SUFFIX_LENGTH)
+
+        If Not pVBComponentExists(candidate_name) Then
+            pCreateRuntimeRunnerModuleName = candidate_name
+            Exit Function
+        End If
+    Next attempt_idx
+
+    Err.Raise vbObjectError + 1, "Module Lib_UnitTest", "実行用一時モジュール名の生成に失敗しました。"
+End Function
+
+Private Function pRandomUppercaseString(ByVal Length As Long) As String
+    Dim result_value As String
+
+    Dim char_idx As Long
+    For char_idx = 1 To Length
+        result_value = result_value & Chr$(Asc("A") + CLng(Int(26 * Rnd)))
+    Next char_idx
+
+    pRandomUppercaseString = result_value
+End Function
+
+Private Function pVBComponentExists(ByVal ModuleName As String) As Boolean
+    Dim vb_proj As Object: Set vb_proj = ThisWorkbook.VBProject
+    Dim target_comp As Object
+
+    On Error Resume Next
+    Set target_comp = vb_proj.VBComponents.Item(ModuleName)
+    If Err.Number <> 0 Then
+        Err.Clear
+        Set target_comp = Nothing
+    End If
+    On Error GoTo 0
+
+    pVBComponentExists = Not target_comp Is Nothing
+End Function
+
 Private Function pEnsureRuntimeRunnerModule() As Object
     Dim vb_proj As Object: Set vb_proj = ThisWorkbook.VBProject
 
+    If pRuntimeRunnerModuleName = "" Then
+        Call pInitializeRuntimeRunnerModuleName
+    End If
+
     On Error Resume Next
-    Set pEnsureRuntimeRunnerModule = vb_proj.VBComponents.Item(C_RUNTIME_RUNNER_MODULE)
+    Set pEnsureRuntimeRunnerModule = vb_proj.VBComponents.Item(pRuntimeRunnerModuleName)
     If Err.Number <> 0 Then
         Err.Clear
         Set pEnsureRuntimeRunnerModule = Nothing
@@ -299,16 +355,18 @@ Private Function pEnsureRuntimeRunnerModule() As Object
 
     If pEnsureRuntimeRunnerModule Is Nothing Then
         Set pEnsureRuntimeRunnerModule = vb_proj.VBComponents.Add(C_VBEXT_CT_STDMODULE)
-        pEnsureRuntimeRunnerModule.Name = C_RUNTIME_RUNNER_MODULE
+        pEnsureRuntimeRunnerModule.Name = pRuntimeRunnerModuleName
     End If
 End Function
 
 Private Sub pRemoveRuntimeRunnerModule()
+    If pRuntimeRunnerModuleName = "" Then Exit Sub
+
     Dim vb_proj As Object: Set vb_proj = ThisWorkbook.VBProject
     Dim runner_comp As Object
 
     On Error Resume Next
-    Set runner_comp = vb_proj.VBComponents.Item(C_RUNTIME_RUNNER_MODULE)
+    Set runner_comp = vb_proj.VBComponents.Item(pRuntimeRunnerModuleName)
     If Err.Number <> 0 Then
         Err.Clear
         Set runner_comp = Nothing
@@ -318,6 +376,8 @@ Private Sub pRemoveRuntimeRunnerModule()
     If Not runner_comp Is Nothing Then
         vb_proj.VBComponents.Remove runner_comp
     End If
+
+    pRuntimeRunnerModuleName = ""
 End Sub
 
 Private Sub pWriteRuntimeRunnerModule(ByVal TestModName As String, ByVal TestSubName As String)

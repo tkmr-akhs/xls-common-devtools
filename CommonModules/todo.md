@@ -15,12 +15,6 @@
 
 ## 高優先度
 
-
-- [ ] [bug] Lib_UnitTest の実行用一時モジュールを既存モジュールと衝突させない
-  - 詳細: `UnitTestMain` は開始時と終了時に `pRemoveRuntimeRunnerModule` で `UnitTestRuntimeRunner` という名前の VBComponent を無条件に削除し、各テスト実行時にも同名コンポーネントの全コード行を削除してランナーコードを書き込む。
-  - 影響: 利用側が同名の通常モジュールを持っていた場合、テストランナーがユーザー定義モジュールを削除または上書きする。ランナーの一時ファイルであることを示すマーカーもなく、衝突時の診断が難しい。
-  - 対応案: 一時モジュールに固有マーカーコメントを入れ、削除・上書き前にマーカーと標準モジュール種別を確認する。既存同名モジュールがマーカーなしの場合は `Class Lib_UnitTest` の明示エラーにするテストを追加する。
-
 - [ ] [bug] Lib_UnitTest.UnitTestMain の結果シート AutoFilter を再実行でトグルしない
   - 詳細: `pPrepareResultSheet` は全件実行・単体再実行のどちらでも `Range(...).AutoFilter` を無条件に呼ぶ。既に AutoFilter が設定された結果シートで再実行すると、Excel の AutoFilter が解除または再設定され、利用者のフィルタ状態やドロップダウン表示が変わり得る。
   - 影響: テスト結果を絞り込んだ状態で再実行したときに、結果シートの表示状態がテストランナーの副作用で変わる。単体再実行では、実行結果の更新以外の UI 状態変更が混ざる。
@@ -578,6 +572,11 @@
 ## 対応済み事項
 
 ### 高優先度だったもの
+
+- [x] [bug] Lib_UnitTest の実行用一時モジュールを既存モジュールと衝突させない
+  - 詳細: `UnitTestMain` は `UnitTestRuntimeRunner` という固定名の VBComponent を削除・上書きしていたため、同名の既存モジュールと衝突し得た。
+  - 最終対応: 実行用一時モジュール名を `Tmp_UTRUN` + ランダム大文字 22 文字で生成し、実行中に保持した名前だけを削除するようにした。
+  - 確認: `UnitTestRuntimeRunner` という既存モジュールを一時追加した状態で `UnitTestMain` を実行し、既存モジュールが削除されないことと、`Tmp_UTRUN_` の残骸がないことを確認した。`CommonModules.xlsm` の `UnitTestMain` 全件 OK を確認済み。
 
 - [x] [bug] Lib_UnitTest のテスト候補検出でコメント行を誤実行しない
   - 詳細: `pRunAllTest` のテスト候補検出正規表現が `^[^']*Public.*\sSub` を許していたため、`Rem Public Sub Test_...` のようなコメント行をテスト候補として拾い得た。

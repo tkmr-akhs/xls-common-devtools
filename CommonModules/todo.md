@@ -15,16 +15,20 @@
 
 ## 高優先度
 
-- [ ] [bug] UnitTestUtils の配列引数と区切り文字入り同一性キーを安全に扱う
-  - 詳細: `UnitTestUtils.pGetKeyCore` は非オブジェクト引数を `pGetPrimitiveKey` へ渡し、最終的に `CStr(ArgItem)` するため、テストダブル対象メソッドの引数を配列のままキー化すると型不一致になる。
-  - 詳細: `IEquatable` 引数では `GetIdentityString()` をそのまま `|` 連結に使い、プリミティブ値のような `|` / `<` / `>` のエスケープを行っていない。実装クラスの同一性文字列に区切り文字が入ると、複数引数キーの衝突や誤読が起こり得る。
-  - 影響: 配列引数を持つ API を個別変換なしでテストダブルに記録できず、任意文字列を同一性に含む値オブジェクトではスタブ値やスパイ結果の照合が不安定になる。
-  - 対応案: 配列引数は要素型・次元・境界を含めてキー化するか、サポート外として `Class UnitTestUtils` の明示エラーにする。`IEquatable` / オブジェクト系キーにも同じエスケープと型タグ規則を適用し、衝突テストを追加する。
+- [ ] [bug] Lib_UnitTest のテスト候補検出を標準モジュールに限定する
+  - 詳細: `Lib_UnitTest.pRunAllTest` は `ThisWorkbook.VBProject.VBComponents` の全コンポーネントを走査し、`vb_comp.Type` を見ずに `Public Sub Test_...(ByVal Assert As UnitTestAssert)` 形式を拾う。クラス、シート、`ThisWorkbook` のメソッドが一致すると、一時実行モジュールは `ComponentName.TestName(AssertObject)` を標準モジュールの手続きとして呼び出すため、テストではないメンバーを ERR として記録し得る。
+  - 影響: テストダブルやシートイベント周辺の補助メソッドが `Test_` で始まるだけで、全テスト実行結果に偽の ERR が混ざる。実際の失敗と検出器の誤検出を切り分けにくい。
+  - 対応案: 検出対象を `C_VBEXT_CT_STDMODULE` に限定するか、クラス/ドキュメントモジュールのテストを正式対応するなら生成コードと呼び出し規約を別途定義する。標準モジュール、クラスモジュール、シートモジュールの検出テストを追加する。
 
-- [ ] [bug] WorksheetRangeBounds.Item の負インデックスを範囲外として拒否する
-  - 詳細: `WorksheetRangeBounds.Item` は `pGetCellVertical` / `pGetCellHorizontal` で `ItemIndex Mod ...` から行・列を計算するが、`ItemIndex < 0` を入口で拒否していない。負数を渡すと、範囲外エラーではなく開始位置より前のセルを返したり、正規化された別範囲になる可能性がある。
-  - 影響: `WorksheetRangeBoundsEnumerator` 経由では通常発生しないが、公開 API として `Item(-1)` が意図しないセルを返すと、呼び出し側が範囲外アクセスを検出できず誤ったセルを読み書きする。
-  - 対応案: `Item` の入口で `ItemIndex < 0 Or Count <= ItemIndex` を範囲外として明示エラーにする。縦方向・横方向それぞれで `-1`、`0`、`Count - 1`、`Count` のテストを追加する。
+- [ ] [bug] WorksheetService.CopyRange の同一シート内重複コピーでコピー元を上書きしない
+  - 詳細: `CopyRange` は左上から右下へセル単位で `pCopyCellCore` を実行する。コピー元とコピー先が同じシートで重なり、コピー先がコピー元より下または右にずれる場合、先に書いたコピー先セルを後続のコピー元セルとして読み直す。
+  - 影響: `A1:A2` を `A2:A3` にコピーするような重複移動で、`A3` へ元の `A2` ではなくコピー後の `A2` が入るなど、Excel の範囲コピーと異なるデータ破壊が起こり得る。
+  - 対応案: 同一シート内の交差を検出し、値・数式・表示形式を一度バッファに退避してから書き込むか、コピー方向を重なりに応じて逆順にする。上下左右の重複コピーと非重複コピーのテストを追加する。
+
+- [ ] [bug] WorksheetService.XLookup の検索範囲と戻り範囲の形状を検証する
+  - 詳細: `XLookup` は `LookupRangeBounds` と `ReturnRangeBounds` をそのまま `=XLOOKUP(...)` の式に埋め込み、検索範囲が 1 行または 1 列か、戻り範囲の行列数が検索方向と整合するかを確認していない。
+  - 影響: 2 次元検索範囲や行数・列数が合わない戻り範囲を渡すと、基盤 API の引数エラーではなく Excel の評価結果 `#VALUE!` などとして返り、データ未検出・式エラー・仕様違反の区別がつきにくい。
+  - 対応案: 検索範囲は 1 行または 1 列に制限し、戻り範囲は検索方向の長さを一致させる。`MatchMode` / `SearchMode` も Excel の有効値だけを受け付けるテストを追加する。
 
 - [ ] [bug] WorksheetRangeBounds.ToString の絶対 A1 アドレス生成を失敗させない
   - 詳細: `WorksheetRangeBounds.ToString(IsAbsoluteStartRow:=True...)` は `RangeAddress` に `ReferenceRow:=0` / `ReferenceColumn:=0` を渡すが、`RangeAddress` は絶対参照指定時に基準行・列が 1 未満だとエラーにしている。絶対参照では基準値を使わないため、`$A$1` のようなアドレス生成が不要に失敗し得る。
@@ -225,6 +229,11 @@
   - 詳細: `TextFileEntity.Initialize` は `pIsInitialized` や `pIsOpen` を確認せず、既存インスタンスの `pFilePath` をいつでも上書きできる。ファイルを開いた後に再初期化すると、`pFileDesc` は元のファイルを指したまま、`FilePath` やエラー文言だけが別パスになる。
   - 影響: 読み書き対象と診断情報がずれ、`CloseFile` や後続の `OpenFile` でどのファイルを扱っているか追跡しづらくなる。テストダブルやサービス層でインスタンス再利用した場合に、実ファイルハンドルの状態とオブジェクト状態が分離する。
   - 対応案: 初期化済みインスタンスの再初期化を明示エラーにし、必要なら `Reset` / 新規インスタンス生成を使う契約にする。未初期化、初期化済み、オープン中、クローズ後再初期化のテストを追加する。
+
+- [ ] [bug] TextFileEntityTestDouble.ReadLine の未登録読み取りを Dictionary 欠落キーで隠さない
+  - 詳細: `TextFileEntityTestDouble.ReadLine` は `ReadLine_Values(ReadCount)` を直接読むため、未登録の読み取り位置を参照すると `Scripting.Dictionary` の欠落キーが作成され、空文字列として流れる可能性がある。
+  - 影響: テスト側が読み取り行数の設定を漏らしても、入力データ末尾や空行として扱われ、テストが誤って通る、または後続の `IsEndOfFile` 判定が汚染された辞書状態に依存する。
+  - 対応案: `Exists(ReadCount)` を確認して未登録なら `Class TextFileEntityTestDouble` の明示エラーにする。正常読み取り、未登録読み取り、EOF 判定のテストを追加する。
 
 - [ ] [bug] DiffStringArray の空配列入力と下限契約を修正する
   - 詳細: `DiffStringArray` は入力配列に対してすぐ `LBound` / `UBound` を呼ぶため、未初期化または空配列を渡すと差分結果ではなく実行時エラーになる。コメントでは `ChangeTypeArray` の下限を `OldArray` と揃えると読めるが、実装は常に `0 To ...` へ `ReDim` している。
@@ -535,6 +544,11 @@
   - 影響: 汎用の入力シート操作クラスなのか、特定レイアウトの設定テーブルリーダーなのか責務が曖昧になり、同種の読み取り処理を追加するときに置き場所を判断しづらい。
   - 対応案: `ParameterSheetReader` / `TwoLevelParameterTable` のようなレイアウトが分かる型へ切り出し、`UserInputSheet` は互換用の薄いラッパーまたは入口名にする。
 
+- [ ] [ux] Lib_UnitTest のテスト実行順を安定化する
+  - 詳細: `pRunAllTest` は `VBProject.VBComponents` の列挙順と各 `CodeModule` の出現順をそのまま結果シートに出力する。モジュールの import/export や VBIDE の内部順序変更で同じテスト集合でも行順が変わり得る。
+  - 影響: 前回結果との目視比較、特定行の再実行ボタン、CI 風のログ比較で差分が出やすく、失敗したテストの追跡がしづらい。
+  - 対応案: `Category`、`Test Item` の昇順など、実行順・表示順を仕様化する。依存順が必要なテストは禁止または別タグ化する。
+
 ## TODO 整理メモ
 
 - `CloseWorkbook` は保存確認契約のバグ、`OpenWorkbook` は API 名とテンプレート作成挙動の仕様改善として分ける。WorkbookService 内の話でも、バグと非バグは混ぜない。
@@ -547,11 +561,25 @@
 
 ## 対応を見送る事項 (無期ペンディング)
 
+- [ ] [bug] UnitTestUtils の配列引数と区切り文字入り同一性キーを安全に扱う
+  - 詳細: `UnitTestUtils.pGetKeyCore` は非オブジェクト引数を `pGetPrimitiveKey` へ渡し、最終的に `CStr(ArgItem)` するため、テストダブル対象メソッドの引数を配列のままキー化すると型不一致になる。
+  - 詳細: `IEquatable` 引数では `GetIdentityString()` をそのまま `|` 連結に使い、プリミティブ値のような `|` / `<` / `>` のエスケープを行っていない。実装クラスの同一性文字列に区切り文字が入ると、複数引数キーの衝突や誤読が起こり得る。
+  - 影響: 配列引数を持つ API を個別変換なしでテストダブルに記録できず、任意文字列を同一性に含む値オブジェクトではスタブ値やスパイ結果の照合が不安定になる。
+  - 対応案: 配列引数は要素型・次元・境界を含めてキー化するか、サポート外として `Class UnitTestUtils` の明示エラーにする。`IEquatable` / オブジェクト系キーにも同じエスケープと型タグ規則を適用し、衝突テストを追加する。
+  - 保留理由: 対応が困難であり、かつ、現状では必要になっていないため
+  - 保留解除条件: 必要とされたら
+
+
 ## 対応しないと決定した事項
 
 ## 対応済み事項
 
 ### 高優先度だったもの
+
+- [x] [bug] WorksheetRangeBounds.Item の負インデックスを範囲外として拒否する
+  - 詳細: `Item(-1)` が `pGetCellVertical` / `pGetCellHorizontal` の `Mod` 計算へ進み、下位の行・列範囲エラーとして扱われていた。
+  - 最終対応: `WorksheetRangeBounds.Item` の入口で `ItemIndex < 0` を検出し、既存の上限超過時と同じ範囲外エラーにした。
+  - 確認: 横方向・縦方向の `Item(-1)` が `インデックスが範囲外です。` を返すテストを追加し、`CommonModules.xlsm` の `UnitTestMain` 全件 OK を確認済み。
 
 - [x] [bug] Lib_UnitTest の結果シート未作成経路で内部 Err.Number を残さない
   - 詳細: `pPrepareResultSheet` が全件実行時に結果シートを探索する際、未作成時の想定内エラーを `Err.Clear` せずに新規作成へ進んでいた。

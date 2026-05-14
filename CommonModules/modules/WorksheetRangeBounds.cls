@@ -226,6 +226,11 @@ End Sub
 '* @details
 '* 番号を指定してセル範囲を取得します。
 Public Function Item(ByVal ItemIndex As Long, Optional ByVal ColumnDirection As Boolean = False) As WorksheetRangeBounds
+    Call pCheckInit
+    If ItemIndex < 0 Then
+        Err.Raise vbObjectError, "Class WorksheetRangeBounds", "インデックスが範囲外です。"
+    End If
+
     If ColumnDirection Then
         Set Item = pGetCellVertical(ItemIndex)
     Else

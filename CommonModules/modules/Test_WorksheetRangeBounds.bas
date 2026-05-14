@@ -1049,6 +1049,46 @@ End Sub
 
 
 ' -----------------------------------------------------------------------------
+' Item
+' -----------------------------------------------------------------------------
+
+Public Sub Test_Item_NegativeIndexHorizontal_RaisesIndexOutOfRange(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim rng_bds As WorksheetRangeBounds
+    Set rng_bds = New_RangeBounds(Row:=2, Column:=5, FinishRow:=3, FinishColumn:=6)
+
+    ' Act
+    Dim actual_cell As WorksheetRangeBounds
+    Set actual_cell = rng_bds.Item(-1, ColumnDirection:=False)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Class WorksheetRangeBounds", Err.Source
+    Assert.Equals "インデックスが範囲外です。", Err.Description
+    Err.Clear
+End Sub
+
+Public Sub Test_Item_NegativeIndexVertical_RaisesIndexOutOfRange(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim rng_bds As WorksheetRangeBounds
+    Set rng_bds = New_RangeBounds(Row:=2, Column:=5, FinishRow:=3, FinishColumn:=6)
+
+    ' Act
+    Dim actual_cell As WorksheetRangeBounds
+    Set actual_cell = rng_bds.Item(-1, ColumnDirection:=True)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Class WorksheetRangeBounds", Err.Source
+    Assert.Equals "インデックスが範囲外です。", Err.Description
+    Err.Clear
+End Sub
+
+' -----------------------------------------------------------------------------
 ' RowCount / ColumnCount / Count
 ' -----------------------------------------------------------------------------
 

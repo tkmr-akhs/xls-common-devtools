@@ -233,6 +233,7 @@ Public Sub Test_Sort_WhenCalls_HasBeenSorted(ByVal Assert As UnitTestAssert)
     
     Assert.ErrorNotRaised 0, Err.Number, Err.Source, Err.Description
 End Sub
+
 Public Sub Test_Sort_EmptyRange_DoesNothing(ByVal Assert As UnitTestAssert)
     On Error Resume Next
 
@@ -303,6 +304,7 @@ Public Sub Test_WriteCell_UnconvertibleString_DoesNotLeaveErrNumber(ByVal Assert
     If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
     Assert.Equals "ABC123", target_sheet.Cells(13, 2).Value
 End Sub
+
 Public Sub Test_WriteCell_NumericString_WritesAsNumber(ByVal Assert As UnitTestAssert)
     ' Arrange
     Dim target_sheet As Worksheet
@@ -675,6 +677,111 @@ Public Sub Test_WriteRange_Cell_WritesValue(ByVal Assert As UnitTestAssert)
     
     ' Assert
     Assert.Equals "idx: 1-1", actual_value
+End Sub
+
+Public Sub Test_WriteRange_CellDestination_ResizesToArray(ByVal Assert As UnitTestAssert)
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+
+    Dim values_arr(1 To 2, 1 To 3) As Variant
+    Dim expect_arr(1 To 2, 1 To 3) As Variant
+    Dim row_idx As Long, col_idx As Long
+    For row_idx = 1 To 2
+        For col_idx = 1 To 3
+            values_arr(row_idx, col_idx) = "cell: " & row_idx & "-" & col_idx
+            expect_arr(row_idx, col_idx) = "cell: " & row_idx & "-" & col_idx
+        Next col_idx
+    Next row_idx
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=2, Column:=3, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Call sheet_srv.WriteRange(range_bounds, values_arr)
+
+    Dim actual_arr() As Variant
+    actual_arr = target_sheet.Range("C2:E3").Value
+
+    ' Assert
+    Assert.EqualsArray expect_arr, actual_arr
+End Sub
+
+Public Sub Test_WriteRange_EmptyDestination_UsesAnchor(ByVal Assert As UnitTestAssert)
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+
+    Dim values_arr(1 To 2, 1 To 2) As Variant
+    Dim expect_arr(1 To 2, 1 To 2) As Variant
+    values_arr(1, 1) = "A"
+    values_arr(1, 2) = "B"
+    values_arr(2, 1) = "C"
+    values_arr(2, 2) = "D"
+    expect_arr(1, 1) = "A"
+    expect_arr(1, 2) = "B"
+    expect_arr(2, 1) = "C"
+    expect_arr(2, 2) = "D"
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=2, Column:=3, FinishRow:=0, FinishColumn:=0, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Call sheet_srv.WriteRange(range_bounds, values_arr)
+
+    Dim actual_arr() As Variant
+    actual_arr = target_sheet.Range("C2:D3").Value
+
+    ' Assert
+    Assert.EqualsArray expect_arr, actual_arr
+End Sub
+
+Public Sub Test_WriteRange_MismatchedDestination_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+    target_sheet.Range("C2:D4").Value = "keep"
+
+    Dim values_arr(1 To 2, 1 To 2) As Variant
+    values_arr(1, 1) = "A"
+    values_arr(1, 2) = "B"
+    values_arr(2, 1) = "C"
+    values_arr(2, 2) = "D"
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=2, Column:=3, FinishRow:=4, FinishColumn:=4, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Call sheet_srv.WriteRange(range_bounds, values_arr)
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, actual_error_number, actual_error_source, actual_error_description) Then
+        On Error GoTo 0
+        Exit Sub
+    End If
+    On Error GoTo 0
+
+    Assert.Equals "Class WorksheetService", actual_error_source
+    Assert.Equals "keep", target_sheet.Range("C2").Value
+    Assert.Equals "keep", target_sheet.Range("D4").Value
 End Sub
 
 ' -----------------------------------------------------------------------------
@@ -1645,6 +1752,7 @@ Public Sub Test_CopyCell_WithFormula_CopiesFormula(ByVal Assert As UnitTestAsser
     Assert.Equals "=SUM(10,20)", dst_sheet.Range("C2").Formula
     Assert.EqualsNumeric 30, dst_sheet.Range("C2").Value
 End Sub
+
 Public Sub Test_CopyCell_RelativeFormula_AdjustsReference(ByVal Assert As UnitTestAssert)
     On Error Resume Next
 
@@ -2025,6 +2133,7 @@ Public Sub Test_CopyRange_Call_CopyToDestination(ByVal Assert As UnitTestAssert)
     
     Assert.EqualsArray expect_arr, actual_arr
 End Sub
+
 Public Sub Test_CopyRange_RelativeFormula_AdjustsReferences(ByVal Assert As UnitTestAssert)
     On Error Resume Next
 
@@ -2386,6 +2495,98 @@ Public Sub Test_CopyRange_WithErrorCells_CopiesErrors(ByVal Assert As UnitTestAs
     ' Assert
     Assert.Equals CVErr(xlErrDiv0), dst_sheet.Range("E4").Value
     Assert.Equals CVErr(xlErrNA), dst_sheet.Range("E5").Value
+End Sub
+
+Public Sub Test_CopyRange_SameShapeDestination_CopiesValues(ByVal Assert As UnitTestAssert)
+    ' Arrange
+    Dim src_sheet As Worksheet, dst_sheet As Worksheet
+    Set src_sheet = pPrepareTestSheet("test_input")
+    Set dst_sheet = pPrepareTestSheet("test_output")
+
+    src_sheet.Range("B2:C3").Value = "src"
+
+    Dim src_bounds As WorksheetRangeBounds
+    Set src_bounds = New_RangeBounds(Row:=2, Column:=2, FinishRow:=3, FinishColumn:=3, Sheet:="test_input")
+
+    Dim dst_bounds As WorksheetRangeBounds
+    Set dst_bounds = New_RangeBounds(Row:=4, Column:=5, FinishRow:=5, FinishColumn:=6, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    sheet_srv.CopyRange src_bounds, dst_bounds
+
+    ' Assert
+    Assert.Equals "src", dst_sheet.Range("E4").Value
+    Assert.Equals "src", dst_sheet.Range("F5").Value
+End Sub
+
+Public Sub Test_CopyRange_EmptyDestination_UsesAnchor(ByVal Assert As UnitTestAssert)
+    ' Arrange
+    Dim src_sheet As Worksheet, dst_sheet As Worksheet
+    Set src_sheet = pPrepareTestSheet("test_input")
+    Set dst_sheet = pPrepareTestSheet("test_output")
+
+    src_sheet.Range("B2").Value = "src"
+    dst_sheet.Range("C5").Value = "keep"
+
+    Dim src_bounds As WorksheetRangeBounds
+    Set src_bounds = New_RangeBounds(Row:=2, Column:=2, Sheet:="test_input")
+
+    Dim dst_bounds As WorksheetRangeBounds
+    Set dst_bounds = New_RangeBounds(Row:=5, Column:=3, FinishRow:=0, FinishColumn:=0, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    sheet_srv.CopyRange src_bounds, dst_bounds
+
+    ' Assert
+    Assert.Equals "src", dst_sheet.Range("C5").Value
+End Sub
+
+Public Sub Test_CopyRange_MismatchedDestination_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim src_sheet As Worksheet, dst_sheet As Worksheet
+    Set src_sheet = pPrepareTestSheet("test_input")
+    Set dst_sheet = pPrepareTestSheet("test_output")
+
+    src_sheet.Range("B2:C3").Value = "src"
+    dst_sheet.Range("E4:F6").Value = "keep"
+
+    Dim src_bounds As WorksheetRangeBounds
+    Set src_bounds = New_RangeBounds(Row:=2, Column:=2, FinishRow:=3, FinishColumn:=3, Sheet:="test_input")
+
+    Dim dst_bounds As WorksheetRangeBounds
+    Set dst_bounds = New_RangeBounds(Row:=4, Column:=5, FinishRow:=6, FinishColumn:=6, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    sheet_srv.CopyRange src_bounds, dst_bounds
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, actual_error_number, actual_error_source, actual_error_description) Then
+        On Error GoTo 0
+        Exit Sub
+    End If
+    On Error GoTo 0
+
+    Assert.Equals "Class WorksheetService", actual_error_source
+    Assert.Equals "keep", dst_sheet.Range("E4").Value
+    Assert.Equals "keep", dst_sheet.Range("F6").Value
 End Sub
 
 Public Sub Test_CopyCell_CopyNumberFormatFalse_Value_KeepsDestinationFormat(ByVal Assert As UnitTestAssert)

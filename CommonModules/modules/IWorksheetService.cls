@@ -86,12 +86,11 @@ End Sub
 
 '* 範囲に値を書き込みます。
 '*
-'* @param RangeBounds 書き込む対象の範囲情報。
-'* @param ValuesArray 書き込む配列。
+'* @param RangeBounds 書き込む対象の範囲情報。空範囲または 1 セルの場合は左上アンカーとして扱い、ValuesArray と同じサイズに拡張します。複数セル範囲の場合は ValuesArray と同じ行数・列数である必要があります。
+'* @param ValuesArray 書き込む 2 次元配列。
 '*
 '* @details
-'* 指定された範囲に 2 次元配列を書き込みます。
-'* 内部的には Range.Value に = で設定するため、細かな仕様は Excel に準じます。
+'* 指定された範囲に 2 次元配列を書き込みます。宛先範囲は空範囲、1 セル、または ValuesArray と同形の範囲だけを受け付けます。
 Public Sub WriteRange(ByVal RangeBounds As WorksheetRangeBounds, ByVal ValuesArray As Variant)
 End Sub
 
@@ -182,7 +181,7 @@ End Sub
 '* 範囲をコピーします。
 '*
 '* @param SourceRangeBounds コピー元の範囲。
-'* @param DestinationRangeBounds コピー先のセル。最終行や最終列を指定していても無視され、最初のセルを起点にして、コピー元の範囲と同じサイズを貼り付けます。
+'* @param DestinationRangeBounds コピー先の範囲。空範囲または 1 セルの場合は左上アンカーとして扱い、コピー元と同じサイズに拡張します。複数セル範囲の場合はコピー元と同じ行数・列数である必要があります。
 '* @param AsValue [省略可] 値を文字列としてコピーするか否か。(既定値は False)
 '* @param CopyNumberFormat [省略可] 表示形式をコピーするか否か。(既定値は False)
 '*

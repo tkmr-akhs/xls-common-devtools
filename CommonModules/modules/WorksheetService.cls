@@ -328,11 +328,15 @@ End Sub
 ' 範囲に 2 次元配列を書き込みます。
 '
 Public Sub WriteRange(ByVal RangeBounds As WorksheetRangeBounds, ByVal ValuesArray As Variant)
-    If RangeBounds.IsEmpty Then Exit Sub
-    
+    Dim value_row_count As Long
+    Dim value_column_count As Long
+    Call pGetTwoDimensionalArraySize(value_row_count, value_column_count, ValuesArray)
+    Call pRaiseIfDestinationShapeIsInvalid(RangeBounds, value_row_count, value_column_count, "RangeBounds")
+    Call pRaiseIfDestinationOutOfSheet(RangeBounds, value_row_count, value_column_count, "書き込み")
+
     Dim target_range As Range
-    Set target_range = pGetRange(RangeBounds)
-    
+    Set target_range = pGetDestinationRange(RangeBounds, value_row_count, value_column_count)
+
     target_range.Value = ValuesArray
 End Sub
 Private Sub IWorksheetService_WriteRange(ByVal RangeBounds As WorksheetRangeBounds, ByVal ValuesArray As Variant)
@@ -375,6 +379,82 @@ End Function
 Private Function pGetCell(ByVal RangeBounds As WorksheetRangeBounds) As Range
     Set pGetCell = pGetWorksheet(RangeBounds).Cells(RangeBounds.Row, RangeBounds.Column)
 End Function
+
+Private Function pGetDestinationRange( _
+        ByVal DestinationRangeBounds As WorksheetRangeBounds, _
+        ByVal SourceRowCount As Long, _
+        ByVal SourceColumnCount As Long) As Range
+
+    If DestinationRangeBounds.IsEmpty Or DestinationRangeBounds.IsCell Then
+        Set pGetDestinationRange = pGetCell(DestinationRangeBounds).Resize(SourceRowCount, SourceColumnCount)
+    Else
+        Set pGetDestinationRange = pGetRange(DestinationRangeBounds)
+    End If
+End Function
+
+Private Sub pGetTwoDimensionalArraySize( _
+        ByRef RowCount As Long, _
+        ByRef ColumnCount As Long, _
+        ByVal TargetArray As Variant)
+
+    If Not IsArray(TargetArray) Then
+        Err.Raise vbObjectError + 1, "Class WorksheetService", "ValuesArray は 2 次元配列を指定してください。(" & TypeName(TargetArray) & ")"
+    End If
+
+    Dim lower_bounds() As Long
+    Dim upper_bounds() As Long
+    Call GetArrayBounds(lower_bounds, upper_bounds, TargetArray)
+
+    If IsEmptyArray(lower_bounds) Then
+        Err.Raise vbObjectError + 1, "Class WorksheetService", "ValuesArray は 2 次元配列を指定してください。"
+    End If
+    If UBound(lower_bounds) - LBound(lower_bounds) + 1 <> 2 Then
+        Err.Raise vbObjectError + 1, "Class WorksheetService", "ValuesArray は 2 次元配列を指定してください。"
+    End If
+
+    RowCount = upper_bounds(LBound(upper_bounds)) - lower_bounds(LBound(lower_bounds)) + 1
+    ColumnCount = upper_bounds(LBound(upper_bounds) + 1) - lower_bounds(LBound(lower_bounds) + 1) + 1
+
+    If RowCount < 1 Or ColumnCount < 1 Then
+        Err.Raise vbObjectError + 1, "Class WorksheetService", "ValuesArray は 1 要素以上の 2 次元配列を指定してください。"
+    End If
+End Sub
+
+Private Sub pRaiseIfDestinationShapeIsInvalid( _
+        ByVal DestinationRangeBounds As WorksheetRangeBounds, _
+        ByVal SourceRowCount As Long, _
+        ByVal SourceColumnCount As Long, _
+        ByVal ArgumentName As String)
+
+    If DestinationRangeBounds.IsEmpty Then Exit Sub
+    If DestinationRangeBounds.IsCell Then Exit Sub
+    If DestinationRangeBounds.RowCount = SourceRowCount And DestinationRangeBounds.ColumnCount = SourceColumnCount Then Exit Sub
+
+    Err.Raise vbObjectError + 1, _
+            "Class WorksheetService", _
+            ArgumentName & " は空範囲、1 セル、または元と同じ行数・列数を指定してください。" & _
+            "(destination: " & DestinationRangeBounds.RowCount & "x" & DestinationRangeBounds.ColumnCount & _
+            ", source: " & SourceRowCount & "x" & SourceColumnCount & ")"
+End Sub
+
+Private Sub pRaiseIfDestinationOutOfSheet( _
+        ByVal DestinationRangeBounds As WorksheetRangeBounds, _
+        ByVal SourceRowCount As Long, _
+        ByVal SourceColumnCount As Long, _
+        ByVal OperationName As String)
+
+    Dim destination_finish_row As Long
+    destination_finish_row = DestinationRangeBounds.Row + SourceRowCount - 1
+    If G_ROW_MAX < destination_finish_row Then
+        Err.Raise vbObjectError + 1, "Class WorksheetService", OperationName & "先範囲の終了行がシート上限を超過しています。(row: " & DestinationRangeBounds.Row & ", row_count: " & SourceRowCount & ", finish_row: " & destination_finish_row & ")"
+    End If
+
+    Dim destination_finish_column As Long
+    destination_finish_column = DestinationRangeBounds.Column + SourceColumnCount - 1
+    If G_COL_MAX < destination_finish_column Then
+        Err.Raise vbObjectError + 1, "Class WorksheetService", OperationName & "先範囲の終了列がシート上限を超過しています。(column: " & DestinationRangeBounds.Column & ", column_count: " & SourceColumnCount & ", finish_column: " & destination_finish_column & ")"
+    End If
+End Sub
 
 Private Function pGetFormulaRangeAddress(ByVal RangeBounds As WorksheetRangeBounds) As String
     pGetFormulaRangeAddress = pGetRange(RangeBounds).Address( _
@@ -644,9 +724,8 @@ Public Sub CopyRange( _
         Optional ByVal CopyNumberFormat As Boolean = False)
     
     If SourceRangeBounds.IsEmpty Then Exit Sub
+    Call pRaiseIfDestinationShapeIsInvalid(DestinationRangeBounds, SourceRangeBounds.RowCount, SourceRangeBounds.ColumnCount, "DestinationRangeBounds")
     Call pRaiseIfCopyRangeDestinationOutOfSheet(SourceRangeBounds, DestinationRangeBounds)
-'    If DestinationRangeBounds.IsEmpty Then Exit Sub
-'    If Not DestinationRangeBounds.IsCell Then Err.Raise vbObjectError + 1, "Class WorksheetService", "DestinationRangeBounds がセルではありません。(" & DestinationRangeBounds.ToString() & ")"
     
     Dim src_sheet As Worksheet
     Set src_sheet = pGetWorksheet(SourceRangeBounds)
@@ -739,17 +818,7 @@ Private Sub pRaiseIfCopyRangeDestinationOutOfSheet( _
         ByVal SourceRangeBounds As WorksheetRangeBounds, _
         ByVal DestinationRangeBounds As WorksheetRangeBounds)
 
-    Dim destination_finish_row As Long
-    destination_finish_row = DestinationRangeBounds.Row + SourceRangeBounds.RowCount - 1
-    If G_ROW_MAX < destination_finish_row Then
-        Err.Raise vbObjectError + 1, "Class WorksheetService", "コピー先範囲の終了行がシート上限を超過しています。(row: " & DestinationRangeBounds.Row & ", row_count: " & SourceRangeBounds.RowCount & ", finish_row: " & destination_finish_row & ")"
-    End If
-
-    Dim destination_finish_column As Long
-    destination_finish_column = DestinationRangeBounds.Column + SourceRangeBounds.ColumnCount - 1
-    If G_COL_MAX < destination_finish_column Then
-        Err.Raise vbObjectError + 1, "Class WorksheetService", "コピー先範囲の終了列がシート上限を超過しています。(column: " & DestinationRangeBounds.Column & ", column_count: " & SourceRangeBounds.ColumnCount & ", finish_column: " & destination_finish_column & ")"
-    End If
+    Call pRaiseIfDestinationOutOfSheet(DestinationRangeBounds, SourceRangeBounds.RowCount, SourceRangeBounds.ColumnCount, "コピー")
 End Sub
 
 Private Sub pAddItemToStringArray(ByRef TargetArray() As String, ByVal ItemToBeAdded As String)

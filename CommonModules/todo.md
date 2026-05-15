@@ -557,11 +557,6 @@
 
 ## 対応しないと決定した事項
 
-- [x] [spec] WorksheetService.WriteRange の配列サイズを対象範囲と照合する
-  - 詳細: `WriteRange` は `ValuesArray` をそのまま `target_range.Value` に代入しており、配列の次元数、下限、行数、列数が `RangeBounds` と一致するかを確認していない。Excel 側の代入仕様により、不足要素が `#N/A` になったり、余剰要素が書き込まれない可能性がある。
-  - 影響: 呼び出し側の配列整形ミスが明示エラーではなくシート上のデータ破壊として表面化する。表データ書き込みの基盤 API として、意図しない `#N/A` や欠落に気付きにくい。
-  - 結論: `WriteRange` は Excel `Range.Value` 代入への薄いラッパーとして扱い、配列サイズや次元の厳密な事前検証は追加しない。細かな代入仕様は Excel に準じる現行契約を維持する。
-
 - [x] [spec] WorksheetService の配列数式コピーでコピー元を破壊しない
   - 詳細: `WorksheetService.pCopyCellCore` は配列数式コピー時に `src_cell = formula_str` でコピー元セルを通常数式へ一時変更しているため、コピー先エラー時にコピー元が壊れる懸念があった。
   - 結論: 指摘誤り。失敗系ユニットテストでコピー先エラー時もコピー元の配列数式が維持されることを確認したため、破壊バグは存在しないものとして扱う。実装修正は行わない。
@@ -570,11 +565,6 @@
   - 詳細: `pRemoveRuntimeRunnerModule` は `pRuntimeRunnerModuleName` と一致するモジュールだけでなく、`Tmp_UTRUN[A-Z]{22}` に一致する標準モジュールをすべて削除する。テスト実行前は `pRuntimeRunnerModuleName` が空のため、同じ命名規則に偶然一致した利用者作成モジュールや調査用モジュールも削除対象になる。
   - 影響: `UnitTestMain` を実行しただけで、テストランナーが作成したものではない VBA モジュールを VBProject から削除する可能性がある。テスト基盤がソースを破壊し得るため、共通モジュール開発時のリスクが高い。
   - 結論: 杞憂に近い確率であり、仕様として許容します。なお、テスト結果判定に関わらない事項についてはバグではなく `[ux]` として扱います。
-
-- [x] [spec] WorksheetService.CopyRange のコピー先範囲を空範囲・複数セルのまま受け付けない
-  - 詳細: `CopyRange` では `DestinationRangeBounds.IsEmpty` と `DestinationRangeBounds.IsCell` の検査がコメントアウトされているが、実処理では `DestinationRangeBounds.Row` / `Column` をコピー先左上として使い、`FinishRow` / `FinishColumn` は無視している。空範囲でも保持している開始行・列へコピーされ、複数セル範囲を渡しても形状不一致を検出しない。
-  - 影響: 呼び出し側が「コピー先なし」または「この範囲へコピー」と考えて渡した `WorksheetRangeBounds` が、意図しない左上セル起点の上書きとして実行され得る。
-  - 結論: `CopyRange` のコピー先は範囲ではなく左上セルアンカーとして扱う現行動作を仕様とする。空範囲や複数セル範囲を追加検査で拒否する対応は行わない。
 
 - [x] [spec] WorksheetService.GetUsedRangeBounds で値なし書式セルを空扱いしない
   - 詳細: `pGetRawUsedRange` は UsedRange が 1 セルだけの場合、値が空で四辺の罫線がないことだけを見て空範囲としている。塗りつぶし、フォント、表示形式、コメント、ハイパーリンク、入力規則など、値以外の使用状態を確認していない。

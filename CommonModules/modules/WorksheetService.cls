@@ -287,22 +287,44 @@ Public Sub WriteCell( _
                 Exit Sub
             End If
             
+            Dim bool_value As Boolean
+            Dim bool_error As Long
             On Error Resume Next
-            
             Err.Clear
-            target_cell.Value = CBool(Expression)
-            If Err.Number = 0 Then Exit Sub
-            
-            Err.Clear
-            target_cell.Value = CDate(Expression)
-            If Err.Number = 0 Then Exit Sub
-            
-            Err.Clear
-            target_cell.Value = CCur(Expression)
-            If Err.Number = 0 Then Exit Sub
-            
+            bool_value = CBool(Expression)
+            bool_error = Err.Number
             Err.Clear
             On Error GoTo 0
+            If bool_error = 0 Then
+                target_cell.Value = bool_value
+                Exit Sub
+            End If
+            
+            Dim date_value As Date
+            Dim date_error As Long
+            On Error Resume Next
+            Err.Clear
+            date_value = CDate(Expression)
+            date_error = Err.Number
+            Err.Clear
+            On Error GoTo 0
+            If date_error = 0 Then
+                target_cell.Value = date_value
+                Exit Sub
+            End If
+            
+            Dim currency_value As Currency
+            Dim currency_error As Long
+            On Error Resume Next
+            Err.Clear
+            currency_value = CCur(Expression)
+            currency_error = Err.Number
+            Err.Clear
+            On Error GoTo 0
+            If currency_error = 0 Then
+                target_cell.Value = currency_value
+                Exit Sub
+            End If
         End If
         
         ' ï∂éöóÒÇ∆ÇµÇƒèàóù

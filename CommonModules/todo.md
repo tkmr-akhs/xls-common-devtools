@@ -15,11 +15,6 @@
 
 ## 高優先度
 
-- [ ] [bug] WorksheetService.WriteCell の Boolean / Date / Currency 変換後の書き込み失敗を握りつぶさない
-  - 詳細: `TypeConvert=True` の Boolean / Date / Currency 変換経路は `On Error Resume Next` のまま `target_cell.Value = CBool(Expression)` / `CDate` / `CCur` を試し、`Err.Number = 0` のときだけ成功扱いで抜ける。変換自体は成功したがセル書き込みだけが失敗した場合も、変換失敗と同じ扱いで次の変換または文字列書き込みへ進む。
-  - 影響: 入力規則、保護セル、表示形式・セル状態などで変換値の書き込みに失敗しても、後続の文字列書き込みが成功すると `WriteCell` が成功扱いになり、呼び出し側が期待した型ではない値がセルに残り得る。基盤 API として、書き込み失敗と型変換失敗を区別できない。
-  - 対応案: 変換処理とセル書き込みを分離し、変換成功後の書き込み失敗は即時再送出する。Boolean / Date / Currency それぞれで、変換成功・書き込み失敗・文字列フォールバックのテストを追加する。
-
 - [ ] [bug] WorksheetService.CopyRange の部分配列数式コピーで非アンカーセルを書き換えない
   - 詳細: `CopyRange` は配列数式セルを見つけると `pGetArrayFormulaAnchor` でアンカーセルを取得するが、`pCopyCellCore` には走査中の `src_bounds.Row + row_idx` / `src_bounds.Column + col_idx` を渡している。コピー元範囲が複数セル配列数式の途中から始まる場合、`pCopyCellCore` はアンカーではないセルに対して `src_cell = formula_str` を実行し、Excel が「配列の一部を変更できない」系の実行時エラーにする。
   - 影響: `A1:C2` の配列数式に対して `B1:C2` のような部分範囲をコピーすると、基盤コピー API が通常の範囲コピーとして処理できず失敗する。コピー範囲の取り方によって同じ配列数式のコピー可否が変わる。

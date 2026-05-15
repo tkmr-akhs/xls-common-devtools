@@ -153,7 +153,7 @@ End Function
 '* @return 追加されたワークシートの名前。
 '*
 '* @details
-'* ワークシートを追加します。
+'* ワークシートを追加します。処理後は呼び出し前のアクティブブックと対象ブックのアクティブシートを復元します。
 Public Function AddWorksheet( _
         Optional ByVal Sheet As String = "", _
         Optional ByVal Book As String = "", _
@@ -167,7 +167,7 @@ End Function
 '* @param Book [省略可] ワークブック名。省略したときは ThisWorkbook のワークブック名が使用されます。
 '*
 '* @details
-'* ワークシートを削除します。
+'* ワークシートを削除します。処理後は呼び出し前のアクティブブックと対象ブックのアクティブシートを可能な範囲で復元します。
 Public Sub RemoveWorksheet(Optional ByVal Sheet As String = "", Optional ByVal Book As String = "")
 End Sub
 
@@ -198,7 +198,7 @@ End Function
 '* @param Book [省略可] ワークブック名。省略したときは ThisWorkbook のワークブック名が使用されます。
 '*
 '* @details
-'* ワークシートを削除します。
+'* 指定したブックとワークシートをアクティブにします。
 Public Sub ActivateWorksheet(ByVal Sheet As String, Optional ByVal Book As String = "")
 End Sub
 

@@ -21,10 +21,6 @@
   - 影響: 追加・更新では型を固定しているのに、検索・削除では型違いを False、暗黙一致、実行時エラーのどれにするかが揃わない。コレクション基盤として「同じ要素」の意味が操作ごとに変わる。
   - 対応案: 検索・削除系 API でも保存済み型との照合を行い、型違いは明示エラーまたは常に不一致のどちらかに統一する。数値と数値文字列、Boolean と数値、IEquatable 実装と非オブジェクト引数のテストを追加する。
 
-- [ ] [bug] WorkbookService.ActivateWorksheet で対象ブックを先にアクティブ化する
-  - 詳細: `WorkbookService.ActivateWorksheet` は `target_sheet.Activate` を直接呼ぶだけで、対象ブックを先にアクティブにしていない。
-  - 影響: 対象シートがアクティブでない別ブックにある場合、`Worksheet.Activate` が失敗したり、呼び出し側が期待したブック・シートへ移動できない可能性がある。
-  - 対応案: UI 操作用 API として対象ブック、対象シートのアクティブ化順序を明示し、非アクティブブック上のシートを指定したテストを追加する。
 
 - [ ] [bug] WorkbookService.CloseWorkbook の確認表示契約を守る
   - 詳細: `WorkbookService.CloseWorkbook` は `Force:=False` のとき確認画面を表示する契約だが、実装は `Workbooks(Book).Close(SaveChanges:=Not Force)` となっており、確認なしで保存して閉じる可能性がある。
@@ -36,20 +32,12 @@
   - 影響: API の戻り値や処理自体は成功しても、呼び出し側が `Err.Number` を確認する運用では、存在しないことを調べただけの内部エラーを実処理の失敗として扱う可能性がある。
   - 対応案: 期待される未検出エラーは分岐直後に必ず `Err.Clear` する。存在しないブック、存在しないシート、追加先名未使用、複製先名未使用の各ケースで `Err.Number = 0` を確認するテストを追加する。
 
-- [ ] [bug] WorkbookService.AddWorksheet でアクティブブック・シートを復元する
-  - 詳細: `AddWorksheet` は対象ブックへ `Worksheets.Add` するため、Excel のアクティブブックとアクティブシートが追加先・追加シートへ移るが、`CopyWorksheet` や `SaveWorkbook` のような退避復元を行っていない。
-  - 影響: 利用側が `WorksheetRangeBounds` や明示ブック名で操作していても、シート追加後の後続処理で `ActiveWorkbook` / `ActiveSheet` に依存する既存コードが別ブック・別シートを対象にしてしまう可能性がある。基盤サービス呼び出しの副作用として UI 状態も変わる。
-  - 対応案: 追加前の `ActiveWorkbook` と対象ブックのアクティブシートを退避し、成功時・エラー時とも復元する。非アクティブブックへの追加、ThisWorkbook への追加、既存名エラー時の復元テストを追加する。
 
 - [ ] [bug] WorkbookService.AddWorksheet / CopyWorksheet の名前設定失敗時に追加済みシートを残さない
   - 詳細: `AddWorksheet` は `Worksheets.Add` 後に `added_sheet.Name = Sheet` を実行し、`CopyWorksheet` も `src_sheet.Copy` 後に `added_sheet.Name = DestinationWorksheetName` を実行する。31 文字超過や禁止文字などで名前変更が失敗すると、追加または複製されたシートだけが残る。
   - 影響: API はエラーで戻るのにブック構成は変更済みとなり、リトライ時の重複シート、後続処理の対象ずれ、手作業での残骸削除が発生し得る。
   - 対応案: シート名を追加前に検証するか、名前設定失敗時に追加済みシートを削除してから再送出する。禁止文字、31 文字超過、既存名、正常追加・複製のテストを追加する。
 
-- [ ] [bug] WorkbookService.RemoveWorksheet でアクティブブック・シートを復元する
-  - 詳細: `RemoveWorksheet` は削除対象ブックを操作し、最後の 1 シートを削除する場合は代替シートも追加するが、処理前の `ActiveWorkbook` や対象ブックのアクティブシートを退避復元していない。
-  - 影響: 非アクティブブックのシート削除や最後のシート削除の後、Excel のアクティブ状態が削除先ブック・追加シートへ移り、後続処理が `ActiveWorkbook` / `ActiveSheet` 依存の場合に対象を誤る可能性がある。
-  - 対応案: `CopyWorksheet` と同様に現在のアクティブブックと対象ブックのアクティブシートを退避し、成功時・エラー時とも復元する。最後の 1 シート削除、非アクティブブック削除、削除失敗時の復元テストを追加する。
 
 - [ ] [bug] WorkbookService.RemoveVBComponents の削除前検証を行う
   - 詳細: `RemoveVBComponents` は `VBComponents` を走査しながら一致したモジュールを即時削除するため、後続で一致した `ThisWorkbook` やシートモジュールなど削除できないコンポーネントに当たると、それ以前の標準モジュールだけが削除済みの中途半端な状態になり得る。

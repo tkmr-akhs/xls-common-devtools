@@ -472,7 +472,9 @@ Public Function AddWorksheet( _
         Optional ByVal Book As String = "", _
         Optional ByVal SheetIndex As Long = 0, _
         Optional ByVal Before As Boolean = False) As String
-    
+
+    On Error GoTo ON_ERROR
+
     ' 処理対象となるワークブックの取得
     Dim target_book As Workbook
     If Book = "" Then
@@ -480,33 +482,58 @@ Public Function AddWorksheet( _
     Else
         Set target_book = Application.Workbooks(Book)
     End If
-    
+
+    ' アクティブを控える
+    Dim current_active_book As Workbook
+    Dim current_target_active_sheet As Worksheet
+    On Error Resume Next
+    Set current_active_book = ActiveWorkbook
+    Set current_target_active_sheet = target_book.ActiveSheet
+    Err.Clear
+    On Error GoTo ON_ERROR
+
     ' ワークシート名のチェック
     Dim added_sheet As Worksheet
     On Error Resume Next
     Set added_sheet = target_book.Worksheets(Sheet)
-    On Error GoTo 0
+    Err.Clear
+    On Error GoTo ON_ERROR
     If Not added_sheet Is Nothing Then Err.Raise vbObjectError + 1, "Class WorkbookService", "追加しようとしたシート名が既に存在します。(" & Sheet & "@" & Book & ")"
-    
+
     ' 追加の目標となるワークシートの番号を取得
     Dim target_sheet_idx As Long
     target_sheet_idx = pGetTargetSheetIndex(target_book, SheetIndex)
-    
+
     ' 追加の目標となるワークシートの取得
     Dim target_sheet As Worksheet
     Set target_sheet = target_book.Worksheets(target_sheet_idx)
-    
+
     ' ワークシートの追加
     If Before Then
         Set added_sheet = target_book.Worksheets.Add(Before:=target_sheet)
     Else
         Set added_sheet = target_book.Worksheets.Add(After:=target_sheet)
     End If
-    
+
     ' ワークシート名が指定されていたらワークシート名を変更
     If Sheet <> "" Then added_sheet.Name = Sheet
-    
+
+    Call pRestoreActiveState(current_active_book, current_target_active_sheet)
+
     AddWorksheet = added_sheet.Name
+    On Error GoTo 0
+    Exit Function
+
+ON_ERROR:
+    Dim err_num As Long: err_num = Err.Number
+    Dim err_source As String: err_source = Err.Source
+    Dim err_desc As String: err_desc = Err.Description
+    Dim err_help_file As String: err_help_file = Err.HelpFile
+    Dim err_help_context As Long: err_help_context = Err.HelpContext
+
+    Call pRestoreActiveState(current_active_book, current_target_active_sheet)
+
+    Err.Raise err_num, err_source, err_desc, err_help_file, err_help_context
 End Function
 Private Function IWorkbookService_AddWorksheet( _
         Optional ByVal Sheet As String = "", _
@@ -534,6 +561,14 @@ Private Function pGetTargetSheetIndex(ByVal TargetBook As Workbook, ByVal SheetI
     End If
 End Function
 
+Private Sub pRestoreActiveState(ByVal ActiveBook As Workbook, ByVal TargetBookActiveSheet As Worksheet)
+    On Error Resume Next
+    If Not TargetBookActiveSheet Is Nothing Then Call TargetBookActiveSheet.Activate
+    If Not ActiveBook Is Nothing Then Call ActiveBook.Activate
+    Err.Clear
+    On Error GoTo 0
+End Sub
+
 ' ワークシートを削除します。
 '
 ' @param Sheet [省略可] 削除するワークシート名。省略したときはアクティブなシートが指定されたものとします。
@@ -555,6 +590,15 @@ Public Sub RemoveWorksheet(Optional ByVal Sheet As String = "", Optional ByVal B
         Set target_book = Application.Workbooks(Book)
     End If
 
+    ' アクティブを控える
+    Dim current_active_book As Workbook
+    Dim current_target_active_sheet As Worksheet
+    On Error Resume Next
+    Set current_active_book = ActiveWorkbook
+    Set current_target_active_sheet = target_book.ActiveSheet
+    Err.Clear
+    On Error GoTo ON_ERROR
+
     ' 削除対象ワークシートの取得
     Dim target_sheet As Worksheet
     If Sheet = "" Then
@@ -569,6 +613,7 @@ Public Sub RemoveWorksheet(Optional ByVal Sheet As String = "", Optional ByVal B
     ' 対象ワークシートを削除
     Application.DisplayAlerts = False
     Call target_sheet.Delete
+    Call pRestoreActiveState(current_active_book, current_target_active_sheet)
     Call app_state.Restore
     On Error GoTo 0
     Exit Sub
@@ -581,6 +626,7 @@ ON_ERROR:
     Dim err_help_context As Long: err_help_context = Err.HelpContext
 
     On Error Resume Next
+    Call pRestoreActiveState(current_active_book, current_target_active_sheet)
     Call app_state.Restore
     On Error GoTo 0
 
@@ -769,11 +815,12 @@ Public Sub ActivateWorksheet(ByVal Sheet As String, Optional ByVal Book As Strin
     Else
         Set target_book = Application.Workbooks(Book)
     End If
-    
+
     ' 対象ワークシートの取得
     Dim target_sheet As Worksheet
     Set target_sheet = target_book.Worksheets(Sheet)
-    
+
+    Call target_book.Activate
     Call target_sheet.Activate
 End Sub
 Private Sub IWorkbookService_ActivateWorksheet(ByVal Sheet As String, Optional ByVal Book As String = "")

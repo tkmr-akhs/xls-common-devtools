@@ -63,6 +63,7 @@ Public Function ExistsWorkbook(ByVal Book As String) As Boolean
     Dim target_book As Workbook
     On Error Resume Next
         Set target_book = Workbooks(Book)
+    Err.Clear
     On Error GoTo 0
     
     If target_book Is Nothing Then
@@ -125,6 +126,7 @@ Public Function ExistsWorksheet(ByVal Sheet As String, Optional ByVal Book As St
     Else
         On Error Resume Next
             Set target_book = Workbooks(Book)
+        Err.Clear
         On Error GoTo 0
     
         If target_book Is Nothing Then
@@ -136,6 +138,7 @@ Public Function ExistsWorksheet(ByVal Sheet As String, Optional ByVal Book As St
     Dim target_sheet As Worksheet
     On Error Resume Next
         Set target_sheet = target_book.Worksheets(Sheet)
+    Err.Clear
     On Error GoTo 0
     
     If target_sheet Is Nothing Then
@@ -686,6 +689,7 @@ Public Function CopyWorksheet( _
     Dim added_sheet As Worksheet
     On Error Resume Next
     Set added_sheet = dst_book.Worksheets(DestinationWorksheetName)
+    Err.Clear
     On Error GoTo ON_ERROR
     If Not added_sheet Is Nothing Then Err.Raise vbObjectError + 1, "Class WorkbookService", "複製先のシート名が既に存在します。(" & DestinationWorksheetName & "@" & DestinationWorkbookName & ")"
 

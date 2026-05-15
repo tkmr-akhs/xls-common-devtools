@@ -15,16 +15,6 @@
 
 ## 高優先度
 
-- [ ] [bug] WorkbookService の存在確認・重複名チェックで内部探索エラーを残さない
-  - 詳細: `ExistsWorkbook` / `ExistsWorksheet` / `AddWorksheet` / `CopyWorksheet` は、存在しないブックやシートを `On Error Resume Next` で探索するが、想定内の未検出エラーを `Err.Clear` しない経路がある。
-  - 影響: API の戻り値や処理自体は成功しても、呼び出し側が `Err.Number` を確認する運用では、存在しないことを調べただけの内部エラーを実処理の失敗として扱う可能性がある。
-  - 対応案: 期待される未検出エラーは分岐直後に必ず `Err.Clear` する。存在しないブック、存在しないシート、追加先名未使用、複製先名未使用の各ケースで `Err.Number = 0` を確認するテストを追加する。
-
-- [ ] [bug] ObjectList.Sort の等価要素と降順比較を修正する
-  - 詳細: `ObjectList.Sort` は `IComparable` でも降順時に `Not IsLessThan` を使うため、等価要素を「小さい」扱いし得る。
-  - 影響: 等価要素を含む並び替えで不要な入れ替えが発生し、安定性や比較契約に依存する処理の前提が崩れる可能性がある。
-  - 対応案: 昇順・降順とも「小さい」「大きい」「等価」を分けて判定し、等価要素を入れ替えないテストを追加する。
-
 - [ ] [bug] WorksheetService の Excel エラー値文字列化を安全にする
   - 詳細: `WorksheetService.pConvertErrorToString` は `Select Case ErrValue` と `Case CVErr(...)` で Excel エラー値を判定しており、`CVErr(...)` を含む Variant の直接比較で型不一致になる可能性がある。
   - 詳細: `ReadCell(GetText:=True)` の `####` フォールバックでも `"" & TargetCell.Value` を使うため、対象セルがエラー値の場合に文字列化で落ち得る。
@@ -90,6 +80,11 @@
   - 対応案: `Nothing` の順序を先頭/末尾のどちらかに固定するか、Sort では非対応として入口で明示エラーにする。`Nothing` のみ、`Nothing` と比較可能オブジェクト混在、`ObjectSet.Sort` のテストを追加する。
 
 ## 中優先度
+
+- [ ] [ux] ObjectList.Sort の等価要素と降順比較を修正する
+  - 詳細: `ObjectList.Sort` は `IComparable` でも降順時に `Not IsLessThan` を使うため、等価要素を「小さい」扱いし得る。
+  - 影響: 等価要素を含む並び替えで不要な入れ替えが発生し、安定性や比較契約に依存する処理の前提が崩れる可能性がある。
+  - 対応案: 昇順・降順とも「小さい」「大きい」「等価」を分けて判定し、等価要素を入れ替えないテストを追加する。
 
 - [ ] [bug] FileSystemService.GetLastModified で存在しないパスを明示エラーにする
   - 詳細: `GetLastModified` は `IsFile(path_str)` が False の場合に `pFSO.GetFolder(path_str)` へ進むため、存在しないパスやファイル/フォルダー以外の指定が、共通基盤の明示エラーではなく FSO の実行時エラーになる。

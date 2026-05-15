@@ -50,33 +50,95 @@ Private Function pPrepareTestSheet(ByRef SheetName As String) As Worksheet
 End Function
 
 ' -----------------------------------------------------------------------------
+' ExistsWorkbook
+' -----------------------------------------------------------------------------
+
+Public Sub Test_ExistsWorkbook_NotExistsWorkbook_ReturnsFalseAndClearsErr(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim book_srv As IWorkbookService
+    Set book_srv = New WorkbookService
+
+    ' Act
+    Err.Clear
+    Dim actual_value As Boolean
+    actual_value = book_srv.ExistsWorkbook("NotExistsWorkbook")
+
+    Dim actual_error_number As Long
+    actual_error_number = Err.Number
+    On Error GoTo 0
+
+    ' Assert
+    Assert.Equals False, actual_value
+    Assert.EqualsNumeric 0, actual_error_number
+End Sub
+
+Public Sub Test_ExistsWorkbook_ExistsWorkbook_ReturnsTrueAndKeepsErrClear(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim book_srv As IWorkbookService
+    Set book_srv = New WorkbookService
+
+    ' Act
+    Err.Clear
+    Dim actual_value As Boolean
+    actual_value = book_srv.ExistsWorkbook(ThisWorkbook.Name)
+
+    Dim actual_error_number As Long
+    actual_error_number = Err.Number
+    On Error GoTo 0
+
+    ' Assert
+    Assert.Equals True, actual_value
+    Assert.EqualsNumeric 0, actual_error_number
+End Sub
+
+' -----------------------------------------------------------------------------
 ' ExistsWorksheet
 ' -----------------------------------------------------------------------------
 
-Public Sub Test_ExistsWorksheet_NotExistsWorkbook_ReturnsFalse(ByVal Assert As UnitTestAssert)
+Public Sub Test_ExistsWorksheet_NotExistsWorkbook_ReturnsFalseAndClearsErr(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
     ' Arrange
     Dim book_srv As IWorkbookService
     Set book_srv = New WorkbookService
-    
+
     ' Act
+    Err.Clear
     Dim actual_value As Boolean
     actual_value = book_srv.ExistsWorksheet("Sheet1", Book:="NotExistsWorkbook")
-    
+
+    Dim actual_error_number As Long
+    actual_error_number = Err.Number
+    On Error GoTo 0
+
     ' Assert
     Assert.Equals False, actual_value
+    Assert.EqualsNumeric 0, actual_error_number
 End Sub
 
-Public Sub Test_ExistsWorksheet_NotExistsWorksheet_ReturnsFalse(ByVal Assert As UnitTestAssert)
+Public Sub Test_ExistsWorksheet_NotExistsWorksheet_ReturnsFalseAndClearsErr(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
     ' Arrange
     Dim book_srv As IWorkbookService
     Set book_srv = New WorkbookService
-    
+
     ' Act
+    Err.Clear
     Dim actual_value As Boolean
     actual_value = book_srv.ExistsWorksheet("NotExistsWorksheet", Book:=ThisWorkbook.Name)
-    
+
+    Dim actual_error_number As Long
+    actual_error_number = Err.Number
+    On Error GoTo 0
+
     ' Assert
     Assert.Equals False, actual_value
+    Assert.EqualsNumeric 0, actual_error_number
 End Sub
 
 Public Sub Test_ExistsWorksheet_ExistsWorksheet_ReturnsTrue(ByVal Assert As UnitTestAssert)
@@ -405,6 +467,62 @@ Public Sub Test_RemoveWorksheet_NonActiveWorkbook_RestoresTargetActiveSheet(ByVa
     Assert.Equals "keep_active", actual_target_active_sheet_name
 End Sub
 
+' -----------------------------------------------------------------------------
+' CopyWorksheet
+' -----------------------------------------------------------------------------
+
+Public Sub Test_CopyWorksheet_DestinationNameUnused_ClearsInternalSearchErr(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim book_srv As IWorkbookService
+    Set book_srv = New WorkbookService
+
+    Dim target_book As Workbook
+    Set target_book = Workbooks.Add
+    Do While target_book.Worksheets.Count < 2
+        Call target_book.Worksheets.Add(After:=target_book.Worksheets(target_book.Worksheets.Count))
+    Loop
+    target_book.Worksheets(1).Name = "source_sheet"
+    target_book.Worksheets(2).Name = "anchor_sheet"
+
+    Dim target_book_name As String
+    target_book_name = target_book.Name
+
+    ' Act
+    Err.Clear
+    Dim actual_sheet_name As String
+    actual_sheet_name = book_srv.CopyWorksheet( _
+            SourceWorksheetName:="source_sheet", _
+            SourceWorkbookName:=target_book_name, _
+            DestinationWorksheetName:="copied_sheet", _
+            DestinationWorkbookName:=target_book_name, _
+            SheetIndex:=2, _
+            Before:=False)
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+
+    Dim actual_exists As Boolean
+    If actual_error_number = 0 Then
+        Dim copied_sheet As Worksheet
+        Set copied_sheet = target_book.Worksheets("copied_sheet")
+        actual_exists = Not copied_sheet Is Nothing
+    End If
+
+    ' Cleanup
+    Call target_book.Close(SaveChanges:=False)
+    On Error GoTo 0
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, actual_error_number, actual_error_source, actual_error_description) Then Exit Sub
+    Assert.Equals "copied_sheet", actual_sheet_name
+    Assert.IsTrue actual_exists
+End Sub
 ' -----------------------------------------------------------------------------
 ' ActivateWorksheet
 ' -----------------------------------------------------------------------------

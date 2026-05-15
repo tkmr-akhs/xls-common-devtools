@@ -190,8 +190,14 @@ End Sub
 ' @details
 ' 範囲をアクティブにします。
 Public Sub ActivateRange(ByVal RangeBounds As WorksheetRangeBounds)
+    Dim target_book As Workbook
+    Set target_book = pGetWorkbook(RangeBounds)
+
     Dim target_sheet As Worksheet
-    Set target_sheet = pGetWorksheet(RangeBounds)
+    Set target_sheet = target_book.Worksheets(RangeBounds.WorksheetName)
+
+    Call target_book.Activate
+    Call target_sheet.Activate
     target_sheet.Range(RangeBounds.ToString(CellOnly:=True)).Activate
 End Sub
 Private Sub IWorksheetService_ActivateRange(ByVal RangeBounds As WorksheetRangeBounds)

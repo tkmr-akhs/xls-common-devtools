@@ -15,11 +15,6 @@
 
 ## 高優先度
 
-- [ ] [bug] WorksheetService.ActivateRange で対象シートを確実にアクティブ化する
-  - 詳細: `ActivateRange` は `target_sheet.Range(...).Activate` を直接呼ぶだけで、対象ブックや対象シートを先にアクティブにしていない。
-  - 影響: 対象シートがアクティブでない状態では `Range.Activate` が失敗したり、呼び出し側が期待した範囲が選択されない可能性がある。
-  - 対応案: UI 操作用 API として対象ブック、対象シート、対象範囲のアクティブ化順序を明示し、非アクティブブック/非アクティブシートからの呼び出しをテストする。
-
 - [ ] [bug] WorkbookService の存在確認・重複名チェックで内部探索エラーを残さない
   - 詳細: `ExistsWorkbook` / `ExistsWorksheet` / `AddWorksheet` / `CopyWorksheet` は、存在しないブックやシートを `On Error Resume Next` で探索するが、想定内の未検出エラーを `Err.Clear` しない経路がある。
   - 影響: API の戻り値や処理自体は成功しても、呼び出し側が `Err.Number` を確認する運用では、存在しないことを調べただけの内部エラーを実処理の失敗として扱う可能性がある。

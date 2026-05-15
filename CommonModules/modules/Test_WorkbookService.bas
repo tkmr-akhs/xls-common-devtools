@@ -310,6 +310,9 @@ Public Sub Test_AddWorksheet_NameFailure_RestoresActiveWorkbookAndSheets(ByVal A
     Dim control_book_name As String
     control_book_name = control_book.Name
 
+    Dim initial_sheet_count As Long
+    initial_sheet_count = target_book.Worksheets.Count
+
     ' Act
     Err.Clear
     Call book_srv.AddWorksheet(Sheet:="invalid:name", Book:=target_book_name, SheetIndex:=2, Before:=False)
@@ -324,9 +327,11 @@ Public Sub Test_AddWorksheet_NameFailure_RestoresActiveWorkbookAndSheets(ByVal A
     Dim actual_active_book_name As String
     Dim actual_active_sheet_name As String
     Dim actual_target_active_sheet_name As String
+    Dim actual_sheet_count As Long
     actual_active_book_name = ActiveWorkbook.Name
     actual_active_sheet_name = ActiveSheet.Name
     actual_target_active_sheet_name = target_book.ActiveSheet.Name
+    actual_sheet_count = target_book.Worksheets.Count
 
     ' Cleanup
     Call control_book.Close(SaveChanges:=False)
@@ -338,6 +343,7 @@ Public Sub Test_AddWorksheet_NameFailure_RestoresActiveWorkbookAndSheets(ByVal A
     Assert.Equals control_book_name, actual_active_book_name
     Assert.Equals "control_active", actual_active_sheet_name
     Assert.Equals "target_active", actual_target_active_sheet_name
+    Assert.EqualsNumeric initial_sheet_count, actual_sheet_count
 End Sub
 
 ' -----------------------------------------------------------------------------
@@ -522,6 +528,57 @@ Public Sub Test_CopyWorksheet_DestinationNameUnused_ClearsInternalSearchErr(ByVa
     If Not Assert.ErrorNotRaised(0, actual_error_number, actual_error_source, actual_error_description) Then Exit Sub
     Assert.Equals "copied_sheet", actual_sheet_name
     Assert.IsTrue actual_exists
+End Sub
+
+Public Sub Test_CopyWorksheet_TooLongDestinationName_DoesNotCopySheet(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim book_srv As IWorkbookService
+    Set book_srv = New WorkbookService
+
+    Dim target_book As Workbook
+    Set target_book = Workbooks.Add
+    Do While target_book.Worksheets.Count < 2
+        Call target_book.Worksheets.Add(After:=target_book.Worksheets(target_book.Worksheets.Count))
+    Loop
+    target_book.Worksheets(1).Name = "source_sheet"
+    target_book.Worksheets(2).Name = "anchor_sheet"
+
+    Dim target_book_name As String
+    target_book_name = target_book.Name
+
+    Dim initial_sheet_count As Long
+    initial_sheet_count = target_book.Worksheets.Count
+
+    ' Act
+    Err.Clear
+    Call book_srv.CopyWorksheet( _
+            SourceWorksheetName:="source_sheet", _
+            SourceWorkbookName:=target_book_name, _
+            DestinationWorksheetName:=String$(32, "a"), _
+            DestinationWorkbookName:=target_book_name, _
+            SheetIndex:=2, _
+            Before:=False)
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+
+    Dim actual_sheet_count As Long
+    actual_sheet_count = target_book.Worksheets.Count
+
+    ' Cleanup
+    Call target_book.Close(SaveChanges:=False)
+    On Error GoTo 0
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, actual_error_number, actual_error_source, actual_error_description) Then Exit Sub
+    Assert.Equals "Class WorkbookService", actual_error_source
+    Assert.EqualsNumeric initial_sheet_count, actual_sheet_count
 End Sub
 ' -----------------------------------------------------------------------------
 ' ActivateWorksheet

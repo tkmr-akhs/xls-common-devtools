@@ -496,6 +496,8 @@ Public Function AddWorksheet( _
     On Error GoTo ON_ERROR
 
     ' ワークシート名のチェック
+    Call pRaiseIfInvalidWorksheetName(Sheet, "Sheet")
+
     Dim added_sheet As Worksheet
     On Error Resume Next
     Set added_sheet = target_book.Worksheets(Sheet)
@@ -563,6 +565,24 @@ Private Function pGetTargetSheetIndex(ByVal TargetBook As Workbook, ByVal SheetI
         End If
     End If
 End Function
+
+Private Sub pRaiseIfInvalidWorksheetName(ByVal WorksheetName As String, ByVal ArgumentName As String)
+    If WorksheetName = "" Then Exit Sub
+
+    If Len(WorksheetName) > 31 Then
+        Err.Raise vbObjectError + 1, "Class WorkbookService", ArgumentName & " は 31 文字以下のシート名を指定してください。(" & WorksheetName & ")"
+    End If
+
+    Dim invalid_chars As Variant
+    invalid_chars = Array(":", "\", "/", "?", "*", "[", "]")
+
+    Dim invalid_char As Variant
+    For Each invalid_char In invalid_chars
+        If InStr(1, WorksheetName, CStr(invalid_char), vbBinaryCompare) > 0 Then
+            Err.Raise vbObjectError + 1, "Class WorkbookService", ArgumentName & " にシート名として使用できない文字が含まれています。(" & CStr(invalid_char) & ")"
+        End If
+    Next invalid_char
+End Sub
 
 Private Sub pRestoreActiveState(ByVal ActiveBook As Workbook, ByVal TargetBookActiveSheet As Worksheet)
     On Error Resume Next
@@ -686,6 +706,8 @@ Public Function CopyWorksheet( _
     End If
 
     ' ワークシート名のチェック
+    Call pRaiseIfInvalidWorksheetName(DestinationWorksheetName, "DestinationWorksheetName")
+
     Dim added_sheet As Worksheet
     On Error Resume Next
     Set added_sheet = dst_book.Worksheets(DestinationWorksheetName)

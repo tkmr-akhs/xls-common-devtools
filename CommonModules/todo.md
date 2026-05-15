@@ -15,11 +15,6 @@
 
 ## 高優先度
 
-- [ ] [bug] WorkbookService.AddWorksheet / CopyWorksheet の名前設定失敗時に追加済みシートを残さない
-  - 詳細: `AddWorksheet` は `Worksheets.Add` 後に `added_sheet.Name = Sheet` を実行し、`CopyWorksheet` も `src_sheet.Copy` 後に `added_sheet.Name = DestinationWorksheetName` を実行する。31 文字超過や禁止文字などで名前変更が失敗すると、追加または複製されたシートだけが残る。
-  - 影響: API はエラーで戻るのにブック構成は変更済みとなり、リトライ時の重複シート、後続処理の対象ずれ、手作業での残骸削除が発生し得る。
-  - 対応案: シート名を追加前に検証するか、名前設定失敗時に追加済みシートを削除してから再送出する。禁止文字、31 文字超過、既存名、正常追加・複製のテストを追加する。
-
 - [ ] [bug] WorksheetService.ReadCell(GetText:=True) の副作用と表示形式戻り値を修正する
   - 詳細: `ReadCell(GetText:=True)` は `Range.Text` を読むために列幅を変更するが、元の `ColumnWidth` を `Long` に保存しているため、小数を含む列幅を正確に復元できない。途中でエラーが発生した場合に列幅が戻らない経路もある。
   - 詳細: `GetText:=False` では `NumberFormatLocal` を返す一方、`GetText:=True` では `NumberFormat` を返しており、インターフェイスコメントと `WriteCell` の表示形式指定と揃っていない。

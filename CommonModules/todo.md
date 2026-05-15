@@ -15,11 +15,6 @@
 
 ## 高優先度
 
-- [ ] [bug] WorkbookService.CloseWorkbook の確認表示契約を守る
-  - 詳細: `WorkbookService.CloseWorkbook` は `Force:=False` のとき確認画面を表示する契約だが、実装は `Workbooks(Book).Close(SaveChanges:=Not Force)` となっており、確認なしで保存して閉じる可能性がある。
-  - 影響: 利用者が確認してから保存可否を判断する前提の処理で、意図しない変更をブックへ保存してしまう可能性がある。
-  - 対応案: `Force:=False` では `SaveChanges` を省略して Excel の確認に委ねる、または確認を独自に行う。`Force:=True` の保存/破棄方針もインターフェイスコメントと合わせてテストで固定する。
-
 - [ ] [bug] WorkbookService.RemoveVBComponents の削除前検証を行う
   - 詳細: `RemoveVBComponents` は `VBComponents` を走査しながら一致したモジュールを即時削除するため、後続で一致した `ThisWorkbook` やシートモジュールなど削除できないコンポーネントに当たると、それ以前の標準モジュールだけが削除済みの中途半端な状態になり得る。
   - 詳細: `ComponentNames` は `Variant` だが、`pContainsComponentName` は配列要素やスカラー値を直接 `CStr` するため、`Null`、`CVErr(...)`、未初期化配列などの入力で、削除対象名の検証前に実行時エラーになり得る。
@@ -485,7 +480,7 @@
 
 ## TODO 整理メモ
 
-- `CloseWorkbook` は保存確認契約のバグ、`OpenWorkbook` は API 名とテンプレート作成挙動の仕様改善として分ける。WorkbookService 内の話でも、バグと非バグは混ぜない。
+- `OpenWorkbook` は API 名とテンプレート作成挙動の仕様改善として扱う。WorkbookService 内の話でも、バグと非バグは混ぜない。
 - `WorksheetService` の通常数式コピーはコピー処理のバグ、`WorksheetService / IWorksheetService` 分割は責務整理として分ける。
 - `TextFileEntity` のファイルモード、EOF、明示 Close 漏れは同じファイルライフサイクルのバグとして統合する。文字コードと改行コード指定は仕様拡張なので別 TODO のままにする。
 - `FileSystemService` の実装バグ、`Lib_Common` のパス/Excel アドレス境界仕様、`FileSystemServiceTestDouble.CreateDirectory` のテストダブルキー不整合は、それぞれ実装層・仕様境界・テスト支援層の違いがあるため分ける。

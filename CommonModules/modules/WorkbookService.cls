@@ -363,11 +363,16 @@ End Function
 ' ワークブックを閉じます。
 '
 ' @param Book 対象のブック名。
+' @param Force [省略可] 強制的に閉じるか否か。True の場合は確認なしで変更を破棄して閉じます。
 '
 ' @details
-' ワークブックを閉じます。
+' ワークブックを閉じます。Force が False のときには、確認メッセージが表示されます。
 Public Sub CloseWorkbook(ByVal Book As String, Optional ByVal Force As Boolean = True)
-    Call Workbooks(Book).Close(SaveChanges:=Not Force)
+    If Force Then
+        Call Workbooks(Book).Close(SaveChanges:=False)
+    Else
+        Call Workbooks(Book).Close
+    End If
 End Sub
 Private Sub IWorkbookService_CloseWorkbook(ByVal Book As String, Optional ByVal Force As Boolean = True)
     Call CloseWorkbook(Book, Force:=Force)

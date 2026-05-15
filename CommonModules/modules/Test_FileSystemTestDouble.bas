@@ -53,6 +53,59 @@ Public Sub Test_GetAbsolutePath_RelativePath_ReturnsThisWorkbookBasedPath(ByVal 
     Assert.Equals expected_path, actual_path
 End Sub
 
+Public Sub Test_GetAbsolutePath_RelativeParentSegment_NormalizesPath(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+    
+    ' èÄîı
+    Dim fs_srv As IFileSystemService
+    Set fs_srv = New FileSystemService
+    
+    Dim expected_path As String
+    expected_path = GetParentPath(GetParentPath(ThisWorkbook.FullName)) & "\File.txt"
+    
+    ' é¿çs
+    Dim actual_path As String
+    actual_path = fs_srv.GetAbsolutePath("..\File.txt")
+    
+    ' åüèÿ
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals expected_path, actual_path
+End Sub
+
+Public Sub Test_GetAbsolutePath_RootRelative_UsesThisWorkbookDriveRoot(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+    
+    ' èÄîı
+    Dim fs_srv As IFileSystemService
+    Set fs_srv = New FileSystemService
+    
+    Dim expected_path As String
+    expected_path = GetAbsolutePathFromParent(GetParentPath(ThisWorkbook.FullName), "\File.txt")
+    
+    ' é¿çs
+    Dim actual_path As String
+    actual_path = fs_srv.GetAbsolutePath("\File.txt")
+    
+    ' åüèÿ
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals expected_path, actual_path
+End Sub
+
+Public Sub Test_GetAbsolutePath_DriveRelativePath_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+    
+    ' èÄîı
+    Dim fs_srv As IFileSystemService
+    Set fs_srv = New FileSystemService
+    
+    ' é¿çs
+    Call fs_srv.GetAbsolutePath("C:File.txt")
+    
+    ' åüèÿ
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Function GetAbsolutePathFromParent", Err.Source
+End Sub
+
 Public Sub Test_GetAbsolutePath_WithStubValue_ReturnsString(ByVal Assert As UnitTestAssert)
     On Error Resume Next
     

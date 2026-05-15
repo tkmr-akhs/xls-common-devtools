@@ -29,7 +29,7 @@ End Sub
 '* @return 絶対パス。
 '*
 '* @details
-'* 指定されたパスを絶対パスにします。もともと絶対パスの場合は、引数をそのまま返します。
+'* 指定されたパスを絶対パスにします。もともと絶対パスの場合も正規化した絶対パスを返します。
 '* 相対パスの場合は、WorkbookService.GetThisWorkbookDirectoryPath の結果を基準にします。
 Public Function GetAbsolutePath(ByVal PathLikeString As String) As String
 End Function

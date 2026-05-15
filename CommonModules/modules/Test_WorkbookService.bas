@@ -716,6 +716,43 @@ Public Sub Test_SaveWorkbook_VisibleWorkbook_KeepsWindowVisible(ByVal Assert As 
     Assert.IsTrue actual_visible
 End Sub
 
+Public Sub Test_SaveWorkbook_DriveRelativePath_RaisesPathError(ByVal Assert As UnitTestAssert)
+    ' Arrange
+    Dim book_srv As IWorkbookService
+    Set book_srv = New WorkbookService
+
+    Dim target_book As Workbook
+    Set target_book = Workbooks.Add
+
+    Dim book_name As String
+    book_name = target_book.Name
+
+    Dim err_num As Long
+    Dim err_source As String
+    Dim err_desc As String
+
+    ' Act
+    On Error GoTo ON_SAVE_ERROR
+        Call book_srv.SaveWorkbook(book_name, "C:tmp_workbook_service_drive_relative.xlsx", Force:=True)
+    On Error GoTo 0
+    GoTo AFTER_SAVE
+
+ON_SAVE_ERROR:
+    err_num = Err.Number
+    err_source = Err.Source
+    err_desc = Err.Description
+    Resume AFTER_SAVE
+
+AFTER_SAVE:
+    On Error Resume Next
+    Call book_srv.CloseWorkbook(book_name, Force:=True)
+    On Error GoTo 0
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, err_num, err_source, err_desc) Then Exit Sub
+    Assert.Equals "Function GetAbsolutePathFromParent", err_source
+End Sub
+
 Public Sub Test_SaveWorkbook_SaveAsFailure_RaisesError(ByVal Assert As UnitTestAssert)
     ' Arrange
     Call InitializeCommonService

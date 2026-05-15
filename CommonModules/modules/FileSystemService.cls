@@ -33,41 +33,16 @@ End Sub
 '* @return 絶対パス。
 '*
 '* @details
-'* 指定されたパスを絶対パスにします。もともと絶対パスの場合は、引数をそのまま返します。
+'* 指定されたパスを絶対パスにします。もともと絶対パスの場合も正規化した絶対パスを返します。
 '* 相対パスの場合は、WorkbookService.GetThisWorkbookDirectoryPath の結果を基準にします。
 Public Function GetAbsolutePath(ByVal PathLikeString As String) As String
-    ' 注意: WorkbookService.pGetAbsolutePath と同じ相対パス結合ロジックを意図的に重複させています。
-    ' WorkbookService が FileSystemService に依存しないようにするため、この実装を変更する場合は両方を確認します。
-    If IsAbsolutePath(PathLikeString) Then
-        GetAbsolutePath = PathLikeString
-    Else
-        Dim wb_srv As IWorkbookService
-        Set wb_srv = New WorkbookService
-        
-        GetAbsolutePath = pGetAbsolutePathCore(wb_srv.GetThisWorkbookDirectoryPath(), PathLikeString)
-    End If
+    Dim wb_srv As IWorkbookService
+    Set wb_srv = New WorkbookService
+    
+    GetAbsolutePath = GetAbsolutePathFromParent(wb_srv.GetThisWorkbookDirectoryPath(), PathLikeString)
 End Function
 Private Function IFileSystemService_GetAbsolutePath(ByVal PathLikeString As String) As String
     IFileSystemService_GetAbsolutePath = GetAbsolutePath(PathLikeString)
-End Function
-
-Private Function pGetAbsolutePathCore(ByVal ParentPath As String, ByVal RelativePath As String) As String
-    If RelativePath = "" Or RelativePath = "." Or RelativePath = ".\" Then
-        pGetAbsolutePathCore = ParentPath
-        Exit Function
-    End If
-    
-    If Left(RelativePath, 1) = "\" Then
-        pGetAbsolutePathCore = ParentPath & RelativePath
-    ElseIf Left(RelativePath, 1) = "." And 1 < Len(RelativePath) Then
-        If Mid(RelativePath, 2, 1) = "\" Then
-            pGetAbsolutePathCore = ParentPath & "\" & Right(RelativePath, Len(RelativePath) - 2)
-        Else
-            pGetAbsolutePathCore = ParentPath & "\" & RelativePath
-        End If
-    Else
-        pGetAbsolutePathCore = ParentPath & "\" & RelativePath
-    End If
 End Function
 
 ' 指定されたディレクトリにあるファイルの絶対パス一覧を得ます。

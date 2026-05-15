@@ -290,3 +290,131 @@ Public Sub Test_RangeAddressShapeFunctions_MultiRange_ReturnsFalse(ByVal Assert 
 
     If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
 End Sub
+
+' -----------------------------------------------------------------------------
+' Path helpers
+' -----------------------------------------------------------------------------
+
+Public Sub Test_GetAbsolutePathFromParent_RelativeParentSegment_NormalizesPath(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim actual_value As String
+    actual_value = GetAbsolutePathFromParent("C:\Base\Child", "..\File.txt")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "C:\Base\File.txt", actual_value
+End Sub
+
+Public Sub Test_GetAbsolutePathFromParent_RootRelative_UsesParentDriveRoot(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim actual_value As String
+    actual_value = GetAbsolutePathFromParent("C:\Base\Child", "\File.txt")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "C:\File.txt", actual_value
+End Sub
+
+Public Sub Test_GetAbsolutePathFromParent_AbsolutePath_NormalizesPath(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim actual_value As String
+    actual_value = GetAbsolutePathFromParent("C:\Base\Child", "C:\Other\..\File.txt")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "C:\File.txt", actual_value
+End Sub
+
+Public Sub Test_GetAbsolutePathFromParent_DriveRelativePath_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Call GetAbsolutePathFromParent("C:\Base\Child", "C:File.txt")
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Function GetAbsolutePathFromParent", Err.Source
+End Sub
+
+Public Sub Test_GetAbsolutePathFromParent_NonAbsoluteParentPath_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Call GetAbsolutePathFromParent("Base\Child", "File.txt")
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Function GetAbsolutePathFromParent", Err.Source
+End Sub
+
+Public Sub Test_GetPathRoot_DrivePath_ReturnsDriveRoot(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim actual_value As String
+    actual_value = GetPathRoot("C:\Base\Child")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "C:\", actual_value
+End Sub
+
+Public Sub Test_GetPathRoot_LowercaseDrivePath_ReturnsDriveRoot(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim actual_value As String
+    actual_value = GetPathRoot("z:\Base\Child")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Z:\", actual_value
+End Sub
+
+Public Sub Test_GetPathRoot_UncPath_ReturnsShareRoot(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim actual_value As String
+    actual_value = GetPathRoot("\\server\share\folder\file.txt")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "\\server\share\", actual_value
+End Sub
+
+Public Sub Test_GetPathRoot_RootRelativePath_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Call GetPathRoot("\folder\file.txt")
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Function GetPathRoot", Err.Source
+End Sub
+
+Public Sub Test_GetPathRoot_NonAlphabetDrivePath_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Call GetPathRoot("1:\folder\file.txt")
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Function GetPathRoot", Err.Source
+End Sub
+
+Public Sub Test_IsAbsolutePath_DriveRelativePath_ReturnsFalse(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act / Assert
+    Assert.IsFalse IsAbsolutePath("C:folder\file.txt")
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+End Sub

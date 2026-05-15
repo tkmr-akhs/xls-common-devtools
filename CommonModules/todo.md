@@ -15,16 +15,25 @@
 
 ## 高優先度
 
-- [ ] [bug] WorkbookService / FileSystemService の相対パス解決を Windows の実パス規則へ合わせる
-  - 詳細: `WorkbookService.pGetAbsolutePathCore` と `FileSystemService.pGetAbsolutePathCore` は文字列結合だけで、`..\foo` や `.\foo` の正規化、`\foo` のドライブルート相対、`C:foo` のドライブ相対などを扱わない。`GetAbsolutePath` という名前に反して、`C:\base\..\foo` のような親参照を含む文字列を返し得る。
-  - 影響: `OpenWorkbook` / `SaveWorkbook` / ファイル操作で、呼び出し側が同じ実体を指すパスを比較できず、Force 削除、バックアップ、存在確認の基準がずれる。ルート相対パスでは、意図したドライブ直下ではなく ThisWorkbook 配下のサブパスとして扱われる可能性がある。
-  - 対応案: `Scripting.FileSystemObject.GetAbsolutePathName` 等で正規化し、ドライブ絶対、UNC、ドライブ相対、ルート相対、`.` / `..`、末尾セパレータのテストを `WorkbookService` と `FileSystemService` 双方へ追加する。
+- [ ] [bug] Lib_UnitTest のテスト定義ミスを未実行のまま成功扱いにしない
+  - 詳細: `pRunAllTest` は `Test_` で始まる名前でも、`UnitTestAssert` 引数の形に合わない `Sub` や `Private Sub Test_...` を検出結果に出さずに素通りする。`Test_Lib_UnitTest.bas` でも必須の非 Assert 引数を持つ `Test_...` は無視されることを確認しているが、利用者から見るとテスト名の typo やシグネチャ不備が `ERR` にならず、全件 OK に見える。
+  - 影響: 追加したつもりのテストが実行されず、共通モジュールの回帰を検出できない。特にテストランナー自身の問題なので、テスト結果の信頼性に直接影響する。
+  - 対応案: `Test_` で始まる手続きは一度候補として列挙し、実行可能な署名以外は `UNIT_TEST_SHEET` に `ERR` として出す。公開/非公開、引数なし、Assert 以外の必須引数、Function 化、複数行宣言のテストを追加する。
 
-- [ ] [bug] WorkbookService.RemoveVBComponents の削除前検証を行う
-  - 詳細: `RemoveVBComponents` は `VBComponents` を走査しながら一致したモジュールを即時削除するため、後続で一致した `ThisWorkbook` やシートモジュールなど削除できないコンポーネントに当たると、それ以前の標準モジュールだけが削除済みの中途半端な状態になり得る。
-  - 詳細: `ComponentNames` は `Variant` だが、`pContainsComponentName` は配列要素やスカラー値を直接 `CStr` するため、`Null`、`CVErr(...)`、未初期化配列などの入力で、削除対象名の検証前に実行時エラーになり得る。
-  - 影響: 不正な削除対象指定や削除不能モジュール混在時に、VBProject の一部だけが変更される。モジュール適用前のクリーンアップ API として、失敗時の復旧や診断が難しい。
-  - 対応案: 削除前に `ComponentNames` を型付きの名前集合へ正規化し、存在有無、コンポーネント種別、削除可能性を全件検証してから削除する。標準モジュールと Document モジュール混在、`Null` / `CVErr` / 空配列 / 未初期化配列のテストを追加する。
+- [ ] [bug] WorksheetService.CopyCell / CopyRange の通常数式コピー失敗時にコピー先を復元する
+  - 詳細: `pCopyCellCore` の通常数式経路は `dst_number_format` を退避して `dst_cell.NumberFormat = "General"`、`dst_cell.FormulaR1C1 = src_cell.FormulaR1C1`、表示形式復元/コピーの順に処理する。エラー時の復元対象は表示形式だけで、数式書き込み後の表示形式設定で失敗した場合、コピー先の式や値は変更済みのまま残り得る。
+  - 影響: `CopyCell` / `CopyRange` の失敗後に、コピー先が部分的に更新された状態になる。保護セル、壊れた表示形式、コピー先の制約などで失敗した場合、呼び出し側がどこまで書き換わったかを追加確認する必要がある。
+  - 対応案: 通常数式経路でもコピー先の `FormulaR1C1` / `Value` / `NumberFormatLocal` を必要範囲で退避し、失敗時の復元契約を明確にする。通常数式の式書き込み失敗、表示形式コピー失敗、`CopyRange` 中断時のテストを追加する。
+
+- [ ] [bug] WorksheetService.CopyCell / CopyRange の配列数式コピーでエラー時にもコピー元を復元する
+  - 詳細: `pCopyCellCore` の配列数式経路は、`src_cell.FormulaArray` を退避した後に `src_cell = formula_str` でコピー元を通常数式へ一時変更し、後続処理の後で `src_cell.FormulaArray = formula_str` へ戻している。しかしこのブロックには専用のエラー復元処理がなく、`Application.ConvertFormula`、コピー先書き込み、`Resize(...).FormulaArray` などで失敗すると、コピー元が一時状態のまま残り得る。
+  - 影響: コピー API の失敗がコピー先だけでなくコピー元範囲の数式破壊につながる。`CopyRange` 経由では複数セル処理の途中で止まり、どこまでコピー済みかに加えて元シート側の復旧確認も必要になる。
+  - 対応案: 配列数式経路にも `On Error GoTo` の復元ブロックを置き、コピー元の `FormulaArray`、コピー先の通常数式・表示形式を必要範囲で戻してから再送出する。配列数式のコピー先失敗、範囲外、保護セル、サイズ不一致のテストを追加する。
+
+- [ ] [bug] WorkbookService.IsSaved をパス区切り文字ではなくブック状態で判定する
+  - 詳細: `IsSaved` は `Workbooks(Book).FullName` に `G_FS_PATH_SEP` が含まれるかだけで保存済み判定している。保存先が URL / SharePoint / OneDrive など通常の `\` を含まない表現になる場合や、Excel が返す `FullName` の形式差で、実際には保存済みでも False になり得る。
+  - 影響: 保存済み判定を前提にした上書き確認、バックアップ、閉じる前の分岐で、保存済みブックを未保存扱いにする。WorkbookService の基盤 API として、ブック名文字列の見た目に依存した判定は環境差に弱い。
+  - 対応案: `Workbook.Path` の非空、`Workbook.Saved`、`FullName` と `Name` の関係など Excel オブジェクトの状態を使う。通常保存、未保存、URL / 同期フォルダー、別形式保存直後のテストを追加する。
 
 - [ ] [spec] ObjectList / ObjectSet に明示型指定モードを追加する
   - 詳細: 現状の ObjectList / ObjectSet は初回追加要素から型や比較契約を自動判断するが、空コレクション、Nothing、配列、プリミティブとオブジェクトの混在、IEquatable / IDuplicateCheckable 実装有無によって、検索・削除・更新時の型判定方針が曖昧になる。
@@ -63,6 +72,11 @@
   - 対応案: `Nothing` の順序を先頭/末尾のどちらかに固定するか、Sort では非対応として入口で明示エラーにする。`Nothing` のみ、`Nothing` と比較可能オブジェクト混在、`ObjectSet.Sort` のテストを追加する。
 
 ## 中優先度
+
+- [ ] [req] テストダブルのスパイ記録で同一キーの複数回呼び出しを区別する
+  - 詳細: `WorksheetServiceTestDouble` や `WorkbookServiceTestDouble` の多くのスパイは、`UnitTestUtils.SetValue` で `Xxx_Results` の同じキーへ値を保存する。例えば `WriteCell_Results` は `RangeBounds` をキーにするため、同じセルへ複数回書き込む処理では後続呼び出しが前回の記録を上書きする。
+  - 影響: 現時点の利用では最新値だけを確認できれば足りているが、呼び出し回数、順序、同一対象への複数操作を検証したいテストでは要件が不足する。`TextFileEntityTestDouble` の `ReadCount` / `WriteCount` のような回数管理があるものと契約も揺れる。
+  - 対応案: スパイ記録はキーごとの単一値ではなく、呼び出し順のリストまたは `CallIndex` 付きの記録にする。既存の最新値取得は互換 API として残し、同一キー 2 回呼び出し、順序検証、呼び出しなし検証のテストを追加する。
 
 - [ ] [ux] ObjectList.Sort の等価要素と降順比較を修正する
   - 詳細: `ObjectList.Sort` は `IComparable` でも降順時に `Not IsLessThan` を使うため、等価要素を「小さい」扱いし得る。
@@ -219,6 +233,31 @@
 
 ## 低優先度
 
+- [ ] [spec] WorksheetService.Find の空文字検索契約を決める
+  - 詳細: `Find(What:="")` は入口で拒否しておらず、そのまま Excel の `Range.Find` へ渡している。Excel 側の空文字検索は空白セルや直前の検索状態の影響を受けやすく、対象がシート全体の場合に意図せず大量の結果を返す可能性がある。
+  - 影響: 呼び出し側の検索文字列組み立てミスが、明示エラーではなく「空白検索」として処理される。空文字を「検索しない」と扱いたい処理と、空白セルを探したい処理の区別も API 名から読み取れない。
+  - 対応案: 空文字は明示エラー、未検索、空白セル検索のどれにするかを仕様化する。空白セル検索が必要なら `FindBlankCells` など別 API に分け、空文字、スペース、ワイルドカードのテストを追加する。
+
+- [ ] [spec] ObjectList / ObjectSet の空コレクション変換戻り値を固定する
+  - 詳細: `ConvertToArray` / `ConvertToStringArray` は件数 0 の場合に未初期化の動的配列を返す。呼び出し側は `IsEmptyArray` や `(Not (Not arr))` のような判定を知っていないと、`LBound` / `UBound` で実行時エラーになる。
+  - 影響: 空集合を通常結果として扱う検索・抽出処理で、呼び出し側ごとの防御分岐が増える。`ReadRange` のような 1 要素以上の 2 次元配列を返す API とも空結果の扱いが揺れる。
+  - 対応案: 空配列を返す、未初期化配列を返す、または `Count = 0` を事前確認する契約のどれにするか明記する。`ObjectList` / `ObjectSet` の空、1 件、削除後空の変換テストを追加する。
+
+- [ ] [ux] UnitTestAssert の失敗メッセージ番号を実行済み assertion 件数と揃える
+  - 詳細: `pSetResultMessage` は `pCallCount` をインクリメントする前に `[` & `pCallCount` & `]` を出力するため、最初の失敗が `[0]` と表示される。`AssertionCount` は実行後に 1 以上になるため、表示番号が 0 オリジンなのか件数なのか読み取りにくい。
+  - 影響: テスト失敗行の調査時に、何番目の assertion が失敗したのかを結果メッセージから直感的に追いにくい。テストの成否そのものには影響しないため、バグではなく表示改善として扱う。
+  - 対応案: メッセージを 1 オリジンの assertion 番号にするか、`assertion_index=0` のように 0 オリジンであることを明示する。失敗 1 件目、複数 assertion 後の失敗、unsupported comparison の表示テストを追加する。
+
+- [ ] [spec] WorkbookService の SheetIndex 範囲外指定を丸めるかエラーにするか明確にする
+  - 詳細: `AddWorksheet` / `CopyWorksheet` が使う `pGetTargetSheetIndex` は、`SheetIndex > Worksheets.Count` を末尾、負数の過大値を先頭へ丸める。便利ではあるが、呼び出し側の計算ミスや対象ブック取り違えも正常指定として処理される。
+  - 影響: 基盤 API としては、指定した位置に追加・コピーされたのか、範囲外指定が補正されたのかを呼び出し側が検出しづらい。シート順序に意味がある帳票生成やテンプレート組み立てで、意図しない位置への挿入を見逃す可能性がある。
+  - 対応案: 現行の丸め挙動を明記してテストで固定するか、範囲外は明示エラーにする。互換維持が必要なら `ClampSheetIndex:=True` のようなオプションを追加し、境界値のテストを追加する。
+
+- [ ] [spec] WorksheetService.WriteCell の TypeConvert を型ごとに指定できるようにする
+  - 詳細: `WriteCell(TypeConvert:=True)` はエラー値、Long、Double、Boolean、Date、Currency の順に自動変換を試す。呼び出し側は「数値だけ変換したい」「日付に見えるコードは文字列のままにしたい」「Boolean だけ禁止したい」といった方針を指定できない。
+  - 影響: CSV や入力票の値を書き戻す基盤 API として、型推定の便利さとデータ保持の厳密さを選び分けづらい。先頭ゼロ、日付風の品番、`True` / `False` 文字列など、業務上は文字列として保持したい値で呼び出し側の防御が増える。
+  - 対応案: 既存 `TypeConvert` は互換用に残し、変換対象を指定する列挙値またはオプション群を追加する。数値のみ、日付のみ、変換なし、全変換のテストと、先頭ゼロ・日付風文字列・Boolean 風文字列の保持テストを追加する。
+
 - [ ] [spec] WorksheetService の Excel エラー値変換をバージョン依存定数から切り離す
   - 詳細: `pTryConvertErrorStringToCVErr` / `pConvertErrorToString` は、従来の `xlErrDiv0` などに加えて `xlErrSpill`、`xlErrConnect`、`xlErrBlocked`、`xlErrUnknown`、`xlErrField`、`xlErrCalc` を直接参照している。これらの定数が存在しない Excel では、該当 API を呼ばなくてもモジュールのコンパイル時点で止まる可能性がある。
   - 影響: `XLookup` と同様に Excel バージョン依存の機能だが、ワークシート関数利用ではなく共通のセル読み書き・エラー値変換経路へ依存が混ざっているため、古い Excel 環境で WorksheetService 全体が使いづらくなる。
@@ -229,10 +268,10 @@
   - 影響: 共通基盤では `Source` と説明文で原因を切り分ける方針だが、テスト側でそこまで固定しづらい。別の箇所から同じ番号のエラーが出ても検出できず、エラー契約の回帰テストが粗くなる。
   - 対応案: 既存 API は互換維持しつつ、`ErrorRaisedExactly` や Optional の期待 Source / Description / 部分一致指定を追加する。番号だけ、Source まで、Description まで、部分一致のテストを用意する。
 
-- [ ] [ux] Lib_UnitTest の再実行ボタンは表示行のテストを実行する
+- [ ] [ux] Lib_UnitTest の単体再実行で対象行を検証する
   - 詳細: 再実行ボタンは作成時点の行番号を `Name` に持ち、`UnitTestMain` は `Application.Caller` を数値化して、その行の `Category` / `Test Item` を再実行している。通常のフィルターや並べ替えだけでは直ちにずれないが、行挿入・行削除などでボタンの現在位置と `Name` の行番号がずれると、見た目の行とは別のテストを再実行し得る。
   - 影響: 結果シートを手動編集した後の再実行で、意図と違う行の結果を更新する可能性がある。テスト実行自体の正否より、結果確認時の操作性・誤操作耐性の問題として扱う。
-  - 対応案: 再実行対象はボタン名の行番号ではなく、`Application.Caller` で得た Shape の `TopLeftCell.Row` から現在行を取る、またはボタンにモジュール名・テスト名を保持して行移動に依存しない形へ変更する。行挿入・行削除後の再実行確認を追加する。
+  - 対応案: 再実行対象はボタン名の行番号ではなく、`Application.Caller` で得た Shape の `TopLeftCell.Row` から現在行を取る、またはボタンにモジュール名・テスト名を保持して行移動に依存しない形へ変更する。空行・ヘッダー行・手動コピーしたボタンなど、無効な呼び出し元は実行対象外として扱う。行挿入・行削除後の再実行確認を追加する。
 
 - [ ] [spec] WorksheetService の書式設定 API で省略引数を変更なしとして扱えるようにする
   - 詳細: `SetRangeColor` は背景色だけを指定したい呼び出しでも既定値の `FontColorIndex:=0` を書き込み、`SetAlignment` は `Orientation` や `IndentLevel` だけを変えたい呼び出しでも水平・垂直配置を既定値へ設定する。省略した項目を「変更しない」と扱う API と、既定値へリセットする API が分かれていない。
@@ -315,7 +354,7 @@
 - [ ] [ref] Lib_Common を責務別モジュールへ分割する
   - 詳細: `Lib_Common.bas` はサービス初期化、ファクトリ、エラー処理、GUI ボタン、クリップボード、パス操作、配列操作、文字列処理、diff、ビット演算、Excel アドレス生成が同居している。
   - 詳細: `InitializeCommonService`、`New_RangeBounds`、`AddButton`、`GetLeafFromPath`、`ConvertArray...`、`DiffStringArray`、`RangeAddress` などに `Public` / `Private` の明示がない宣言が多く、公開 API と内部ヘルパーの境界が読み取りにくい。
-  - 詳細: `FileSystemService.cls` と `WorkbookService.cls` の `pGetAbsolutePathCore`、`FileSystemService.cls` / `WorkbookService.cls` / `WorksheetService.cls` の `pAddItemToStringArray` など、共通化できる小ヘルパーの重複も残っている。
+  - 詳細: `FileSystemService.cls` / `WorkbookService.cls` / `WorksheetService.cls` の `pAddItemToStringArray` など、共通化できる小ヘルパーの重複も残っている。
   - 対応案: `Constructor.bas`、`Lib_Array.bas`、`Lib_String.bas`、`Lib_Path.bas`、`Lib_ExcelAddress.bas`、`Lib_Error.bas`、`Lib_Clipboard.bas` などへ段階分割する。先に現利用箇所とワークシート関数利用の有無を棚卸しし、互換ラッパーを残す範囲を決める。
 
 - [ ] [ref] WorksheetService / IWorksheetService を責務別インターフェイスへ分割する

@@ -701,6 +701,100 @@ Private Function pJoinPathCore(ByVal Path1 As String, ByVal Path2 As String) As 
     End If
 End Function
 
+'* 基準ディレクトリを使ってパスを絶対パス化します。
+'*
+'* @param ParentAbsolutePath 基準にする絶対ディレクトリ パス。
+'* @param PathLikeString 絶対パス化するパス文字列。
+'* @return 絶対パス。
+'*
+'* @details
+'* PathLikeString が相対パスの場合は ParentAbsolutePath を基準にして絶対パス化します。
+'* PathLikeString が絶対パスの場合は ParentAbsolutePath を使わず、正規化した絶対パスを返します。
+'* `\foo` のようなルート相対パスは ParentAbsolutePath のルートを基準にします。
+'* `C:foo` のようなドライブ相対パスはカレントディレクトリ依存になるためエラーにします。
+Public Function GetAbsolutePathFromParent(ByVal ParentAbsolutePath As String, ByVal PathLikeString As String) As String
+    If pIsDriveRelativePath(ParentAbsolutePath) Or Not IsAbsolutePath(ParentAbsolutePath) Then Err.Raise vbObjectError + 1, "Function GetAbsolutePathFromParent", "ParentAbsolutePath には絶対パスを指定してください。(" & ParentAbsolutePath & ")"
+    If pIsDriveRelativePath(PathLikeString) Then Err.Raise vbObjectError + 1, "Function GetAbsolutePathFromParent", "ドライブ相対パスは指定できません。(" & PathLikeString & ")"
+    
+    Dim fso As Object
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    
+    Dim parent_path As String
+    parent_path = fso.GetAbsolutePathName(ParentAbsolutePath)
+    
+    Dim target_path As String
+    If PathLikeString = "" Or PathLikeString = "." Or PathLikeString = ".\" Then
+        target_path = parent_path
+    ElseIf IsAbsolutePath(PathLikeString) Then
+        target_path = PathLikeString
+    ElseIf Left$(PathLikeString, 1) = G_FS_PATH_SEP Then
+        target_path = GetPathRoot(parent_path) & Mid$(PathLikeString, 2)
+    Else
+        target_path = JoinPath(parent_path, PathLikeString)
+    End If
+    
+    GetAbsolutePathFromParent = fso.GetAbsolutePathName(target_path)
+End Function
+
+'* パスのルート部分を取得します。
+'*
+'* @param PathLikeString ルートを取得するパス文字列。
+'* @return ドライブパスでは `C:\`、UNC パスでは `\\server\share\` 形式のルート。
+'*
+'* @details
+'* 先頭がアルファベット 1 文字、2 文字目が `:` の場合はドライブパスとして扱います。
+'* 先頭 2 文字が `\\` の場合は UNC パスとして扱います。
+'* それ以外のパス文字列ではエラーを発生させます。
+Public Function GetPathRoot(ByVal PathLikeString As String) As String
+    If pIsDrivePath(PathLikeString) Then
+        GetPathRoot = UCase$(Left$(PathLikeString, 1)) & ":" & G_FS_PATH_SEP
+    ElseIf pIsUncPath(PathLikeString) Then
+        GetPathRoot = pGetUncPathRoot(PathLikeString)
+    Else
+        Err.Raise vbObjectError + 1, "Function GetPathRoot", "ドライブパスまたは UNC パスを指定してください。(" & PathLikeString & ")"
+    End If
+End Function
+
+Private Function pIsDrivePath(ByVal PathLikeString As String) As Boolean
+    If Len(PathLikeString) < 2 Then Exit Function
+    If Mid$(PathLikeString, 2, 1) <> ":" Then Exit Function
+    pIsDrivePath = pIsAsciiAlphabet(Left$(PathLikeString, 1))
+End Function
+
+Private Function pIsDriveRelativePath(ByVal PathLikeString As String) As Boolean
+    If Not pIsDrivePath(PathLikeString) Then Exit Function
+    
+    If Len(PathLikeString) = 2 Then
+        pIsDriveRelativePath = True
+    Else
+        pIsDriveRelativePath = (Mid$(PathLikeString, 3, 1) <> G_FS_PATH_SEP)
+    End If
+End Function
+
+Private Function pIsUncPath(ByVal PathLikeString As String) As Boolean
+    pIsUncPath = (Left$(PathLikeString, 2) = "\\")
+End Function
+
+Private Function pIsAsciiAlphabet(ByVal TestChar As String) As Boolean
+    If Len(TestChar) <> 1 Then Exit Function
+    pIsAsciiAlphabet = ("A" <= UCase$(TestChar) And UCase$(TestChar) <= "Z")
+End Function
+
+Private Function pGetUncPathRoot(ByVal UncPath As String) As String
+    Dim server_sep As Long
+    server_sep = InStr(3, UncPath, G_FS_PATH_SEP)
+    If server_sep = 0 Then Err.Raise vbObjectError + 1, "Function GetPathRoot", "UNC パスのルートを解決できません。(" & UncPath & ")"
+    
+    Dim share_sep As Long
+    share_sep = InStr(server_sep + 1, UncPath, G_FS_PATH_SEP)
+    If share_sep = 0 Then
+        pGetUncPathRoot = UncPath
+        If Not EndsWith(pGetUncPathRoot, G_FS_PATH_SEP) Then pGetUncPathRoot = pGetUncPathRoot & G_FS_PATH_SEP
+    Else
+        pGetUncPathRoot = Left$(UncPath, share_sep)
+    End If
+End Function
+
 '* パスの最後の部分を除いたパスを取得します。
 '*
 '* @param Path 入力パス文字列
@@ -790,11 +884,13 @@ End Function
 '* @details
 '* 入力されたパス文字列が絶対パスかどうかを判定します。
 Public Function IsAbsolutePath(ByVal TestPath As String) As Boolean
-    If Mid(TestPath, 2, 2) = ":\" Or Left(TestPath, 2) = "\\" Then
-        IsAbsolutePath = True
-    Else
-        IsAbsolutePath = False
-    End If
+    If pIsDriveRelativePath(TestPath) Then Exit Function
+    
+    On Error Resume Next
+    Call GetPathRoot(TestPath)
+    IsAbsolutePath = (Err.Number = 0)
+    Err.Clear
+    On Error GoTo 0
 End Function
 
 ' #############################################################################

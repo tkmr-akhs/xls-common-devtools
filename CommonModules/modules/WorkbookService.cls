@@ -237,32 +237,7 @@ Private Function IWorkbookService_OpenWorkbook(Optional ByVal FilePath As String
 End Function
 
 Private Function pGetAbsolutePath(ByVal PathLikeString As String) As String
-    ' 注意: FileSystemService.GetAbsolutePath と同じ相対パス結合ロジックを意図的に重複させています。
-    ' WorkbookService が FileSystemService に依存しないようにするため、この実装を変更する場合は両方を確認します。
-    If IsAbsolutePath(PathLikeString) Then
-        pGetAbsolutePath = PathLikeString
-    Else
-        pGetAbsolutePath = pGetAbsolutePathCore(GetThisWorkbookDirectoryPath(), PathLikeString)
-    End If
-End Function
-
-Private Function pGetAbsolutePathCore(ByVal ParentPath As String, ByVal RelativePath As String) As String
-    If RelativePath = "" Or RelativePath = "." Or RelativePath = ".\" Then
-        pGetAbsolutePathCore = ParentPath
-        Exit Function
-    End If
-    
-    If Left(RelativePath, 1) = "\" Then
-        pGetAbsolutePathCore = ParentPath & RelativePath
-    ElseIf Left(RelativePath, 1) = "." And 1 < Len(RelativePath) Then
-        If Mid(RelativePath, 2, 1) = "\" Then
-            pGetAbsolutePathCore = ParentPath & "\" & Right(RelativePath, Len(RelativePath) - 2)
-        Else
-            pGetAbsolutePathCore = ParentPath & "\" & RelativePath
-        End If
-    Else
-        pGetAbsolutePathCore = ParentPath & "\" & RelativePath
-    End If
+    pGetAbsolutePath = GetAbsolutePathFromParent(GetThisWorkbookDirectoryPath(), PathLikeString)
 End Function
 
 ' ワークブックを保存します。

@@ -11,6 +11,8 @@ Option Explicit
 
 Implements IWorkbookService
 
+Private Const C_VBEXT_CT_DOCUMENT As Long = 100
+
 ' #############################################################################
 '!
 '! @brief
@@ -808,32 +810,87 @@ Public Sub RemoveVBComponents(ByVal ComponentNames As Variant, Optional ByVal Co
     Dim vb_comps As Object
     Set vb_comps = target_book.VBProject.VBComponents
     
-    Dim comp_idx As Long
-    For comp_idx = vb_comps.Count To 1 Step -1
-        Dim vb_comp As Object
-        Set vb_comp = vb_comps.Item(comp_idx)
-        
-        If (ComponentType = 0 Or vb_comp.Type = ComponentType) Then
-            If pContainsComponentName(ComponentNames, vb_comp.Name) Then Call vb_comps.Remove(vb_comp)
-        End If
-    Next comp_idx
+    Dim component_name_set As Object
+    Set component_name_set = pBuildComponentNameSet(ComponentNames)
+    
+    Call pValidateVBComponentsForRemove(vb_comps, component_name_set, ComponentType)
+    
+    Dim component_name As Variant
+    For Each component_name In component_name_set.Keys
+        Call vb_comps.Remove(vb_comps.Item(CStr(component_name)))
+    Next component_name
 End Sub
 Private Sub IWorkbookService_RemoveVBComponents(ByVal ComponentNames As Variant, Optional ByVal ComponentType As Long = 0, Optional ByVal Book As String = "")
     Call RemoveVBComponents(ComponentNames, ComponentType:=ComponentType, Book:=Book)
 End Sub
 
-Private Function pContainsComponentName(ByVal ComponentNames As Variant, ByVal ComponentName As String) As Boolean
+Private Function pBuildComponentNameSet(ByVal ComponentNames As Variant) As Object
+    Dim component_name_set As Object
+    Set component_name_set = CreateObject("Scripting.Dictionary")
+    component_name_set.CompareMode = vbBinaryCompare
+    
     If IsArray(ComponentNames) Then
+        If Not pIsArrayInitialized(ComponentNames) Then Err.Raise vbObjectError + 1, "Class WorkbookService", "ComponentNames には 1 件以上のコンポーネント名を指定してください。"
+        
         Dim name_item As Variant
         For Each name_item In ComponentNames
-            If CStr(name_item) = ComponentName Then
-                pContainsComponentName = True
-                Exit Function
-            End If
+            Call pAddComponentName(component_name_set, name_item)
         Next name_item
     Else
-        pContainsComponentName = (CStr(ComponentNames) = ComponentName)
+        Call pAddComponentName(component_name_set, ComponentNames)
     End If
+    
+    If component_name_set.Count = 0 Then Err.Raise vbObjectError + 1, "Class WorkbookService", "ComponentNames には 1 件以上のコンポーネント名を指定してください。"
+    
+    Set pBuildComponentNameSet = component_name_set
+End Function
+
+Private Function pIsArrayInitialized(ByVal TargetArray As Variant) As Boolean
+    On Error Resume Next
+    Dim lower_bound As Long
+    lower_bound = LBound(TargetArray)
+    Dim upper_bound As Long
+    upper_bound = UBound(TargetArray)
+    pIsArrayInitialized = (Err.Number = 0 And lower_bound <= upper_bound)
+    Err.Clear
+    On Error GoTo 0
+End Function
+
+Private Sub pAddComponentName(ByVal ComponentNameSet As Object, ByVal ComponentNameValue As Variant)
+    If IsArray(ComponentNameValue) Then Err.Raise vbObjectError + 1, "Class WorkbookService", "ComponentNames には文字列のコンポーネント名を指定してください。"
+    If IsObject(ComponentNameValue) Then Err.Raise vbObjectError + 1, "Class WorkbookService", "ComponentNames には文字列のコンポーネント名を指定してください。"
+    If IsError(ComponentNameValue) Then Err.Raise vbObjectError + 1, "Class WorkbookService", "ComponentNames にエラー値は指定できません。"
+    If IsNull(ComponentNameValue) Then Err.Raise vbObjectError + 1, "Class WorkbookService", "ComponentNames に Null は指定できません。"
+    If IsEmpty(ComponentNameValue) Then Err.Raise vbObjectError + 1, "Class WorkbookService", "ComponentNames に Empty は指定できません。"
+    If VarType(ComponentNameValue) <> vbString Then Err.Raise vbObjectError + 1, "Class WorkbookService", "ComponentNames には文字列のコンポーネント名を指定してください。"
+    
+    Dim component_name As String
+    component_name = CStr(ComponentNameValue)
+    If component_name = "" Then Err.Raise vbObjectError + 1, "Class WorkbookService", "ComponentNames に空文字列は指定できません。"
+    
+    If Not ComponentNameSet.Exists(component_name) Then Call ComponentNameSet.Add(component_name, component_name)
+End Sub
+
+Private Sub pValidateVBComponentsForRemove(ByVal VBComponents As Object, ByVal ComponentNameSet As Object, ByVal ComponentType As Long)
+    Dim component_name As Variant
+    For Each component_name In ComponentNameSet.Keys
+        Dim vb_comp As Object
+        Set vb_comp = pFindVBComponent(VBComponents, CStr(component_name))
+        
+        If vb_comp Is Nothing Then Err.Raise vbObjectError + 1, "Class WorkbookService", "削除対象の VBA コンポーネントが存在しません。(" & CStr(component_name) & ")"
+        If ComponentType <> 0 And vb_comp.Type <> ComponentType Then Err.Raise vbObjectError + 1, "Class WorkbookService", "削除対象の VBA コンポーネント種別が一致しません。(" & CStr(component_name) & ")"
+        If vb_comp.Type = C_VBEXT_CT_DOCUMENT Then Err.Raise vbObjectError + 1, "Class WorkbookService", "Document モジュールは削除できません。(" & CStr(component_name) & ")"
+    Next component_name
+End Sub
+
+Private Function pFindVBComponent(ByVal VBComponents As Object, ByVal ComponentName As String) As Object
+    On Error Resume Next
+    Set pFindVBComponent = VBComponents.Item(ComponentName)
+    If Err.Number <> 0 Then
+        Set pFindVBComponent = Nothing
+        Err.Clear
+    End If
+    On Error GoTo 0
 End Function
 '
 ' ワークシートをアクティブにします。

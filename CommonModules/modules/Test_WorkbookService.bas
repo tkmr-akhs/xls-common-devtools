@@ -9,6 +9,10 @@ Option Explicit
 '!
 ' #############################################################################
 
+Private Const C_VBEXT_CT_STDMODULE As Long = 1
+Private Const C_VBEXT_CT_CLASSMODULE As Long = 2
+Private Const C_TEMP_VB_COMPONENT_PREFIX As String = "Tmp_WbSvcRemove"
+
 ' -----------------------------------------------------------------------------
 ' GetThisWorkbookDirectoryPath
 ' -----------------------------------------------------------------------------
@@ -48,6 +52,42 @@ Private Function pPrepareTestSheet(ByRef SheetName As String) As Worksheet
 
     Set pPrepareTestSheet = target_sheet
 End Function
+
+Private Function pAddTempStandardModule(ByVal ComponentName As String) As Object
+    Call pRemoveTempVBComponent(ComponentName)
+    
+    Dim vb_comp As Object
+    Set vb_comp = ThisWorkbook.VBProject.VBComponents.Add(C_VBEXT_CT_STDMODULE)
+    vb_comp.Name = ComponentName
+    vb_comp.CodeModule.AddFromString "Option Explicit" & vbCrLf
+    
+    Set pAddTempStandardModule = vb_comp
+End Function
+
+Private Function pHasVBComponent(ByVal ComponentName As String) As Boolean
+    On Error Resume Next
+    Dim vb_comp As Object
+    Set vb_comp = ThisWorkbook.VBProject.VBComponents.Item(ComponentName)
+    pHasVBComponent = (Err.Number = 0 And Not vb_comp Is Nothing)
+    Err.Clear
+    On Error GoTo 0
+End Function
+
+Private Sub pRemoveTempVBComponent(ByVal ComponentName As String)
+    If Left$(ComponentName, Len(C_TEMP_VB_COMPONENT_PREFIX)) <> C_TEMP_VB_COMPONENT_PREFIX Then Err.Raise vbObjectError + 1, "Test_WorkbookService", "àÍéû VBComponent ñºÇ≈ÇÕÇ†ÇËÇ‹ÇπÇÒÅB"
+    
+    On Error Resume Next
+    Dim vb_comp As Object
+    Set vb_comp = ThisWorkbook.VBProject.VBComponents.Item(ComponentName)
+    If Err.Number <> 0 Then
+        Err.Clear
+        On Error GoTo 0
+        Exit Sub
+    End If
+    Call ThisWorkbook.VBProject.VBComponents.Remove(vb_comp)
+    Err.Clear
+    On Error GoTo 0
+End Sub
 
 ' -----------------------------------------------------------------------------
 ' ExistsWorkbook
@@ -717,3 +757,182 @@ AFTER_SAVE:
     Assert.ErrorRaised 0, err_num, err_source, err_desc
 End Sub
 
+
+' -----------------------------------------------------------------------------
+' RemoveVBComponents
+' -----------------------------------------------------------------------------
+
+Public Sub Test_RemoveVBComponents_StandardModule_RemovesModule(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim component_name As String
+    component_name = C_TEMP_VB_COMPONENT_PREFIX & "Ok"
+    Call pAddTempStandardModule(component_name)
+
+    Dim book_srv As IWorkbookService
+    Set book_srv = New WorkbookService
+
+    ' Act
+    Err.Clear
+    Call book_srv.RemoveVBComponents(component_name, ComponentType:=C_VBEXT_CT_STDMODULE, Book:=ThisWorkbook.Name)
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+
+    Dim actual_exists As Boolean
+    actual_exists = pHasVBComponent(component_name)
+    Call pRemoveTempVBComponent(component_name)
+    On Error GoTo 0
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, actual_error_number, actual_error_source, actual_error_description) Then Exit Sub
+    Assert.IsFalse actual_exists
+End Sub
+
+Public Sub Test_RemoveVBComponents_DocumentMixed_PreservesStandardModule(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim component_name As String
+    component_name = C_TEMP_VB_COMPONENT_PREFIX & "Doc"
+    Call pAddTempStandardModule(component_name)
+
+    Dim document_component_name As String
+    document_component_name = ThisWorkbook.Worksheets(1).CodeName
+
+    Dim book_srv As IWorkbookService
+    Set book_srv = New WorkbookService
+
+    ' Act
+    Err.Clear
+    Call book_srv.RemoveVBComponents(Array(component_name, document_component_name), Book:=ThisWorkbook.Name)
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+
+    Dim actual_exists As Boolean
+    actual_exists = pHasVBComponent(component_name)
+    Call pRemoveTempVBComponent(component_name)
+    On Error GoTo 0
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, actual_error_number, actual_error_source, actual_error_description) Then Exit Sub
+    Assert.Equals "Class WorkbookService", actual_error_source
+    Assert.IsTrue actual_exists
+End Sub
+
+Public Sub Test_RemoveVBComponents_ComponentTypeMismatch_PreservesStandardModule(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim component_name As String
+    component_name = C_TEMP_VB_COMPONENT_PREFIX & "Type"
+    Call pAddTempStandardModule(component_name)
+
+    Dim book_srv As IWorkbookService
+    Set book_srv = New WorkbookService
+
+    ' Act
+    Err.Clear
+    Call book_srv.RemoveVBComponents(component_name, ComponentType:=C_VBEXT_CT_CLASSMODULE, Book:=ThisWorkbook.Name)
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+
+    Dim actual_exists As Boolean
+    actual_exists = pHasVBComponent(component_name)
+    Call pRemoveTempVBComponent(component_name)
+    On Error GoTo 0
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, actual_error_number, actual_error_source, actual_error_description) Then Exit Sub
+    Assert.Equals "Class WorkbookService", actual_error_source
+    Assert.IsTrue actual_exists
+End Sub
+
+Public Sub Test_RemoveVBComponents_NullComponentName_RaisesWorkbookServiceError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim book_srv As IWorkbookService
+    Set book_srv = New WorkbookService
+
+    ' Act
+    Err.Clear
+    Call book_srv.RemoveVBComponents(Null, Book:=ThisWorkbook.Name)
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+    On Error GoTo 0
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, actual_error_number, actual_error_source, actual_error_description) Then Exit Sub
+    Assert.Equals "Class WorkbookService", actual_error_source
+End Sub
+
+Public Sub Test_RemoveVBComponents_ErrorValueComponentName_RaisesWorkbookServiceError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim book_srv As IWorkbookService
+    Set book_srv = New WorkbookService
+
+    ' Act
+    Err.Clear
+    Call book_srv.RemoveVBComponents(CVErr(xlErrNA), Book:=ThisWorkbook.Name)
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+    On Error GoTo 0
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, actual_error_number, actual_error_source, actual_error_description) Then Exit Sub
+    Assert.Equals "Class WorkbookService", actual_error_source
+End Sub
+
+Public Sub Test_RemoveVBComponents_UninitializedArray_RaisesWorkbookServiceError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim component_names() As String
+
+    Dim book_srv As IWorkbookService
+    Set book_srv = New WorkbookService
+
+    ' Act
+    Err.Clear
+    Call book_srv.RemoveVBComponents(component_names, Book:=ThisWorkbook.Name)
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+    On Error GoTo 0
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, actual_error_number, actual_error_source, actual_error_description) Then Exit Sub
+    Assert.Equals "Class WorkbookService", actual_error_source
+End Sub

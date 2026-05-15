@@ -15,6 +15,11 @@
 
 ## 高優先度
 
+- [ ] [bug] WorkbookService / FileSystemService の相対パス解決を Windows の実パス規則へ合わせる
+  - 詳細: `WorkbookService.pGetAbsolutePathCore` と `FileSystemService.pGetAbsolutePathCore` は文字列結合だけで、`..\foo` や `.\foo` の正規化、`\foo` のドライブルート相対、`C:foo` のドライブ相対などを扱わない。`GetAbsolutePath` という名前に反して、`C:\base\..\foo` のような親参照を含む文字列を返し得る。
+  - 影響: `OpenWorkbook` / `SaveWorkbook` / ファイル操作で、呼び出し側が同じ実体を指すパスを比較できず、Force 削除、バックアップ、存在確認の基準がずれる。ルート相対パスでは、意図したドライブ直下ではなく ThisWorkbook 配下のサブパスとして扱われる可能性がある。
+  - 対応案: `Scripting.FileSystemObject.GetAbsolutePathName` 等で正規化し、ドライブ絶対、UNC、ドライブ相対、ルート相対、`.` / `..`、末尾セパレータのテストを `WorkbookService` と `FileSystemService` 双方へ追加する。
+
 - [ ] [bug] WorkbookService.RemoveVBComponents の削除前検証を行う
   - 詳細: `RemoveVBComponents` は `VBComponents` を走査しながら一致したモジュールを即時削除するため、後続で一致した `ThisWorkbook` やシートモジュールなど削除できないコンポーネントに当たると、それ以前の標準モジュールだけが削除済みの中途半端な状態になり得る。
   - 詳細: `ComponentNames` は `Variant` だが、`pContainsComponentName` は配列要素やスカラー値を直接 `CStr` するため、`Null`、`CVErr(...)`、未初期化配列などの入力で、削除対象名の検証前に実行時エラーになり得る。
@@ -213,6 +218,16 @@
   - 対応案: `GetEnumerator(Optional EnumerateType..., Optional ColumnDirection..., Optional Descending As Boolean = False)` に拡張するか、`GetDescendingEnumerator` のような別 API を追加する。既存呼び出し互換を保つ引数順に注意する。
 
 ## 低優先度
+
+- [ ] [spec] WorksheetService の Excel エラー値変換をバージョン依存定数から切り離す
+  - 詳細: `pTryConvertErrorStringToCVErr` / `pConvertErrorToString` は、従来の `xlErrDiv0` などに加えて `xlErrSpill`、`xlErrConnect`、`xlErrBlocked`、`xlErrUnknown`、`xlErrField`、`xlErrCalc` を直接参照している。これらの定数が存在しない Excel では、該当 API を呼ばなくてもモジュールのコンパイル時点で止まる可能性がある。
+  - 影響: `XLookup` と同様に Excel バージョン依存の機能だが、ワークシート関数利用ではなく共通のセル読み書き・エラー値変換経路へ依存が混ざっているため、古い Excel 環境で WorksheetService 全体が使いづらくなる。
+  - 対応案: 新しいエラー値は数値コードまたは遅延解決の互換レイヤーで扱い、未対応 Excel では既知の従来エラーだけを扱う。新旧 Excel エラー値の文字列化と、未対応定数がない環境でのコンパイル方針を仕様化する。
+
+- [ ] [ux] UnitTestAssert のエラーアサーションで Source / Description を期待値として検証できるようにする
+  - 詳細: `ErrorRaised` / `ErrorNotRaised` は `ErrorSource` と `ErrorDescription` を受け取るが、現在は実際値の表示に使うだけで、判定はエラー番号だけで行っている。`Source` や `Description` が違っても、エラー番号が一致すれば成功扱いになる。
+  - 影響: 共通基盤では `Source` と説明文で原因を切り分ける方針だが、テスト側でそこまで固定しづらい。別の箇所から同じ番号のエラーが出ても検出できず、エラー契約の回帰テストが粗くなる。
+  - 対応案: 既存 API は互換維持しつつ、`ErrorRaisedExactly` や Optional の期待 Source / Description / 部分一致指定を追加する。番号だけ、Source まで、Description まで、部分一致のテストを用意する。
 
 - [ ] [ux] Lib_UnitTest の再実行ボタンは表示行のテストを実行する
   - 詳細: 再実行ボタンは作成時点の行番号を `Name` に持ち、`UnitTestMain` は `Application.Caller` を数値化して、その行の `Category` / `Test Item` を再実行している。通常のフィルターや並べ替えだけでは直ちにずれないが、行挿入・行削除などでボタンの現在位置と `Name` の行番号がずれると、見た目の行とは別のテストを再実行し得る。
@@ -499,6 +514,11 @@
   - 保留解除条件: 必要とされたら
 
 ## 対応しないと決定した事項
+
+- [x] [bug] Lib_UnitTest の自動判定で ERR を失敗として集約する
+  - 詳細: `UnitTestMain` は assertion failure を `NG`、実行時エラー・runner error・assertion 未実行を `ERR` として結果シートへ書くが、呼び出し側へ総合結果を返さず、OK 以外の件数も出さない。
+  - 影響: 外部の自動確認手順が `NG` だけを見る場合、`ERR` のテストが残っていても成功扱いになる。
+  - 結論: 指摘対象は `Lib_UnitTest` の実装ではなく、共通モジュール確認手順の `NG` 固定判定だった。`UnitTestMain` は結果シートへ `OK` / `NG` / `ERR` を出力するランナーとして扱い、総合判定は外部確認手順の責務とするため、`Lib_UnitTest` 側の対応は行わない。`AGENTS.md` の自動確認手順を `OK` 以外失敗へ修正済み。
 
 - [x] [bug] WorksheetService の Excel エラー値文字列化を安全にする
   - 詳細: `WorksheetService.pConvertErrorToString` は `Select Case ErrValue` と `Case CVErr(...)` で Excel エラー値を判定しており、`CVErr(...)` を含む Variant の直接比較で型不一致になる可能性がある。

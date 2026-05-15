@@ -838,6 +838,63 @@ Public Sub Test_WriteCell_ErrorString_CreatesError(ByVal Assert As UnitTestAsser
     Assert.Equals CVErr(xlErrDiv0), actual_value
 End Sub
 
+Public Sub Test_WriteCell_ModernErrorStrings_CreateErrors(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+
+    Dim error_texts As Variant
+    error_texts = Array( _
+            "#GETTING_DATA", _
+            "#SPILL!", _
+            "#CONNECT!", _
+            "#BLOCKED!", _
+            "#UNKNOWN!", _
+            "#FIELD!", _
+            "#CALC!")
+
+    Dim error_values As Variant
+    error_values = Array( _
+            CVErr(xlErrGettingData), _
+            CVErr(xlErrSpill), _
+            CVErr(xlErrConnect), _
+            CVErr(xlErrBlocked), _
+            CVErr(xlErrUnknown), _
+            CVErr(xlErrField), _
+            CVErr(xlErrCalc))
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    Dim err_idx As Long
+    For err_idx = LBound(error_texts) To UBound(error_texts)
+        Dim range_bounds As WorksheetRangeBounds
+        Set range_bounds = New_RangeBounds(Row:=22 + err_idx, Column:=2, Sheet:="test_output")
+
+        ' Act
+        Err.Clear
+        Call sheet_srv.WriteCell(range_bounds, CStr(error_texts(err_idx)))
+
+        Dim actual_error_number As Long
+        Dim actual_error_source As String
+        Dim actual_error_description As String
+        actual_error_number = Err.Number
+        actual_error_source = Err.Source
+        actual_error_description = Err.Description
+
+        ' Assert
+        If Not Assert.ErrorNotRaised(0, actual_error_number, actual_error_source, actual_error_description) Then
+            On Error GoTo 0
+            Exit Sub
+        End If
+        Assert.Equals error_values(err_idx), target_sheet.Cells(22 + err_idx, 2).Value
+    Next err_idx
+
+    On Error GoTo 0
+End Sub
+
 ' -----------------------------------------------------------------------------
 ' WriteRange
 ' -----------------------------------------------------------------------------
@@ -1167,6 +1224,180 @@ Public Sub Test_ReadCell_ErrorCell_ReturnsErrorText(ByVal Assert As UnitTestAsse
     ' Assert
     ' #DIV/0! は Text プロパティなら "#DIV/0!" の文字列になる
     Assert.Equals "#DIV/0!", actual_text
+End Sub
+
+Public Sub Test_ReadCell_AllExcelErrorValues_ReturnsErrorText(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+
+    Dim error_values As Variant
+    error_values = Array( _
+            CVErr(xlErrDiv0), _
+            CVErr(xlErrNA), _
+            CVErr(xlErrName), _
+            CVErr(xlErrNull), _
+            CVErr(xlErrNum), _
+            CVErr(xlErrRef), _
+            CVErr(xlErrValue), _
+            CVErr(xlErrGettingData), _
+            CVErr(xlErrSpill), _
+            CVErr(xlErrConnect), _
+            CVErr(xlErrBlocked), _
+            CVErr(xlErrUnknown), _
+            CVErr(xlErrField), _
+            CVErr(xlErrCalc))
+
+    Dim error_texts As Variant
+    error_texts = Array( _
+            "#DIV/0!", _
+            "#N/A", _
+            "#NAME?", _
+            "#NULL!", _
+            "#NUM!", _
+            "#REF!", _
+            "#VALUE!", _
+            "#GETTING_DATA", _
+            "#SPILL!", _
+            "#CONNECT!", _
+            "#BLOCKED!", _
+            "#UNKNOWN!", _
+            "#FIELD!", _
+            "#CALC!")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    Dim err_idx As Long
+    For err_idx = LBound(error_values) To UBound(error_values)
+        target_sheet.Cells(20 + err_idx, 2).Value = error_values(err_idx)
+
+        Dim range_bounds As WorksheetRangeBounds
+        Set range_bounds = New_RangeBounds(Row:=20 + err_idx, Column:=2, Sheet:="test_output")
+
+        ' Act
+        Err.Clear
+        Dim actual_text As String
+        Call sheet_srv.ReadCell(range_bounds, actual_text, GetText:=False)
+
+        Dim actual_error_number As Long
+        Dim actual_error_source As String
+        Dim actual_error_description As String
+        actual_error_number = Err.Number
+        actual_error_source = Err.Source
+        actual_error_description = Err.Description
+
+        ' Assert
+        If Not Assert.ErrorNotRaised(0, actual_error_number, actual_error_source, actual_error_description) Then
+            On Error GoTo 0
+            Exit Sub
+        End If
+        Assert.Equals CStr(error_texts(err_idx)), actual_text
+    Next err_idx
+
+    On Error GoTo 0
+End Sub
+
+Public Sub Test_ReadCell_GetTextNarrowErrorCell_ReturnsErrorText(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+    target_sheet.Cells(30, 2).Value = CVErr(xlErrDiv0)
+    target_sheet.Columns(2).ColumnWidth = 4
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=30, Column:=2, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Err.Clear
+    Dim actual_text As String
+    Call sheet_srv.ReadCell(range_bounds, actual_text, GetText:=True)
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+    On Error GoTo 0
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, actual_error_number, actual_error_source, actual_error_description) Then Exit Sub
+    Assert.Equals "#DIV/0!", actual_text
+End Sub
+
+Public Sub Test_ReadCell_DynamicArrayCalcError_ReturnsErrorText(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+    target_sheet.Cells(32, 2).Formula2 = "=FILTER({1,2},{FALSE,FALSE})"
+    Application.CalculateFull
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=32, Column:=2, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Err.Clear
+    Dim actual_text As String
+    Call sheet_srv.ReadCell(range_bounds, actual_text, GetText:=False)
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+    On Error GoTo 0
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, actual_error_number, actual_error_source, actual_error_description) Then Exit Sub
+    Assert.Equals "#CALC!", actual_text
+End Sub
+
+Public Sub Test_ReadCell_SpillError_ReturnsErrorText(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+    target_sheet.Cells(34, 3).Value = "blocked"
+    target_sheet.Cells(34, 2).Formula2 = "=SEQUENCE(1,2)"
+    Application.CalculateFull
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=34, Column:=2, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Err.Clear
+    Dim actual_text As String
+    Call sheet_srv.ReadCell(range_bounds, actual_text, GetText:=False)
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+    On Error GoTo 0
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, actual_error_number, actual_error_source, actual_error_description) Then Exit Sub
+    Assert.Equals "#SPILL!", actual_text
 End Sub
 
 ' -----------------------------------------------------------------------------
@@ -3699,4 +3930,40 @@ Public Sub Test_XLookup_NotFound_ReturnsIfNotFound(ByVal Assert As UnitTestAsser
     
     ' Assert
     Assert.Equals "missing", CStr(actual_value)
+End Sub
+
+Public Sub Test_XLookup_ErrorIfNotFound_ReturnsErrorValue(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+    target_sheet.Range("A2:A4").Value = WorksheetFunction.Transpose(Array("A", "B", "C"))
+    target_sheet.Range("B2:B4").Value = WorksheetFunction.Transpose(Array("Alpha", "Beta", "Gamma"))
+
+    Dim lookup_bounds As WorksheetRangeBounds
+    Set lookup_bounds = New_RangeBounds(Row:=2, Column:=1, FinishRow:=4, FinishColumn:=1, Sheet:="test_output")
+
+    Dim return_bounds As WorksheetRangeBounds
+    Set return_bounds = New_RangeBounds(Row:=2, Column:=2, FinishRow:=4, FinishColumn:=2, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Err.Clear
+    Dim actual_value As Variant
+    actual_value = sheet_srv.XLookup("Z", lookup_bounds, return_bounds, CVErr(xlErrNA))
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+    On Error GoTo 0
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, actual_error_number, actual_error_source, actual_error_description) Then Exit Sub
+    Assert.Equals CVErr(xlErrNA), actual_value
 End Sub

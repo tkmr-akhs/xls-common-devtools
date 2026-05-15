@@ -547,6 +547,27 @@ Private Function pTryConvertErrorStringToCVErr(ByVal Expression As String, ByRef
      Case "#VALUE!"
         ErrorValue = CVErr(xlErrValue)
         pTryConvertErrorStringToCVErr = True
+     Case "#GETTING_DATA"
+        ErrorValue = CVErr(xlErrGettingData)
+        pTryConvertErrorStringToCVErr = True
+     Case "#SPILL!"
+        ErrorValue = CVErr(xlErrSpill)
+        pTryConvertErrorStringToCVErr = True
+     Case "#CONNECT!"
+        ErrorValue = CVErr(xlErrConnect)
+        pTryConvertErrorStringToCVErr = True
+     Case "#BLOCKED!"
+        ErrorValue = CVErr(xlErrBlocked)
+        pTryConvertErrorStringToCVErr = True
+     Case "#UNKNOWN!"
+        ErrorValue = CVErr(xlErrUnknown)
+        pTryConvertErrorStringToCVErr = True
+     Case "#FIELD!"
+        ErrorValue = CVErr(xlErrField)
+        pTryConvertErrorStringToCVErr = True
+     Case "#CALC!"
+        ErrorValue = CVErr(xlErrCalc)
+        pTryConvertErrorStringToCVErr = True
      Case Else
         pTryConvertErrorStringToCVErr = False
     End Select
@@ -568,8 +589,22 @@ Private Function pConvertErrorToString(ByVal ErrValue As Variant) As String
         pConvertErrorToString = "#REF!"
      Case CVErr(xlErrValue)
         pConvertErrorToString = "#VALUE!"
+     Case CVErr(xlErrGettingData)
+        pConvertErrorToString = "#GETTING_DATA"
+     Case CVErr(xlErrSpill)
+        pConvertErrorToString = "#SPILL!"
+     Case CVErr(xlErrConnect)
+        pConvertErrorToString = "#CONNECT!"
+     Case CVErr(xlErrBlocked)
+        pConvertErrorToString = "#BLOCKED!"
+     Case CVErr(xlErrUnknown)
+        pConvertErrorToString = "#UNKNOWN!"
+     Case CVErr(xlErrField)
+        pConvertErrorToString = "#FIELD!"
+     Case CVErr(xlErrCalc)
+        pConvertErrorToString = "#CALC!"
      Case Else
-        pConvertErrorToString = "Unknown error"
+        pConvertErrorToString = "#ERRNO_" & CStr(CLng(ErrValue)) & "!"
     End Select
 End Function
 

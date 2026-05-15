@@ -15,12 +15,6 @@
 
 ## 高優先度
 
-- [ ] [bug] WorksheetService の Excel エラー値文字列化を安全にする
-  - 詳細: `WorksheetService.pConvertErrorToString` は `Select Case ErrValue` と `Case CVErr(...)` で Excel エラー値を判定しており、`CVErr(...)` を含む Variant の直接比較で型不一致になる可能性がある。
-  - 詳細: `ReadCell(GetText:=True)` の `####` フォールバックでも `"" & TargetCell.Value` を使うため、対象セルがエラー値の場合に文字列化で落ち得る。
-  - 影響: `ReadCell`、`XLookup`、`pGetFormulaLiteral` など、Excel エラー値を読み取る・式へ埋め込む経路で、テスト対象ではなく基盤側の変換処理が失敗する。
-  - 対応案: `IsError` 分岐後は `WorksheetFunction.Error_Type` 相当の安定した判定に寄せ、7 種類の Excel エラー値を文字列へ変換するテストを追加する。
-
 - [ ] [bug] WorkbookService.AddWorksheet / CopyWorksheet の名前設定失敗時に追加済みシートを残さない
   - 詳細: `AddWorksheet` は `Worksheets.Add` 後に `added_sheet.Name = Sheet` を実行し、`CopyWorksheet` も `src_sheet.Copy` 後に `added_sheet.Name = DestinationWorksheetName` を実行する。31 文字超過や禁止文字などで名前変更が失敗すると、追加または複製されたシートだけが残る。
   - 影響: API はエラーで戻るのにブック構成は変更済みとなり、リトライ時の重複シート、後続処理の対象ずれ、手作業での残骸削除が発生し得る。
@@ -521,6 +515,12 @@
   - 保留解除条件: 必要とされたら
 
 ## 対応しないと決定した事項
+
+- [x] [bug] WorksheetService の Excel エラー値文字列化を安全にする
+  - 詳細: `WorksheetService.pConvertErrorToString` は `Select Case ErrValue` と `Case CVErr(...)` で Excel エラー値を判定しており、`CVErr(...)` を含む Variant の直接比較で型不一致になる可能性がある。
+  - 詳細: `ReadCell(GetText:=True)` の `####` フォールバックでも `"" & TargetCell.Value` を使うため、対象セルがエラー値の場合に文字列化で落ち得る。
+  - 影響: `ReadCell`、`XLookup`、`pGetFormulaLiteral` など、Excel エラー値を読み取る・式へ埋め込む経路で、テスト対象ではなく基盤側の変換処理が失敗する懸念があった。
+  - 結論: 指摘誤り。既存 7 種の Excel エラー値と狭い列幅の読み取りをユニットテストで確認したが、現行実装の直接比較や `GetText:=True` 経路で型不一致は再現しなかったため、安定判定方式への差し替えは行わない。
 
 - [x] [spec] WorksheetService の配列数式コピーでコピー元を破壊しない
   - 詳細: `WorksheetService.pCopyCellCore` は配列数式コピー時に `src_cell = formula_str` でコピー元セルを通常数式へ一時変更しているため、コピー先エラー時にコピー元が壊れる懸念があった。

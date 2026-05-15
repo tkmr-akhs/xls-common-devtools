@@ -15,20 +15,46 @@
 
 ## 高優先度
 
-- [ ] [bug] WorksheetService.WriteCell の文字列書き込み失敗時にセル内容を復元する
-  - 詳細: `WriteCell` の文字列書き込み経路は `current_format` を退避して `NumberFormatLocal = "@"`、`Value = Expression`、表示形式復元の順に処理する。エラー時の復元対象は表示形式だけで、値の書き込み後に表示形式復元で失敗した場合、セル内容は変更済みのまま残り得る。
-  - 影響: `WriteCell` が失敗したにもかかわらず、対象セルの値や数式、表示形式が部分的に更新された状態になる。保護セル、無効な表示形式、結合セルなどで失敗した場合、呼び出し側が追加で復旧確認する必要がある。
-  - 対応案: 文字列経路でも書き込み前の `FormulaR1C1` / `Value` / `NumberFormatLocal` を必要範囲で退避し、失敗時に復元してから再送出する。値書き込み失敗、表示形式復元失敗、既存数式セルへの文字列書き込み失敗のテストを追加する。
-
 - [ ] [bug] WorksheetService.WriteCell の Boolean / Date / Currency 変換後の書き込み失敗を握りつぶさない
   - 詳細: `TypeConvert=True` の Boolean / Date / Currency 変換経路は `On Error Resume Next` のまま `target_cell.Value = CBool(Expression)` / `CDate` / `CCur` を試し、`Err.Number = 0` のときだけ成功扱いで抜ける。変換自体は成功したがセル書き込みだけが失敗した場合も、変換失敗と同じ扱いで次の変換または文字列書き込みへ進む。
   - 影響: 入力規則、保護セル、表示形式・セル状態などで変換値の書き込みに失敗しても、後続の文字列書き込みが成功すると `WriteCell` が成功扱いになり、呼び出し側が期待した型ではない値がセルに残り得る。基盤 API として、書き込み失敗と型変換失敗を区別できない。
   - 対応案: 変換処理とセル書き込みを分離し、変換成功後の書き込み失敗は即時再送出する。Boolean / Date / Currency それぞれで、変換成功・書き込み失敗・文字列フォールバックのテストを追加する。
 
+- [ ] [bug] WorksheetService.CopyRange の部分配列数式コピーで非アンカーセルを書き換えない
+  - 詳細: `CopyRange` は配列数式セルを見つけると `pGetArrayFormulaAnchor` でアンカーセルを取得するが、`pCopyCellCore` には走査中の `src_bounds.Row + row_idx` / `src_bounds.Column + col_idx` を渡している。コピー元範囲が複数セル配列数式の途中から始まる場合、`pCopyCellCore` はアンカーではないセルに対して `src_cell = formula_str` を実行し、Excel が「配列の一部を変更できない」系の実行時エラーにする。
+  - 影響: `A1:C2` の配列数式に対して `B1:C2` のような部分範囲をコピーすると、基盤コピー API が通常の範囲コピーとして処理できず失敗する。コピー範囲の取り方によって同じ配列数式のコピー可否が変わる。
+  - 対応案: 配列数式コピーでは常にアンカーセルを基準に一時変換するか、部分配列数式コピーを非対応として入口で明示エラーにする。アンカーを含む範囲、アンカーを含まない部分範囲、配列数式の一部だけを含む範囲のテストを追加する。
+
+- [ ] [bug] WorksheetService.ActivateRange の空範囲入力を明示的に扱う
+  - 詳細: `ActivateRange` は `RangeBounds.IsEmpty` を確認せず、ブックとシートをアクティブ化した後に `Range(RangeBounds.ToString(CellOnly:=True)).Activate` を実行する。空範囲の `ToString` は `A1:EMPTY(R0,C0)` のような Excel 範囲として無効な文字列になり、汎用的な Range エラーになる。
+  - 影響: `Intersect` や `GetUsedRangeBounds` から返った空範囲をそのまま渡すと、対象ブック・対象シートへアクティブ状態を変えた後で失敗する。空範囲を no-op とする他の `WorksheetService` API と契約が揺れ、呼び出し側が追加分岐を持つ必要がある。
+  - 対応案: 空範囲は no-op にするか、アクティブ状態を変える前に `Class WorksheetService` の明示エラーにする。空範囲、単一セル、行全体、列全体の `ActivateRange` テストを追加する。
+
+- [ ] [bug] WorksheetService.SetAlignment の垂直配置で横配置専用の `xlFill` を設定しない
+  - 詳細: `SetAlignment` の `VerticalAlignment` 分岐に `Case xlFill` があり、該当時に `target_range.VerticalAlignment = xlFill` を実行する。`xlFill` は水平配置用の定数で、垂直配置としては Excel が受け付けないため、`VerticalAlignment:=xlFill` を渡すと基盤側の検証ではなく Excel の実行時エラーになる。
+  - 影響: 呼び出し側が `SetAlignment` の公開引数に Excel 配置定数を渡したとき、横配置では有効な `xlFill` が縦配置でも有効に見える。書式設定 API として、許可している分岐と Excel が実際に受け付ける値がずれている。
+  - 対応案: 垂直配置では `xlTop` / `xlCenter` / `xlBottom` / `xlJustify` / `xlDistributed` だけを許可し、`xlFill` は明示エラーまたは既定値扱いにする。`VerticalAlignment:=xlFill`、有効な垂直配置値、既定値のテストを追加する。
+
 - [ ] [bug] WorkbookService.IsSaved をパス区切り文字ではなくブック状態で判定する
   - 詳細: `IsSaved` は `Workbooks(Book).FullName` に `G_FS_PATH_SEP` が含まれるかだけで保存済み判定している。保存先が URL / SharePoint / OneDrive など通常の `\` を含まない表現になる場合や、Excel が返す `FullName` の形式差で、実際には保存済みでも False になり得る。
   - 影響: 保存済み判定を前提にした上書き確認、バックアップ、閉じる前の分岐で、保存済みブックを未保存扱いにする。WorkbookService の基盤 API として、ブック名文字列の見た目に依存した判定は環境差に弱い。
   - 対応案: `Workbook.Path` の非空、`Workbook.Saved`、`FullName` と `Name` の関係など Excel オブジェクトの状態を使う。通常保存、未保存、URL / 同期フォルダー、別形式保存直後のテストを追加する。
+
+- [ ] [bug] WorkbookService.RemoveVBComponents の重複名判定を VBA 名の大文字小文字非区別に合わせる
+  - 詳細: `pBuildComponentNameSet` は `Scripting.Dictionary` を `vbBinaryCompare` で使うため、`Array("ModuleA", "modulea")` のような大文字小文字だけが違う指定を別キーとして保持する。一方で `VBComponents.Item(...)` は VBA コンポーネント名を実質的に大文字小文字非区別で解決するため、検証では同じコンポーネントが複数回通り、削除時に 1 回目で消した後の 2 回目で失敗し得る。
+  - 影響: 削除対象リストに同一名の大小文字違いが混ざると、事前検証を通過したのに処理途中で失敗する。複数コンポーネント削除では、一部だけ削除済みの状態が残る可能性がある。
+  - 対応案: コンポーネント名セットは `vbTextCompare` にするか、VBProject 上の実名へ正規化して重複排除する。単一名、同一名の大小文字違い、別名混在、存在しない名前混在のテストを追加する。
+
+- [ ] [bug] Excel アドレス解析でクォート済みの `!` と不正な `$` 配置を正しく扱う
+  - 詳細: `SplitExcelAddress` はクォートを解釈する前に `Split(AddressString, "!")` するため、`'入力!確認'!A1` のように `!` を含むシート名を、クォート済みでも不正なアドレスとして扱う。`WorkbookService.pRaiseIfInvalidWorksheetName` は `!` を禁止しておらず、`ExcelBookAndSheetAddress` も `!` をクォート対象としているため、生成側と解析側の契約がずれている。
+  - 詳細: `SplitA1RangeAddress` は `pSplitA1AddressToken` で `Replace(AddressToken, "$", "")` してから解析するため、`A$B1`、`$$A$1`、`A1$` のような Excel A1 形式として不正な `$` 配置を、`AB1` や `A1` として受け入れ得る。
+  - 影響: `New_RangeBoundsFromAddress` / `WorksheetRangeBounds.InitializeFromAddress` で、正しくクォートされたアドレスを拒否したり、不正なアドレスを別セルとして受け付けたりする。`WorksheetRangeBounds.ToString` が生成したシート名付きアドレスとの往復も、シート名に `!` を含む場合に破綻する。
+  - 対応案: `!` はクォート外の区切りだけを検出するパーサーで扱い、`$` は列記号直前と行番号直前だけを許可する。`'入力!確認'!A1`、`'O''Brien'!$A$1`、`A$B1`、`$$A$1`、`A1$` のテストを追加する。
+
+- [ ] [bug] ExcelA1ColumnAddress / RangeAddress の列番号上限と 0 入力を検証する
+  - 詳細: `ExcelA1ColumnAddress(0)` はコメントではエラーと読めるが、実装はループに入らず空文字列を返す。`RangeAddress` の A1 列生成経路も上限チェックがなく、`StartColumn:=G_COL_MAX + 1` のような入力で Excel 上は無効な `XFE1` などのアドレス文字列を生成し得る。
+  - 影響: 列番号計算の誤りを基盤ヘルパーが早期検出せず、空文字列や Excel 範囲として無効なアドレスが後続の `Range(...)`、数式生成、ログ出力へ流れる。原因箇所が列番号生成ではなく、後段の Excel 操作エラーとして見える。
+  - 対応案: `ExcelA1ColumnAddress` と `RangeAddress` の列番号入口で `1 <= Column <= G_COL_MAX` を検証する。`0`、負数、`G_COL_MAX`、`G_COL_MAX + 1`、相対参照の基準列込み境界のテストを追加する。
 
 - [ ] [spec] ObjectList / ObjectSet に明示型指定モードを追加する
   - 詳細: 現状の ObjectList / ObjectSet は初回追加要素から型や比較契約を自動判断するが、空コレクション、Nothing、配列、プリミティブとオブジェクトの混在、IEquatable / IDuplicateCheckable 実装有無によって、検索・削除・更新時の型判定方針が曖昧になる。

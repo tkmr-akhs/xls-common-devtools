@@ -633,6 +633,56 @@ Public Sub Test_WriteCell_TextWriteError_RestoresNumberFormat(ByVal Assert As Un
     Assert.Equals "0.0000", actual_format
 End Sub
 
+Public Sub Test_WriteCell_TextWriteError_RestoresCellContents(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    Dim original_enable_events As Boolean
+    original_enable_events = Application.EnableEvents
+    Application.EnableEvents = True
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+
+    target_sheet.Range("B8").Formula = "=1+1"
+    target_sheet.Range("B8").NumberFormatLocal = "0.0000"
+    target_sheet.Range("Z1").ClearContents
+
+    Dim protect_probe As WorksheetChangeTestProbe
+    Set protect_probe = New WorksheetChangeTestProbe
+    Call protect_probe.Initialize(target_sheet, "B8", "Z1")
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=8, Column:=2, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Err.Clear
+    sheet_srv.WriteCell range_bounds, "ABC123", TypeConvert:=False
+
+    Dim actual_error_number As Long
+    actual_error_number = Err.Number
+
+    Dim actual_error_source As String
+    actual_error_source = Err.Source
+
+    Dim actual_error_description As String
+    actual_error_description = Err.Description
+
+    If target_sheet.ProtectContents Then target_sheet.Unprotect
+    Set protect_probe = Nothing
+    Application.EnableEvents = original_enable_events
+    On Error GoTo 0
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, actual_error_number, actual_error_source, actual_error_description) Then Exit Sub
+    Assert.Equals "=1+1", target_sheet.Range("B8").Formula
+    Assert.EqualsNumeric 2, target_sheet.Range("B8").Value
+    Assert.Equals "0.0000", target_sheet.Range("B8").NumberFormatLocal
+End Sub
+
 Public Sub Test_WriteCell_DateString_WritesAsDate(ByVal Assert As UnitTestAssert)
     ' Arrange
     Dim target_sheet As Worksheet

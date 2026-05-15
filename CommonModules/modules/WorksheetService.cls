@@ -306,10 +306,22 @@ Public Sub WriteCell( _
         End If
         
         ' ï∂éöóÒÇ∆ÇµÇƒèàóù
+        Dim target_was_protected As Boolean
+        target_was_protected = target_cell.Worksheet.ProtectContents
+
+        Dim target_had_formula As Boolean
+        target_had_formula = target_cell.HasFormula
+
+        Dim target_formula_r1c1 As String
+        If target_had_formula Then target_formula_r1c1 = target_cell.FormulaR1C1
+
+        Dim target_value As Variant
+        target_value = target_cell.Value2
+
         Dim current_format As String
         current_format = target_cell.NumberFormatLocal
 
-        On Error GoTo RESTORE_NUMBER_FORMAT_ON_ERROR
+        On Error GoTo RESTORE_STRING_WRITE_CELL_ON_ERROR
         target_cell.NumberFormatLocal = "@"
         target_cell.Value = Expression
         target_cell.NumberFormatLocal = current_format
@@ -317,7 +329,7 @@ Public Sub WriteCell( _
     End If
     Exit Sub
 
-RESTORE_NUMBER_FORMAT_ON_ERROR:
+RESTORE_STRING_WRITE_CELL_ON_ERROR:
     Dim err_num As Long
     err_num = Err.Number
 
@@ -327,9 +339,13 @@ RESTORE_NUMBER_FORMAT_ON_ERROR:
     Dim err_desc As String
     err_desc = Err.Description
 
-    On Error Resume Next
-    target_cell.NumberFormatLocal = current_format
-    On Error GoTo 0
+    Call pRestoreCellContentsAndNumberFormat( _
+            target_cell, _
+            target_was_protected, _
+            target_had_formula, _
+            target_formula_r1c1, _
+            target_value, _
+            current_format)
 
     Err.Raise Number:=err_num, Source:=err_source, Description:=err_desc
 End Sub
@@ -1074,7 +1090,7 @@ RESTORE_FORMULA_COPY_DESTINATION_ON_ERROR:
     Dim err_desc As String
     err_desc = Err.Description
 
-    Call pRestoreFormulaCopyDestination( _
+    Call pRestoreCellContentsAndNumberFormat( _
             dst_cell, _
             dst_was_protected, _
             dst_had_formula, _
@@ -1085,7 +1101,7 @@ RESTORE_FORMULA_COPY_DESTINATION_ON_ERROR:
     Err.Raise Number:=err_num, Source:=err_source, Description:=err_desc
 End Sub
 
-Private Sub pRestoreFormulaCopyDestination( _
+Private Sub pRestoreCellContentsAndNumberFormat( _
         ByVal TargetCell As Range, _
         ByVal WorksheetWasProtected As Boolean, _
         ByVal HadFormula As Boolean, _

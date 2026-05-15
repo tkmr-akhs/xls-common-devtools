@@ -182,6 +182,7 @@ Public Sub Test_ActivateRange_NonActiveWorksheet_ActivatesTargetSheetAndCell(ByV
     Assert.Equals "target_activate", actual_active_sheet_name
     Assert.Equals "E4", actual_active_cell_address
 End Sub
+
 ' -----------------------------------------------------------------------------
 ' Find
 ' -----------------------------------------------------------------------------
@@ -2351,6 +2352,66 @@ Public Sub Test_CopyCell_ArrayFormulaWriteError_KeepsSourceArrayFormula(ByVal As
 
     Assert.IsTrue src_sheet.Range("D2:D4").HasArray
     Assert.Equals "=TRANSPOSE({1,2,3})", src_sheet.Range("D2").FormulaArray
+End Sub
+
+Public Sub Test_CopyCell_FormulaCopyError_RestoresDestination(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    Dim original_enable_events As Boolean
+    original_enable_events = Application.EnableEvents
+    Application.EnableEvents = True
+
+    ' Arrange
+    Dim src_sheet As Worksheet
+    Dim dst_sheet As Worksheet
+    Set src_sheet = pPrepareTestSheet("test_formula_restore_input")
+    Set dst_sheet = pPrepareTestSheet("test_formula_restore_output")
+
+    src_sheet.Range("A1").Value = 10
+    src_sheet.Range("C2").Formula = "=A1"
+    src_sheet.Range("C2").NumberFormatLocal = "#,##0.00"
+    dst_sheet.Range("F2").Formula = "=1+1"
+    dst_sheet.Range("F2").NumberFormatLocal = "0.0000"
+    dst_sheet.Range("Z1").ClearContents
+
+    Dim protect_probe As WorksheetChangeTestProbe
+    Set protect_probe = New WorksheetChangeTestProbe
+    Call protect_probe.Initialize(dst_sheet, "F2", "Z1")
+
+    Dim src_bounds As WorksheetRangeBounds
+    Set src_bounds = New_RangeBounds(Row:=2, Column:=3, Sheet:=src_sheet.Name)
+
+    Dim dst_bounds As WorksheetRangeBounds
+    Set dst_bounds = New_RangeBounds(Row:=2, Column:=6, Sheet:=dst_sheet.Name)
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Err.Clear
+    sheet_srv.CopyCell src_bounds, dst_bounds, CopyNumberFormat:=True
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+
+    If dst_sheet.ProtectContents Then dst_sheet.Unprotect
+    Set protect_probe = Nothing
+    Application.EnableEvents = original_enable_events
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, actual_error_number, actual_error_source, actual_error_description) Then
+        On Error GoTo 0
+        Exit Sub
+    End If
+    On Error GoTo 0
+
+    Assert.Equals "=1+1", dst_sheet.Range("F2").Formula
+    Assert.EqualsNumeric 2, dst_sheet.Range("F2").Value
+    Assert.Equals "0.0000", dst_sheet.Range("F2").NumberFormatLocal
 End Sub
 
 Public Sub Test_CopyCell_WithArrayFormula_CopiesArrayFormula(ByVal Assert As UnitTestAssert)

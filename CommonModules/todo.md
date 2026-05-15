@@ -15,20 +15,15 @@
 
 ## 高優先度
 
-- [ ] [bug] Lib_UnitTest のテスト定義ミスを未実行のまま成功扱いにしない
-  - 詳細: `pRunAllTest` は `Test_` で始まる名前でも、`UnitTestAssert` 引数の形に合わない `Sub` や `Private Sub Test_...` を検出結果に出さずに素通りする。`Test_Lib_UnitTest.bas` でも必須の非 Assert 引数を持つ `Test_...` は無視されることを確認しているが、利用者から見るとテスト名の typo やシグネチャ不備が `ERR` にならず、全件 OK に見える。
-  - 影響: 追加したつもりのテストが実行されず、共通モジュールの回帰を検出できない。特にテストランナー自身の問題なので、テスト結果の信頼性に直接影響する。
-  - 対応案: `Test_` で始まる手続きは一度候補として列挙し、実行可能な署名以外は `UNIT_TEST_SHEET` に `ERR` として出す。公開/非公開、引数なし、Assert 以外の必須引数、Function 化、複数行宣言のテストを追加する。
+- [ ] [bug] WorksheetService.WriteCell の文字列書き込み失敗時にセル内容を復元する
+  - 詳細: `WriteCell` の文字列書き込み経路は `current_format` を退避して `NumberFormatLocal = "@"`、`Value = Expression`、表示形式復元の順に処理する。エラー時の復元対象は表示形式だけで、値の書き込み後に表示形式復元で失敗した場合、セル内容は変更済みのまま残り得る。
+  - 影響: `WriteCell` が失敗したにもかかわらず、対象セルの値や数式、表示形式が部分的に更新された状態になる。保護セル、無効な表示形式、結合セルなどで失敗した場合、呼び出し側が追加で復旧確認する必要がある。
+  - 対応案: 文字列経路でも書き込み前の `FormulaR1C1` / `Value` / `NumberFormatLocal` を必要範囲で退避し、失敗時に復元してから再送出する。値書き込み失敗、表示形式復元失敗、既存数式セルへの文字列書き込み失敗のテストを追加する。
 
-- [ ] [bug] WorksheetService.CopyCell / CopyRange の通常数式コピー失敗時にコピー先を復元する
-  - 詳細: `pCopyCellCore` の通常数式経路は `dst_number_format` を退避して `dst_cell.NumberFormat = "General"`、`dst_cell.FormulaR1C1 = src_cell.FormulaR1C1`、表示形式復元/コピーの順に処理する。エラー時の復元対象は表示形式だけで、数式書き込み後の表示形式設定で失敗した場合、コピー先の式や値は変更済みのまま残り得る。
-  - 影響: `CopyCell` / `CopyRange` の失敗後に、コピー先が部分的に更新された状態になる。保護セル、壊れた表示形式、コピー先の制約などで失敗した場合、呼び出し側がどこまで書き換わったかを追加確認する必要がある。
-  - 対応案: 通常数式経路でもコピー先の `FormulaR1C1` / `Value` / `NumberFormatLocal` を必要範囲で退避し、失敗時の復元契約を明確にする。通常数式の式書き込み失敗、表示形式コピー失敗、`CopyRange` 中断時のテストを追加する。
-
-- [ ] [bug] WorksheetService.CopyCell / CopyRange の配列数式コピーでエラー時にもコピー元を復元する
-  - 詳細: `pCopyCellCore` の配列数式経路は、`src_cell.FormulaArray` を退避した後に `src_cell = formula_str` でコピー元を通常数式へ一時変更し、後続処理の後で `src_cell.FormulaArray = formula_str` へ戻している。しかしこのブロックには専用のエラー復元処理がなく、`Application.ConvertFormula`、コピー先書き込み、`Resize(...).FormulaArray` などで失敗すると、コピー元が一時状態のまま残り得る。
-  - 影響: コピー API の失敗がコピー先だけでなくコピー元範囲の数式破壊につながる。`CopyRange` 経由では複数セル処理の途中で止まり、どこまでコピー済みかに加えて元シート側の復旧確認も必要になる。
-  - 対応案: 配列数式経路にも `On Error GoTo` の復元ブロックを置き、コピー元の `FormulaArray`、コピー先の通常数式・表示形式を必要範囲で戻してから再送出する。配列数式のコピー先失敗、範囲外、保護セル、サイズ不一致のテストを追加する。
+- [ ] [bug] WorksheetService.WriteCell の Boolean / Date / Currency 変換後の書き込み失敗を握りつぶさない
+  - 詳細: `TypeConvert=True` の Boolean / Date / Currency 変換経路は `On Error Resume Next` のまま `target_cell.Value = CBool(Expression)` / `CDate` / `CCur` を試し、`Err.Number = 0` のときだけ成功扱いで抜ける。変換自体は成功したがセル書き込みだけが失敗した場合も、変換失敗と同じ扱いで次の変換または文字列書き込みへ進む。
+  - 影響: 入力規則、保護セル、表示形式・セル状態などで変換値の書き込みに失敗しても、後続の文字列書き込みが成功すると `WriteCell` が成功扱いになり、呼び出し側が期待した型ではない値がセルに残り得る。基盤 API として、書き込み失敗と型変換失敗を区別できない。
+  - 対応案: 変換処理とセル書き込みを分離し、変換成功後の書き込み失敗は即時再送出する。Boolean / Date / Currency それぞれで、変換成功・書き込み失敗・文字列フォールバックのテストを追加する。
 
 - [ ] [bug] WorkbookService.IsSaved をパス区切り文字ではなくブック状態で判定する
   - 詳細: `IsSaved` は `Workbooks(Book).FullName` に `G_FS_PATH_SEP` が含まれるかだけで保存済み判定している。保存先が URL / SharePoint / OneDrive など通常の `\` を含まない表現になる場合や、Excel が返す `FullName` の形式差で、実際には保存済みでも False になり得る。
@@ -72,6 +67,11 @@
   - 対応案: `Nothing` の順序を先頭/末尾のどちらかに固定するか、Sort では非対応として入口で明示エラーにする。`Nothing` のみ、`Nothing` と比較可能オブジェクト混在、`ObjectSet.Sort` のテストを追加する。
 
 ## 中優先度
+
+- [ ] [ref] WorksheetService.CopyCell / CopyRange の配列数式コピー失敗時の復元処理を明示する
+  - 詳細: `pCopyCellCore` の配列数式経路は、`src_cell.FormulaArray` を退避した後に `src_cell = formula_str` でコピー元を通常数式へ一時変更し、後続処理の後で `src_cell.FormulaArray = formula_str` へ戻している。既存の失敗系テストではコピー元破壊は再現していないが、復元責務がコード上は通常数式経路ほど明示されていない。
+  - 影響: 現時点では実害未確認だが、将来の配列数式コピー処理の変更や別の失敗経路追加時に、コピー元・コピー先の復元契約を読み取りづらい。
+  - 対応案: 配列数式経路にも復元責務を明示し、コピー元 `FormulaArray` とコピー先の一時的な通常数式・表示形式を必要範囲で戻す構造へ整理する。再現性のある失敗経路が見つかった時点で、専用の失敗系テストを追加する。
 
 - [ ] [req] テストダブルのスパイ記録で同一キーの複数回呼び出しを区別する
   - 詳細: `WorksheetServiceTestDouble` や `WorkbookServiceTestDouble` の多くのスパイは、`UnitTestUtils.SetValue` で `Xxx_Results` の同じキーへ値を保存する。例えば `WriteCell_Results` は `RangeBounds` をキーにするため、同じセルへ複数回書き込む処理では後続呼び出しが前回の記録を上書きする。
@@ -243,6 +243,11 @@
   - 影響: 空集合を通常結果として扱う検索・抽出処理で、呼び出し側ごとの防御分岐が増える。`ReadRange` のような 1 要素以上の 2 次元配列を返す API とも空結果の扱いが揺れる。
   - 対応案: 空配列を返す、未初期化配列を返す、または `Count = 0` を事前確認する契約のどれにするか明記する。`ObjectList` / `ObjectSet` の空、1 件、削除後空の変換テストを追加する。
 
+- [ ] [spec] FileSystemService の一覧 API の空結果戻り値を固定する
+  - 詳細: `GetFileList` / `GetDirectoryList` は一致する項目がない場合、未初期化の `String()` を返す。`GetNewestFile` は該当なしで空文字列を返すため、一覧系と単一取得系で空結果の表現が揺れている。
+  - 影響: 呼び出し側は空一覧を通常結果として扱うだけでも、`IsEmptyArray` や未初期化配列判定を知っている必要がある。ファイル一覧・ディレクトリ一覧を同じパターンで処理しづらく、基盤 API として空結果の扱いが読み取りにくい。
+  - 対応案: 空配列を返す、未初期化配列を返す、または空結果専用ヘルパーを使う契約のどれにするか明記する。該当なし、1 件、複数件、正規表現で全除外のテストを追加する。
+
 - [ ] [ux] UnitTestAssert の失敗メッセージ番号を実行済み assertion 件数と揃える
   - 詳細: `pSetResultMessage` は `pCallCount` をインクリメントする前に `[` & `pCallCount` & `]` を出力するため、最初の失敗が `[0]` と表示される。`AssertionCount` は実行後に 1 以上になるため、表示番号が 0 オリジンなのか件数なのか読み取りにくい。
   - 影響: テスト失敗行の調査時に、何番目の assertion が失敗したのかを結果メッセージから直感的に追いにくい。テストの成否そのものには影響しないため、バグではなく表示改善として扱う。
@@ -267,6 +272,11 @@
   - 詳細: `ErrorRaised` / `ErrorNotRaised` は `ErrorSource` と `ErrorDescription` を受け取るが、現在は実際値の表示に使うだけで、判定はエラー番号だけで行っている。`Source` や `Description` が違っても、エラー番号が一致すれば成功扱いになる。
   - 影響: 共通基盤では `Source` と説明文で原因を切り分ける方針だが、テスト側でそこまで固定しづらい。別の箇所から同じ番号のエラーが出ても検出できず、エラー契約の回帰テストが粗くなる。
   - 対応案: 既存 API は互換維持しつつ、`ErrorRaisedExactly` や Optional の期待 Source / Description / 部分一致指定を追加する。番号だけ、Source まで、Description まで、部分一致のテストを用意する。
+
+- [ ] [ux] Lib_UnitTest のテスト定義ミスを結果シートで気づけるようにする
+  - 詳細: `pRunAllTest` は `Test_` で始まる名前でも、`UnitTestAssert` 引数の形に合わない `Sub` や `Private Sub Test_...` を検出結果に出さずに素通りする。`Test_Lib_UnitTest.bas` でも必須の非 Assert 引数を持つ `Test_...` は無視されることを確認しているが、利用者から見るとテスト名の typo やシグネチャ不備が `ERR` にならず、全件 OK に見える。
+  - 影響: テスト定義ミスに気づきにくく、結果シートだけでは「実行対象外になったテスト」と「存在しないテスト」を区別しづらい。テストの安定性や通常の結果判定そのものには直接影響しないため、低優先度の UX 改善として扱う。
+  - 対応案: `Test_` で始まる手続きは一度候補として列挙し、実行可能な署名以外は `UNIT_TEST_SHEET` に `ERR` または警告として出す。公開/非公開、引数なし、Assert 以外の必須引数、Function 化、複数行宣言のテストを追加する。
 
 - [ ] [ux] Lib_UnitTest の単体再実行で対象行を検証する
   - 詳細: 再実行ボタンは作成時点の行番号を `Name` に持ち、`UnitTestMain` は `Application.Caller` を数値化して、その行の `Category` / `Test Item` を再実行している。通常のフィルターや並べ替えだけでは直ちにずれないが、行挿入・行削除などでボタンの現在位置と `Name` の行番号がずれると、見た目の行とは別のテストを再実行し得る。
@@ -535,7 +545,7 @@
 ## TODO 整理メモ
 
 - `OpenWorkbook` は API 名とテンプレート作成挙動の仕様改善として扱う。WorkbookService 内の話でも、バグと非バグは混ぜない。
-- `WorksheetService` の通常数式コピーはコピー処理のバグ、`WorksheetService / IWorksheetService` 分割は責務整理として分ける。
+- `WorksheetService / IWorksheetService` 分割は責務整理として扱う。
 - `TextFileEntity` のファイルモード、EOF、明示 Close 漏れは同じファイルライフサイクルのバグとして統合する。文字コードと改行コード指定は仕様拡張なので別 TODO のままにする。
 - `FileSystemService` の実装バグ、`Lib_Common` のパス/Excel アドレス境界仕様、`FileSystemServiceTestDouble.CreateDirectory` のテストダブルキー不整合は、それぞれ実装層・仕様境界・テスト支援層の違いがあるため分ける。
 - `UnitTestUtils` のキー生成はテストダブル記録基盤の整理へ統合する。ただし `CreateDirectory` の戻り値キー不整合は特定メソッドの観測可能なテスト不足なので、横断リファクタリングとは別に残す。
@@ -553,6 +563,11 @@
   - 保留解除条件: 必要とされたら
 
 ## 対応しないと決定した事項
+
+- [x] [bug] UnitTestAssert の失敗経路で IsFailed を必ず True にする
+  - 詳細: `pSetUnsupportedComparisonResult`、`IsTypeOf`、`EqualsArray` / `NotEqualsArray` の非配列引数などで `IsFailed=False` のまま残り得るという指摘だった。
+  - 影響: 指摘が正しければ、失敗メッセージが入っていても `Lib_UnitTest` が `OK` 扱いするテストが出る懸念があった。
+  - 結論: 対応しない。現行実装では `pSetResultMessage` が `pIsFailed = True` を設定しており、指摘された経路はいずれも `pSetResultMessage` 経由で失敗扱いになる。既存ユニットテストでも配列引数、非数値引数、非配列引数が `IsFailed=True` になることを確認済み。古い実装を見たか、実装を誤解したものとしか考えにくく、指摘としては完全に的外れ。
 
 - [x] [bug] Lib_UnitTest の自動判定で ERR を失敗として集約する
   - 詳細: `UnitTestMain` は assertion failure を `NG`、実行時エラー・runner error・assertion 未実行を `ERR` として結果シートへ書くが、呼び出し側へ総合結果を返さず、OK 以外の件数も出さない。
@@ -578,3 +593,8 @@
   - 詳細: `pGetRawUsedRange` は UsedRange が 1 セルだけの場合、値が空で四辺の罫線がないことだけを見て空範囲としている。塗りつぶし、フォント、表示形式、コメント、ハイパーリンク、入力規則など、値以外の使用状態を確認していない。
   - 影響: 書式だけを持つセルを `GetUsedRangeBounds(GetRawRange:=True)` が空範囲として返し、`CopyRange(CopyNumberFormat:=True)` など UsedRange に依存する処理で書式のみの使用セルが落ちる可能性がある。
   - 結論: 罫線と値のないその他書式のみのセルは空扱いする現行動作を仕様とする。書式だけを使用範囲として保持する対応は行わない。
+
+- [x] [bug] UnitTestAssert.EqualsNumeric で Currency / Decimal を数値として扱う
+  - 詳細: `pIsNumericType` は `Byte`、`Integer`、`Long`、`LongLong`、`Single`、`Double` などを数値型としているが、`Currency` と `Decimal` を含めていない。そのため `EqualsNumeric CCur(1), 1` や Decimal 値を含む数値比較が、数値として同値でも失敗扱いになり得る。
+  - 影響: 金額や高精度数値を扱うテストで、実装ではなくアサーション側の型判定不足により NG になる。UnitTestAssert の数値比較 API として、VBA の主要な数値型を一貫して扱えない。
+  - 結論: 対応しない。`Currency` は固定小数点として丸めや桁の意味を持つ特殊な型であり、`EqualsNumeric` の通常数値比較に含めると型と精度の契約が曖昧になる。`Decimal` は `Variant` のサブタイプとして扱われ、厳密な型を通常の型判定で見分けづらいため、`EqualsNumeric` の対象には含めない。必要になった場合は、明示的な別 API として検討する。

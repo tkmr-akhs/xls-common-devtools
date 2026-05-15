@@ -1028,10 +1028,22 @@ Private Sub pCopyCellCore( _
                 ' マルチセル配列の起点セル以外は何もしない
             End If
         Else
+            Dim dst_was_protected As Boolean
+            dst_was_protected = dst_cell.Worksheet.ProtectContents
+
+            Dim dst_had_formula As Boolean
+            dst_had_formula = dst_cell.HasFormula
+
+            Dim dst_formula_r1c1 As String
+            If dst_had_formula Then dst_formula_r1c1 = dst_cell.FormulaR1C1
+
+            Dim dst_value As Variant
+            dst_value = dst_cell.Value2
+
             Dim dst_number_format As String
             dst_number_format = dst_cell.NumberFormatLocal
 
-            On Error GoTo RESTORE_FORMULA_COPY_NUMBER_FORMAT_ON_ERROR
+            On Error GoTo RESTORE_FORMULA_COPY_DESTINATION_ON_ERROR
             dst_cell.NumberFormat = "General"
             dst_cell.FormulaR1C1 = src_cell.FormulaR1C1
             If CopyNumberFormat Then
@@ -1052,7 +1064,7 @@ Private Sub pCopyCellCore( _
     End If
     Exit Sub
 
-RESTORE_FORMULA_COPY_NUMBER_FORMAT_ON_ERROR:
+RESTORE_FORMULA_COPY_DESTINATION_ON_ERROR:
     Dim err_num As Long
     err_num = Err.Number
 
@@ -1062,11 +1074,47 @@ RESTORE_FORMULA_COPY_NUMBER_FORMAT_ON_ERROR:
     Dim err_desc As String
     err_desc = Err.Description
 
-    On Error Resume Next
-    dst_cell.NumberFormatLocal = dst_number_format
-    On Error GoTo 0
+    Call pRestoreFormulaCopyDestination( _
+            dst_cell, _
+            dst_was_protected, _
+            dst_had_formula, _
+            dst_formula_r1c1, _
+            dst_value, _
+            dst_number_format)
 
     Err.Raise Number:=err_num, Source:=err_source, Description:=err_desc
+End Sub
+
+Private Sub pRestoreFormulaCopyDestination( _
+        ByVal TargetCell As Range, _
+        ByVal WorksheetWasProtected As Boolean, _
+        ByVal HadFormula As Boolean, _
+        ByVal FormulaR1C1 As String, _
+        ByVal CellValue As Variant, _
+        ByVal NumberFormatLocal As String)
+
+    Dim original_enable_events As Boolean
+    original_enable_events = Application.EnableEvents
+
+    On Error Resume Next
+    Application.EnableEvents = False
+
+    If Not WorksheetWasProtected And TargetCell.Worksheet.ProtectContents Then
+        Call TargetCell.Worksheet.Unprotect
+    End If
+
+    TargetCell.NumberFormatLocal = NumberFormatLocal
+    If HadFormula Then
+        TargetCell.FormulaR1C1 = FormulaR1C1
+    ElseIf IsEmpty(CellValue) Then
+        TargetCell.ClearContents
+    Else
+        TargetCell.Value2 = CellValue
+    End If
+    TargetCell.NumberFormatLocal = NumberFormatLocal
+
+    Application.EnableEvents = original_enable_events
+    On Error GoTo 0
 End Sub
 
 '

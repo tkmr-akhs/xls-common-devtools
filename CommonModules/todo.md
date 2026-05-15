@@ -15,16 +15,6 @@
 
 ## 高優先度
 
-- [ ] [bug] WorksheetService.WriteCell の IgnoreEmpty で表示形式も変更しない
-  - 詳細: `WriteCell` は `NumberFormat` を設定してから `Expression = ""` の `IgnoreEmpty` / `ClearWhenEmpty` 分岐に入るため、`IgnoreEmpty:=True` でも `NumberFormat` を指定するとセルの値は残る一方で表示形式だけが変更される。
-  - 影響: 呼び出し側が「空値は完全に無視する」前提で既存セルを保護していても、書式だけが変わり、日付・数値・文字列表示が意図せず変わる可能性がある。既存テストも値の保持だけを確認しており、書式保持を検出できない。
-  - 対応案: `Expression = "" And IgnoreEmpty` の場合は `NumberFormat` 設定前に即終了するか、`NumberFormat` を含めて変更なしの契約に固定する。`IgnoreEmpty:=True` と `NumberFormat` 併用時に値・数式・表示形式が変わらないテストを追加する。
-
-- [ ] [bug] WorksheetService.WriteRange の配列サイズを対象範囲と照合する
-  - 詳細: `WriteRange` は `ValuesArray` をそのまま `target_range.Value` に代入しており、配列の次元数、下限、行数、列数が `RangeBounds` と一致するかを確認していない。Excel 側の代入仕様により、不足要素が `#N/A` になったり、余剰要素が書き込まれない可能性がある。
-  - 影響: 呼び出し側の配列整形ミスが明示エラーではなくシート上のデータ破壊として表面化する。表データ書き込みの基盤 API として、意図しない `#N/A` や欠落に気付きにくい。
-  - 対応案: `ValuesArray` は 2 次元配列かつ `RowCount` / `ColumnCount` と一致することを入口で検証する。1 セル、1 行、1 列、下限 0/1、過不足配列、スカラー入力の契約をテストで固定する。
-
 - [ ] [bug] WorksheetService.InsertRows / DeleteRows で行範囲以外を拒否する
   - 詳細: `InsertRows` / `DeleteRows` は `RangeBounds.Row` から `RangeBounds.FinishRow` だけを使って `"行:行"` の Range を作るため、列範囲や通常のセル範囲を渡しても行全体の挿入・削除として実行される。特に `A:A` のような列範囲では全行相当を対象にし得る。
   - 影響: 呼び出し側が範囲オブジェクトを誤って渡したとき、明示エラーではなくシート構造を大きく変更する可能性がある。基盤 API として、範囲単位操作と行単位操作の境界が危険に曖昧になる。
@@ -103,21 +93,6 @@
   - 詳細: `ActivateRange` は `target_sheet.Range(...).Activate` を直接呼ぶだけで、対象ブックや対象シートを先にアクティブにしていない。
   - 影響: 対象シートがアクティブでない状態では `Range.Activate` が失敗したり、呼び出し側が期待した範囲が選択されない可能性がある。
   - 対応案: UI 操作用 API として対象ブック、対象シート、対象範囲のアクティブ化順序を明示し、非アクティブブック/非アクティブシートからの呼び出しをテストする。
-
-- [ ] [bug] WorksheetRangeBounds の未初期化状態を全公開メンバーで拒否する
-  - 詳細: `WorksheetRangeBounds.TransformAbsolute` は `pCheckInit` を呼ばず、未初期化インスタンスでも既定値から新しい範囲を返し得る。`GetIdentityString` / `Equals` も `ToString` の `UNINITIALIZED(...)` 表記に寄るため、未初期化状態をキーや比較に流せてしまう。
-  - 影響: 呼び出し側の初期化漏れが早期に失敗せず、意図しない `Sheet1` / `ThisWorkbook` 起点の範囲や不安定な同一性文字列として扱われる可能性がある。
-  - 対応案: `ToString` の診断用途を残すかを決めたうえで、通常利用の公開メンバーは `pCheckInit` に統一する。未初期化 `TransformAbsolute`、`Equals`、`GetIdentityString` のテストを追加する。
-
-- [ ] [bug] WorksheetRangeBounds.Initialize で開始行・開始列の Excel 上限超過を拒否する
-  - 詳細: `pWellFormBounds` は `FinishRow` / `FinishColumn` が Excel 上限を超えた場合は丸めるが、`Row` / `Column` 自体が `G_ROW_MAX` / `G_COL_MAX` を超えた場合はそのまま保持する。開始行が上限超過で終了行だけ丸められると、Excel シート上に存在しない開始位置を持つ空範囲が作れてしまう。
-  - 影響: `WorksheetService` 側で `Cells(RangeBounds.Row, RangeBounds.Column)` や `Range(...)` に渡した段階で Excel 実行時エラーになり、範囲値オブジェクトの生成時点で入力不正を検出できない。`TransformAbsolute` やコピー先範囲計算でも同じ不正範囲が伝播する。
-  - 対応案: 開始行・開始列が 1 未満または Excel 上限超過の場合は明示エラーにするか、空範囲として許す条件を仕様化する。開始行・開始列・終了行・終了列それぞれの上限超過テストを追加する。
-
-- [ ] [bug] WorksheetRangeBounds.Shift / Transform の加減算桁あふれを事前検出する
-  - 詳細: `Shift` は `pRow + Row` / `pFinishRow + Row`、`Transform` は `pFinishRow + AddRow` / `pFinishColumn + AddColumn` を先に `Long` 同士で計算し、その後に 1 未満や Excel 上限超過を検証している。大きな正負の移動量を渡すと、検証前に VBA の Overflow が発生する。
-  - 影響: 呼び出し側には `Class WorksheetRangeBounds` の範囲エラーではなく実行時エラー 6 が返り、どの範囲操作が不正だったかを診断しづらい。範囲計算の入力検証としても `Initialize` / `Shift` の契約が揃わない。
-  - 対応案: 加減算前に `Long` の範囲と Excel 行列上限を事前判定するか、`Double` など一時的に広い型で計算してから明示エラーにする。上限付近の正方向・負方向シフト、空範囲の `Transform` のテストを追加する。
 
 - [ ] [bug] ObjectList / ObjectSet の特殊 Variant 値の扱いを固定する
   - 詳細: `ObjectList.pItemsEqual` はプリミティブ比較で `ItemObject1 = ItemObject2` を直接 Boolean に代入するため、`Null` や `CVErr(...)` で比較自体が失敗し得る。`ObjectSet` は `Null` / `CVErr(...)` / `Empty` を Dictionary キーとして渡す経路があり、`ConvertToStringArray` でも特殊値の文字列化方針がない。
@@ -581,6 +556,11 @@
   - 保留解除条件: 必要とされたら
 
 ## 対応しないと決定した事項
+
+- [x] [spec] WorksheetService.WriteRange の配列サイズを対象範囲と照合する
+  - 詳細: `WriteRange` は `ValuesArray` をそのまま `target_range.Value` に代入しており、配列の次元数、下限、行数、列数が `RangeBounds` と一致するかを確認していない。Excel 側の代入仕様により、不足要素が `#N/A` になったり、余剰要素が書き込まれない可能性がある。
+  - 影響: 呼び出し側の配列整形ミスが明示エラーではなくシート上のデータ破壊として表面化する。表データ書き込みの基盤 API として、意図しない `#N/A` や欠落に気付きにくい。
+  - 結論: `WriteRange` は Excel `Range.Value` 代入への薄いラッパーとして扱い、配列サイズや次元の厳密な事前検証は追加しない。細かな代入仕様は Excel に準じる現行契約を維持する。
 
 - [x] [spec] WorksheetService の配列数式コピーでコピー元を破壊しない
   - 詳細: `WorksheetService.pCopyCellCore` は配列数式コピー時に `src_cell = formula_str` でコピー元セルを通常数式へ一時変更しているため、コピー先エラー時にコピー元が壊れる懸念があった。

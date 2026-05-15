@@ -510,8 +510,8 @@ Public Function TransformAbsolute( _
         Optional ByVal Column As Long = G_OMIT_CELL_INDEX, _
         Optional ByVal FinishRow As Long = G_OMIT_CELL_INDEX, _
         Optional ByVal FinishColumn As Long = G_OMIT_CELL_INDEX) As WorksheetRangeBounds
-    
-    
+    Call pCheckInit
+
     Dim s_row As Long, f_row As Long
     Dim s_col As Long, f_col As Long
     
@@ -572,20 +572,50 @@ Public Function Transform( _
     If AddRow = 0 Then
         new_finish_row = pFinishRow
     Else
+        Dim new_finish_row_value As Double
         If pFinishRow = 0 Then
-            new_finish_row = MaxLng(pRow + AddRow - 1, 0)
+            new_finish_row_value = CDbl(pRow) + CDbl(AddRow) - 1#
+            If new_finish_row_value < 0# Then
+                new_finish_row = 0
+            ElseIf G_ROW_MAX < new_finish_row_value Then
+                Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "変形後の行が、" & G_ROW_MAX & " を超過します。(row: " & pRow & ", add: " & AddRow & ")"
+            Else
+                new_finish_row = CLng(new_finish_row_value)
+            End If
         Else
-            new_finish_row = MaxLng(pFinishRow + AddRow, 0)
+            new_finish_row_value = CDbl(pFinishRow) + CDbl(AddRow)
+            If new_finish_row_value < 0# Then
+                new_finish_row = 0
+            ElseIf G_ROW_MAX < new_finish_row_value Then
+                Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "変形後の行が、" & G_ROW_MAX & " を超過します。(row: " & pFinishRow & ", add: " & AddRow & ")"
+            Else
+                new_finish_row = CLng(new_finish_row_value)
+            End If
         End If
     End If
 
     If AddColumn = 0 Then
         new_finish_col = pFinishColumn
     Else
+        Dim new_finish_col_value As Double
         If pFinishColumn = 0 Then
-            new_finish_col = MaxLng(pColumn + AddColumn - 1, 0)
+            new_finish_col_value = CDbl(pColumn) + CDbl(AddColumn) - 1#
+            If new_finish_col_value < 0# Then
+                new_finish_col = 0
+            ElseIf G_COL_MAX < new_finish_col_value Then
+                Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "変形後の列が、" & G_COL_MAX & " を超過します。(col: " & pColumn & ", add: " & AddColumn & ")"
+            Else
+                new_finish_col = CLng(new_finish_col_value)
+            End If
         Else
-            new_finish_col = MaxLng(pFinishColumn + AddColumn, 0)
+            new_finish_col_value = CDbl(pFinishColumn) + CDbl(AddColumn)
+            If new_finish_col_value < 0# Then
+                new_finish_col = 0
+            ElseIf G_COL_MAX < new_finish_col_value Then
+                Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "変形後の列が、" & G_COL_MAX & " を超過します。(col: " & pFinishColumn & ", add: " & AddColumn & ")"
+            Else
+                new_finish_col = CLng(new_finish_col_value)
+            End If
         End If
     End If
 
@@ -605,27 +635,35 @@ Public Function Shift(Optional ByVal Row As Long = 0, Optional ByVal Column As L
     Call pCheckInit
     Dim new_s_row As Long, new_s_col As Long
     Dim new_f_row As Long, new_f_col As Long
-    new_s_row = pRow + Row
-    new_s_col = pColumn + Column
+    Dim new_s_row_value As Double, new_s_col_value As Double
+    Dim new_f_row_value As Double, new_f_col_value As Double
+
+    new_s_row_value = CDbl(pRow) + CDbl(Row)
+    new_s_col_value = CDbl(pColumn) + CDbl(Column)
     If pFinishRow = 0 Then
-        new_f_row = 0
+        new_f_row_value = 0#
     Else
-        new_f_row = pFinishRow + Row
+        new_f_row_value = CDbl(pFinishRow) + CDbl(Row)
     End If
     If pFinishColumn = 0 Then
-        new_f_col = 0
+        new_f_col_value = 0#
     Else
-        new_f_col = pFinishColumn + Column
+        new_f_col_value = CDbl(pFinishColumn) + CDbl(Column)
     End If
     
-    If new_s_row < 1 Then Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "シフト後の行が、1 未満になります。(row: " & pRow & ", shift: " & Row & ")"
-    If new_s_col < 1 Then Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "シフト後の列が、1 未満になります。(col: " & pColumn & ", shift: " & Column & ")"
-    If new_f_row <> 0 And new_f_row < 1 Then Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "シフト後の行が、1 未満になります。(row: " & pFinishRow & ", shift: " & Row & ")"
-    If new_f_col <> 0 And new_f_col < 1 Then Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "シフト後の列が、1 未満になります。(col: " & pFinishColumn & ", shift: " & Column & ")"
-    If G_ROW_MAX < new_s_row Then Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "シフト後の行が、" & G_ROW_MAX & " を超過します。(row: " & pRow & ", shift: " & Row & ")"
-    If G_ROW_MAX < new_f_row Then Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "シフト後の行が、" & G_ROW_MAX & " を超過します。(row: " & pFinishRow & ", shift: " & Row & ")"
-    If G_COL_MAX < new_s_col Then Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "シフト後の列が、" & G_COL_MAX & " を超過します。(col: " & pColumn & ", shift: " & Column & ")"
-    If G_COL_MAX < new_f_col Then Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "シフト後の列が、" & G_COL_MAX & " を超過します。(col: " & pFinishColumn & ", shift: " & Column & ")"
+    If new_s_row_value < 1# Then Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "シフト後の行が、1 未満になります。(row: " & pRow & ", shift: " & Row & ")"
+    If new_s_col_value < 1# Then Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "シフト後の列が、1 未満になります。(col: " & pColumn & ", shift: " & Column & ")"
+    If new_f_row_value <> 0# And new_f_row_value < 1# Then Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "シフト後の行が、1 未満になります。(row: " & pFinishRow & ", shift: " & Row & ")"
+    If new_f_col_value <> 0# And new_f_col_value < 1# Then Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "シフト後の列が、1 未満になります。(col: " & pFinishColumn & ", shift: " & Column & ")"
+    If G_ROW_MAX < new_s_row_value Then Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "シフト後の行が、" & G_ROW_MAX & " を超過します。(row: " & pRow & ", shift: " & Row & ")"
+    If G_ROW_MAX < new_f_row_value Then Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "シフト後の行が、" & G_ROW_MAX & " を超過します。(row: " & pFinishRow & ", shift: " & Row & ")"
+    If G_COL_MAX < new_s_col_value Then Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "シフト後の列が、" & G_COL_MAX & " を超過します。(col: " & pColumn & ", shift: " & Column & ")"
+    If G_COL_MAX < new_f_col_value Then Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "シフト後の列が、" & G_COL_MAX & " を超過します。(col: " & pFinishColumn & ", shift: " & Column & ")"
+
+    new_s_row = CLng(new_s_row_value)
+    new_s_col = CLng(new_s_col_value)
+    new_f_row = CLng(new_f_row_value)
+    new_f_col = CLng(new_f_col_value)
 
     Dim result_value As WorksheetRangeBounds
     Set result_value = New WorksheetRangeBounds
@@ -814,6 +852,8 @@ End Function
 ' このオブジェクトと他のオブジェクトが等しいかを返します。
 '
 Public Function Equals(ByVal OtherObject As Object) As Boolean
+    Call pCheckInit
+
     If Not TypeOf OtherObject Is WorksheetRangeBounds Then
         Equals = False
         Exit Function
@@ -835,6 +875,7 @@ End Function
 ' このオブジェクトの同一性を判断するための文字列表現を返します。
 '
 Public Function GetIdentityString() As String
+    Call pCheckInit
     GetIdentityString = ToString(CellOnly:=False)
 End Function
 Private Function IEquatable_GetIdentityString() As String

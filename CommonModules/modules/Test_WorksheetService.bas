@@ -527,6 +527,7 @@ Public Sub Test_WriteCell_IgnoreEmpty_NotChange(ByVal Assert As UnitTestAssert)
     Dim target_sheet As Worksheet
     Set target_sheet = pPrepareTestSheet("test_output")
     target_sheet.Cells(11, 2).Value = "KeepValue"
+    target_sheet.Cells(11, 2).NumberFormatLocal = "0.00"
 
     Dim range_bounds As WorksheetRangeBounds
     Set range_bounds = New_RangeBounds(Row:=11, Column:=2, Sheet:="test_output")
@@ -536,13 +537,37 @@ Public Sub Test_WriteCell_IgnoreEmpty_NotChange(ByVal Assert As UnitTestAssert)
 
     ' Act
     ' ãÛÇìnÇ∑ & IgnoreEmpty=True Å® Ç»Ç…Ç‡ÇµÇ»Ç¢
-    Call sheet_srv.WriteCell(range_bounds, "", IgnoreEmpty:=True)
+    Call sheet_srv.WriteCell(range_bounds, "", NumberFormat:="@", IgnoreEmpty:=True)
 
     ' Assert
     Dim actual_value As Variant
     actual_value = target_sheet.Cells(11, 2).Value
     ' "KeepValue" Ç™ÇªÇÃÇ‹Ç‹écÇÈ
     Assert.Equals "KeepValue", actual_value
+    Assert.IsFalse target_sheet.Cells(11, 2).HasFormula
+    Assert.Equals "0.00", target_sheet.Cells(11, 2).NumberFormatLocal
+End Sub
+
+Public Sub Test_WriteCell_IgnoreEmpty_KeepsFormulaAndNumberFormat(ByVal Assert As UnitTestAssert)
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+    target_sheet.Cells(12, 2).Formula = "=1+2"
+    target_sheet.Cells(12, 2).NumberFormatLocal = "0.00"
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=12, Column:=2, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Call sheet_srv.WriteCell(range_bounds, "", NumberFormat:="@", IgnoreEmpty:=True)
+
+    ' Assert
+    Assert.IsTrue target_sheet.Cells(12, 2).HasFormula
+    Assert.Equals "=1+2", target_sheet.Cells(12, 2).Formula
+    Assert.Equals "0.00", target_sheet.Cells(12, 2).NumberFormatLocal
 End Sub
 
 Public Sub Test_WriteCell_NumberFormat_SetsNumberFormat(ByVal Assert As UnitTestAssert)

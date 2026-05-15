@@ -163,6 +163,63 @@ Public Sub Test_ToString_Uninitialized_ReturnsUninitializedString(ByVal Assert A
     Assert.IsTrue InStr(str_val, "UNINITIALIZED") > 0
 End Sub
 
+Public Sub Test_TransformAbsolute_Uninitialized_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim rng_bds As WorksheetRangeBounds
+    Set rng_bds = New WorksheetRangeBounds
+
+    ' Act
+    Dim actual_bounds As WorksheetRangeBounds
+    Set actual_bounds = rng_bds.TransformAbsolute()
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Class WorksheetRangeBounds", Err.Source
+    Assert.Equals "ñ¢èâä˙âªèÛë‘Ç≈Ç∑ÅB", Err.Description
+    Err.Clear
+End Sub
+
+Public Sub Test_Equals_Uninitialized_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim rng_bds As WorksheetRangeBounds
+    Set rng_bds = New WorksheetRangeBounds
+
+    Dim other_bounds As WorksheetRangeBounds
+    Set other_bounds = New_RangeBounds(Row:=1, Column:=1)
+
+    ' Act
+    Dim actual_value As Boolean
+    actual_value = rng_bds.Equals(other_bounds)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Class WorksheetRangeBounds", Err.Source
+    Assert.Equals "ñ¢èâä˙âªèÛë‘Ç≈Ç∑ÅB", Err.Description
+    Err.Clear
+End Sub
+
+Public Sub Test_GetIdentityString_Uninitialized_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim rng_bds As WorksheetRangeBounds
+    Set rng_bds = New WorksheetRangeBounds
+
+    ' Act
+    Dim actual_value As String
+    actual_value = rng_bds.GetIdentityString()
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Class WorksheetRangeBounds", Err.Source
+    Assert.Equals "ñ¢èâä˙âªèÛë‘Ç≈Ç∑ÅB", Err.Description
+    Err.Clear
+End Sub
+
 Public Sub Test_ToString_AbsoluteCell_ReturnsAbsoluteA1Address(ByVal Assert As UnitTestAssert)
     On Error Resume Next
 
@@ -378,6 +435,22 @@ Public Sub Test_Initialize_StartRowTooBig_RaisesError(ByVal Assert As UnitTestAs
     Err.Clear
 End Sub
 
+Public Sub Test_Initialize_StartColumnTooBig_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim rng As WorksheetRangeBounds
+    Set rng = New WorksheetRangeBounds
+
+    ' Act
+    rng.Initialize Row:=1, Column:=G_COL_MAX + 1
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Class WorksheetRangeBounds", Err.Source
+    Err.Clear
+End Sub
+
 ' -----------------------------------------------------------------------------
 ' Transform
 ' -----------------------------------------------------------------------------
@@ -508,6 +581,58 @@ Public Sub Test_Transform_FinishRowNegative_RaisesError(ByVal Assert As UnitTest
     If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
     Assert.Equals "Class WorksheetRangeBounds", Err.Source
     Err.Clear
+End Sub
+
+Public Sub Test_Transform_TooLargeAddRow_RaisesRangeErrorBeforeOverflow(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim rng_bds As WorksheetRangeBounds
+    Set rng_bds = New_RangeBounds(Row:=2, Column:=2, FinishRow:=5, FinishColumn:=7)
+
+    ' Act
+    Dim actual_bounds As WorksheetRangeBounds
+    Set actual_bounds = rng_bds.Transform(AddRow:=2147483647)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Class WorksheetRangeBounds", Err.Source
+    Err.Clear
+End Sub
+
+Public Sub Test_Transform_TooLargeAddColumn_RaisesRangeErrorBeforeOverflow(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim rng_bds As WorksheetRangeBounds
+    Set rng_bds = New_RangeBounds(Row:=2, Column:=2, FinishRow:=5, FinishColumn:=7)
+
+    ' Act
+    Dim actual_bounds As WorksheetRangeBounds
+    Set actual_bounds = rng_bds.Transform(AddColumn:=2147483647)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Class WorksheetRangeBounds", Err.Source
+    Err.Clear
+End Sub
+
+Public Sub Test_Transform_RowEmptyRange_TooSmallAddRow_StaysEmptyBeforeOverflow(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim rng_bds As WorksheetRangeBounds
+    Set rng_bds = New_RangeBounds(Row:=5, Column:=2, FinishRow:=0, FinishColumn:=6)
+
+    ' Act
+    Dim actual_bounds As WorksheetRangeBounds
+    Set actual_bounds = rng_bds.Transform(AddRow:=G_OMIT_CELL_INDEX)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.IsTrue actual_bounds.IsEmpty
+    Assert.EqualsNumeric 5, actual_bounds.Row
+    Assert.EqualsNumeric 0, actual_bounds.FinishRow
 End Sub
 
 Public Sub Test_Transform_EmptyRange_RemainsOrReformed(ByVal Assert As UnitTestAssert)
@@ -893,6 +1018,41 @@ Public Sub Test_Shift_ColumnEmptyRange_NegativeColumnShift_KeepsFinishColumnZero
     Assert.EqualsNumeric 8, actual_bds.FinishRow
     Assert.EqualsNumeric 0, actual_bds.FinishColumn
 End Sub
+
+Public Sub Test_Shift_TooLargeRow_RaisesRangeErrorBeforeOverflow(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim rng_bds As WorksheetRangeBounds
+    Set rng_bds = New_RangeBounds(Row:=2, Column:=3, FinishRow:=5, FinishColumn:=7)
+
+    ' Act
+    Dim actual_bounds As WorksheetRangeBounds
+    Set actual_bounds = rng_bds.Shift(Row:=2147483647)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Class WorksheetRangeBounds", Err.Source
+    Err.Clear
+End Sub
+
+Public Sub Test_Shift_TooLargeColumn_RaisesRangeErrorBeforeOverflow(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim rng_bds As WorksheetRangeBounds
+    Set rng_bds = New_RangeBounds(Row:=2, Column:=3, FinishRow:=5, FinishColumn:=7)
+
+    ' Act
+    Dim actual_bounds As WorksheetRangeBounds
+    Set actual_bounds = rng_bds.Shift(Column:=2147483647)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Class WorksheetRangeBounds", Err.Source
+    Err.Clear
+End Sub
+
 ' -----------------------------------------------------------------------------
 ' Intersect
 ' -----------------------------------------------------------------------------

@@ -200,6 +200,8 @@ Public Sub WriteCell( _
     Dim target_cell As Range
     Set target_cell = pGetCell(RangeBounds)
     
+    If Expression = "" And IgnoreEmpty Then Exit Sub
+    
     ' ï\é¶å`éÆÇê›íËÇ∑ÇÈ
     If NumberFormat <> "" Then
         target_cell.NumberFormatLocal = NumberFormat
@@ -207,15 +209,13 @@ Public Sub WriteCell( _
     
     ' ãÛîíÇÃèàóù
     If Expression = "" Then
-        If Not IgnoreEmpty Then
-            If ClearWhenEmpty Then
-                target_cell.ClearContents
-            Else
-                target_cell.Formula = "="""""
-                Call target_cell.Copy
-                Call target_cell.PasteSpecial(Paste:=xlPasteValues, SkipBlanks:=False)
-                Application.CutCopyMode = False
-            End If
+        If ClearWhenEmpty Then
+            target_cell.ClearContents
+        Else
+            target_cell.Formula = "="""""
+            Call target_cell.Copy
+            Call target_cell.PasteSpecial(Paste:=xlPasteValues, SkipBlanks:=False)
+            Application.CutCopyMode = False
         End If
         Exit Sub
     End If

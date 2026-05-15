@@ -93,6 +93,7 @@ Public Sub UnitTestMain()
     End If
 
     Call pRemoveRuntimeRunnerModule
+    Call result_sheet.Activate
     Call app_state.Restore
     On Error GoTo 0
     Exit Sub
@@ -104,8 +105,10 @@ ON_ERROR:
     Dim err_help_file As String: err_help_file = Err.HelpFile
     Dim err_help_context As Long: err_help_context = Err.HelpContext
 
+
     On Error Resume Next
     Call pRemoveRuntimeRunnerModule
+    Call result_sheet.Activate
     Call app_state.Restore
     On Error GoTo 0
 

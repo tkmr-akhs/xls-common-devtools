@@ -17,6 +17,9 @@ Private Function pPrepareTestSheet(ByRef SheetName As String) As Worksheet
     On Error GoTo 0
 
     If Not target_sheet Is Nothing Then
+        target_sheet.Rows.Hidden = False
+        target_sheet.Columns.Hidden = False
+        Call target_sheet.Cells.ClearOutline
         Call target_sheet.Cells.Clear
     Else
         Set target_sheet = ThisWorkbook.Worksheets.Add

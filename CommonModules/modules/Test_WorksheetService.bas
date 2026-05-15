@@ -257,6 +257,111 @@ Public Sub Test_Sort_EmptyRange_DoesNothing(ByVal Assert As UnitTestAssert)
     Assert.EqualsNumeric 2, target_sheet.Cells(2, 2).Value
     Assert.EqualsNumeric 22, target_sheet.Cells(2, 3).Value
 End Sub
+Public Sub Test_Sort_KeyColumnZero_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+    target_sheet.Range("B2:C3").Value = "keep"
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=2, Column:=2, FinishRow:=3, FinishColumn:=3, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Call sheet_srv.Sort(range_bounds, 0, xlAscending)
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, actual_error_number, actual_error_source, actual_error_description) Then
+        On Error GoTo 0
+        Exit Sub
+    End If
+    On Error GoTo 0
+
+    Assert.Equals "Class WorksheetService", actual_error_source
+    Assert.Equals "keep", target_sheet.Range("B2").Value
+End Sub
+
+Public Sub Test_Sort_KeyColumnPastRange_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+    target_sheet.Range("B2:C3").Value = "keep"
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=2, Column:=2, FinishRow:=3, FinishColumn:=3, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Call sheet_srv.Sort(range_bounds, 3, xlAscending)
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, actual_error_number, actual_error_source, actual_error_description) Then
+        On Error GoTo 0
+        Exit Sub
+    End If
+    On Error GoTo 0
+
+    Assert.Equals "Class WorksheetService", actual_error_source
+    Assert.Equals "keep", target_sheet.Range("B2").Value
+End Sub
+
+Public Sub Test_Sort_InvalidOrder_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+    target_sheet.Range("B2:C3").Value = "keep"
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=2, Column:=2, FinishRow:=3, FinishColumn:=3, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Call sheet_srv.Sort(range_bounds, 1, 9999)
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, actual_error_number, actual_error_source, actual_error_description) Then
+        On Error GoTo 0
+        Exit Sub
+    End If
+    On Error GoTo 0
+
+    Assert.Equals "Class WorksheetService", actual_error_source
+    Assert.Equals "keep", target_sheet.Range("B2").Value
+End Sub
+
 ' -----------------------------------------------------------------------------
 ' WriteCell
 ' -----------------------------------------------------------------------------
@@ -2771,6 +2876,453 @@ Public Sub Test_CopyRange_CopyNumberFormatFalse_KeepsDestinationFormat(ByVal Ass
     Assert.EqualsNumeric 7890.12, dst_sheet.Range("F2").Value
     Assert.Equals "0.0000", dst_sheet.Range("E2").NumberFormatLocal
     Assert.Equals "0.0000", dst_sheet.Range("F2").NumberFormatLocal
+End Sub
+
+
+' -----------------------------------------------------------------------------
+' RemoveDuplicates / Rows / Outline
+' -----------------------------------------------------------------------------
+
+Public Sub Test_RemoveDuplicates_ScalarColumn_RemovesDuplicateRows(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+    target_sheet.Range("B2").Value = "A"
+    target_sheet.Range("C2").Value = "keep-first"
+    target_sheet.Range("B3").Value = "A"
+    target_sheet.Range("C3").Value = "remove"
+    target_sheet.Range("B4").Value = "B"
+    target_sheet.Range("C4").Value = "keep-second"
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=2, Column:=2, FinishRow:=4, FinishColumn:=3, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Call sheet_srv.RemoveDuplicates(range_bounds, 1)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then
+        On Error GoTo 0
+        Exit Sub
+    End If
+    On Error GoTo 0
+
+    Assert.Equals "A", target_sheet.Range("B2").Value
+    Assert.Equals "keep-first", target_sheet.Range("C2").Value
+    Assert.Equals "B", target_sheet.Range("B3").Value
+    Assert.Equals "keep-second", target_sheet.Range("C3").Value
+End Sub
+
+Public Sub Test_RemoveDuplicates_ArrayColumns_RemovesDuplicateRows(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+    target_sheet.Range("B2").Value = "A"
+    target_sheet.Range("C2").Value = "X"
+    target_sheet.Range("D2").Value = "keep-first"
+    target_sheet.Range("B3").Value = "A"
+    target_sheet.Range("C3").Value = "X"
+    target_sheet.Range("D3").Value = "remove"
+    target_sheet.Range("B4").Value = "A"
+    target_sheet.Range("C4").Value = "Y"
+    target_sheet.Range("D4").Value = "keep-second"
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=2, Column:=2, FinishRow:=4, FinishColumn:=4, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Call sheet_srv.RemoveDuplicates(range_bounds, Array(1, 2))
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then
+        On Error GoTo 0
+        Exit Sub
+    End If
+    On Error GoTo 0
+
+    Assert.Equals "keep-first", target_sheet.Range("D2").Value
+    Assert.Equals "keep-second", target_sheet.Range("D3").Value
+End Sub
+
+Public Sub Test_RemoveDuplicates_ColumnZero_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+    target_sheet.Range("B2:C3").Value = "keep"
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=2, Column:=2, FinishRow:=3, FinishColumn:=3, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Call sheet_srv.RemoveDuplicates(range_bounds, 0)
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, actual_error_number, actual_error_source, actual_error_description) Then
+        On Error GoTo 0
+        Exit Sub
+    End If
+    On Error GoTo 0
+
+    Assert.Equals "Class WorksheetService", actual_error_source
+    Assert.Equals "keep", target_sheet.Range("B2").Value
+End Sub
+
+Public Sub Test_RemoveDuplicates_ColumnPastRange_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+    target_sheet.Range("B2:C3").Value = "keep"
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=2, Column:=2, FinishRow:=3, FinishColumn:=3, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Call sheet_srv.RemoveDuplicates(range_bounds, 3)
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, actual_error_number, actual_error_source, actual_error_description) Then
+        On Error GoTo 0
+        Exit Sub
+    End If
+    On Error GoTo 0
+
+    Assert.Equals "Class WorksheetService", actual_error_source
+    Assert.Equals "keep", target_sheet.Range("B2").Value
+End Sub
+
+Public Sub Test_RemoveDuplicates_EmptyColumnsArray_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+    target_sheet.Range("B2:C3").Value = "keep"
+
+    Dim duplicate_columns() As Long
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=2, Column:=2, FinishRow:=3, FinishColumn:=3, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Call sheet_srv.RemoveDuplicates(range_bounds, duplicate_columns)
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, actual_error_number, actual_error_source, actual_error_description) Then
+        On Error GoTo 0
+        Exit Sub
+    End If
+    On Error GoTo 0
+
+    Assert.Equals "Class WorksheetService", actual_error_source
+    Assert.Equals "keep", target_sheet.Range("B2").Value
+End Sub
+
+Public Sub Test_InsertRows_EntireRowRange_InsertsRows(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+    target_sheet.Range("A2").Value = "before"
+    target_sheet.Range("A3").Value = "after"
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=3, FinishRow:=3, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Call sheet_srv.InsertRows(range_bounds)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then
+        On Error GoTo 0
+        Exit Sub
+    End If
+    On Error GoTo 0
+
+    Assert.Equals "before", target_sheet.Range("A2").Value
+    Assert.IsTrue IsEmpty(target_sheet.Range("A3").Value)
+    Assert.Equals "after", target_sheet.Range("A4").Value
+End Sub
+
+Public Sub Test_InsertRows_CellRange_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+    target_sheet.Range("A3").Value = "keep"
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=3, Column:=2, FinishRow:=4, FinishColumn:=3, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Call sheet_srv.InsertRows(range_bounds)
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, actual_error_number, actual_error_source, actual_error_description) Then
+        On Error GoTo 0
+        Exit Sub
+    End If
+    On Error GoTo 0
+
+    Assert.Equals "Class WorksheetService", actual_error_source
+    Assert.Equals "keep", target_sheet.Range("A3").Value
+End Sub
+
+Public Sub Test_InsertRows_EmptyRange_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=3, Column:=1, FinishRow:=0, FinishColumn:=0, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Call sheet_srv.InsertRows(range_bounds)
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, actual_error_number, actual_error_source, actual_error_description) Then
+        On Error GoTo 0
+        Exit Sub
+    End If
+    On Error GoTo 0
+
+    Assert.Equals "Class WorksheetService", actual_error_source
+End Sub
+
+Public Sub Test_DeleteRows_EntireRowRange_DeletesRows(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+    target_sheet.Range("A2").Value = "before"
+    target_sheet.Range("A3").Value = "delete"
+    target_sheet.Range("A4").Value = "after"
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=3, FinishRow:=3, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Call sheet_srv.DeleteRows(range_bounds)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then
+        On Error GoTo 0
+        Exit Sub
+    End If
+    On Error GoTo 0
+
+    Assert.Equals "before", target_sheet.Range("A2").Value
+    Assert.Equals "after", target_sheet.Range("A3").Value
+End Sub
+
+Public Sub Test_DeleteRows_CellRange_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+    target_sheet.Range("A3").Value = "keep"
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=3, Column:=2, FinishRow:=4, FinishColumn:=3, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Call sheet_srv.DeleteRows(range_bounds)
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, actual_error_number, actual_error_source, actual_error_description) Then
+        On Error GoTo 0
+        Exit Sub
+    End If
+    On Error GoTo 0
+
+    Assert.Equals "Class WorksheetService", actual_error_source
+    Assert.Equals "keep", target_sheet.Range("A3").Value
+End Sub
+
+Public Sub Test_SetSheetOutlineLevel_Default_DoesNotRaise(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=1, Column:=1, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Call sheet_srv.SetSheetOutlineLevel(range_bounds)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+End Sub
+
+Public Sub Test_SetSheetOutlineLevel_RowOnly_DoesNotRaise(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+    target_sheet.Rows("2:3").Group
+    Err.Clear
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=1, Column:=1, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Call sheet_srv.SetSheetOutlineLevel(range_bounds, RowLevels:=1)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+End Sub
+
+Public Sub Test_SetSheetOutlineLevel_InvalidRowLevel_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=1, Column:=1, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Call sheet_srv.SetSheetOutlineLevel(range_bounds, RowLevels:=9)
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, actual_error_number, actual_error_source, actual_error_description) Then
+        On Error GoTo 0
+        Exit Sub
+    End If
+    On Error GoTo 0
+End Sub
+
+Public Sub Test_SetSheetOutlineLevel_InvalidColumnLevel_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=1, Column:=1, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Call sheet_srv.SetSheetOutlineLevel(range_bounds, ColumnLevels:=-1)
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, actual_error_number, actual_error_source, actual_error_description) Then
+        On Error GoTo 0
+        Exit Sub
+    End If
+    On Error GoTo 0
 End Sub
 
 ' -----------------------------------------------------------------------------

@@ -143,29 +143,46 @@ Private Sub pSortCore(ByVal RangeBounds As WorksheetRangeBounds, ByVal SortKeyAn
     If (UBound(SortKeyAndOrder) - LBound(SortKeyAndOrder)) Mod 2 = 0 Then
         Err.Raise vbObjectError + 1, "Class WorksheetService", "SortKeyAndOrder の要素数が偶数ではありません。(奇数番目の要素は、ソートのキーとなる列の番号、偶数番目の要素は、xlAscending か xlDescending)"
     End If
-    
+    Call pRaiseIfSortKeyAndOrderInvalid(RangeBounds, SortKeyAndOrder)
+
     Dim target_sheet As Worksheet
     Set target_sheet = pGetWorksheet(RangeBounds)
-    
+
     Dim sort_range As Range
     Set sort_range = target_sheet.Range(RangeBounds.ToString(CellOnly:=True))
-    
+
     With target_sheet.Sort
         .SortFields.Clear
-        
+
         Dim item_idx As Long
         For item_idx = LBound(SortKeyAndOrder) To UBound(SortKeyAndOrder) - 1 Step 2
+            Dim sort_key As Long
+            sort_key = CLng(SortKeyAndOrder(item_idx))
             If IsEmpty(SortKeyAndOrder(item_idx + 1)) Then
-                .SortFields.Add Key:=target_sheet.Cells(RangeBounds.Row, RangeBounds.Column + SortKeyAndOrder(item_idx) - 1)
+                .SortFields.Add Key:=target_sheet.Cells(RangeBounds.Row, RangeBounds.Column + sort_key - 1)
             Else
-                .SortFields.Add Key:=target_sheet.Cells(RangeBounds.Row, RangeBounds.Column + SortKeyAndOrder(item_idx) - 1), Order:=SortKeyAndOrder(item_idx + 1)
+                .SortFields.Add Key:=target_sheet.Cells(RangeBounds.Row, RangeBounds.Column + sort_key - 1), Order:=CLng(SortKeyAndOrder(item_idx + 1))
             End If
         Next item_idx
-        
+
         .SetRange sort_range
         .Header = xlNo
         .Apply
     End With
+End Sub
+
+Private Sub pRaiseIfSortKeyAndOrderInvalid(ByVal RangeBounds As WorksheetRangeBounds, ByVal SortKeyAndOrder As Variant)
+    Dim item_idx As Long
+    For item_idx = LBound(SortKeyAndOrder) To UBound(SortKeyAndOrder) - 1 Step 2
+        Call pGetValidatedRelativeColumnIndex(RangeBounds, SortKeyAndOrder(item_idx), "SortKeyAndOrder")
+        If Not IsEmpty(SortKeyAndOrder(item_idx + 1)) Then
+            Dim sort_order As Long
+            sort_order = pGetValidatedLong(SortKeyAndOrder(item_idx + 1), "SortKeyAndOrder")
+            If sort_order <> xlAscending And sort_order <> xlDescending Then
+                Err.Raise vbObjectError + 1, "Class WorksheetService", "SortKeyAndOrder の並び順には xlAscending または xlDescending を指定してください。"
+            End If
+        End If
+    Next item_idx
 End Sub
 
 ' 範囲をアクティブにします。
@@ -1451,11 +1468,11 @@ End Sub
 '
 Public Sub RemoveDuplicates(ByVal RangeBounds As WorksheetRangeBounds, ByVal DuplicateColumns As Variant)
     If RangeBounds.IsEmpty Then Exit Sub
-    
+
     Dim target_range As Range
     Set target_range = pGetRange(RangeBounds)
-    
-    Call target_range.RemoveDuplicates(Columns:=DuplicateColumns)
+
+    Call target_range.RemoveDuplicates(Columns:=pBuildDuplicateColumnsArgument(RangeBounds, DuplicateColumns), Header:=xlNo)
 End Sub
 Private Sub IWorksheetService_RemoveDuplicates(ByVal RangeBounds As WorksheetRangeBounds, ByVal DuplicateColumns As Variant)
     Call RemoveDuplicates(RangeBounds, DuplicateColumns)
@@ -1465,11 +1482,11 @@ End Sub
 ' 行を挿入します。
 '
 Public Sub InsertRows(ByVal RangeBounds As WorksheetRangeBounds)
-    If RangeBounds.IsEmpty Then Exit Sub
-    
+    Call pRaiseIfNotEntireRowRange(RangeBounds, "InsertRows")
+
     Dim target_sheet As Worksheet
     Set target_sheet = pGetWorksheet(RangeBounds)
-    
+
     Call target_sheet.Range(CStr(RangeBounds.Row) & ":" & CStr(RangeBounds.FinishRow)).Insert
 End Sub
 Private Sub IWorksheetService_InsertRows(ByVal RangeBounds As WorksheetRangeBounds)
@@ -1480,11 +1497,11 @@ End Sub
 ' 行を削除します。
 '
 Public Sub DeleteRows(ByVal RangeBounds As WorksheetRangeBounds)
-    If RangeBounds.IsEmpty Then Exit Sub
-    
+    Call pRaiseIfNotEntireRowRange(RangeBounds, "DeleteRows")
+
     Dim target_sheet As Worksheet
     Set target_sheet = pGetWorksheet(RangeBounds)
-    
+
     Call target_sheet.Range(CStr(RangeBounds.Row) & ":" & CStr(RangeBounds.FinishRow)).Delete
 End Sub
 Private Sub IWorksheetService_DeleteRows(ByVal RangeBounds As WorksheetRangeBounds)
@@ -1513,13 +1530,87 @@ End Sub
 ' 構成済みのアウトラインに対して、表示するアウトライン レベルを設定します。
 '
 Public Sub SetSheetOutlineLevel(ByVal RangeBounds As WorksheetRangeBounds, Optional ByVal RowLevels As Long = 0, Optional ByVal ColumnLevels As Long = 0)
+    If RowLevels = 0 And ColumnLevels = 0 Then Exit Sub
+
     Dim target_sheet As Worksheet
     Set target_sheet = pGetWorksheet(RangeBounds)
-    
-    Call target_sheet.Outline.ShowLevels(RowLevels:=RowLevels, ColumnLevels:=ColumnLevels)
+
+    If RowLevels > 0 And ColumnLevels > 0 Then
+        Call target_sheet.Outline.ShowLevels(RowLevels:=RowLevels, ColumnLevels:=ColumnLevels)
+    ElseIf RowLevels > 0 Then
+        Call target_sheet.Outline.ShowLevels(RowLevels:=RowLevels)
+    Else
+        Call target_sheet.Outline.ShowLevels(ColumnLevels:=ColumnLevels)
+    End If
 End Sub
 Private Sub IWorksheetService_SetSheetOutlineLevel(ByVal RangeBounds As WorksheetRangeBounds, Optional ByVal RowLevels As Long = 0, Optional ByVal ColumnLevels As Long = 0)
     Call SetSheetOutlineLevel(RangeBounds, RowLevels:=RowLevels, ColumnLevels:=ColumnLevels)
+End Sub
+
+Private Function pBuildDuplicateColumnsArgument(ByVal RangeBounds As WorksheetRangeBounds, ByVal DuplicateColumns As Variant) As Variant
+    If IsArray(DuplicateColumns) Then
+        If IsEmptyArray(DuplicateColumns) Then
+            Err.Raise vbObjectError + 1, "Class WorksheetService", "DuplicateColumns には 1 つ以上の列番号を指定してください。"
+        End If
+
+        Dim result_columns() As Variant
+        Dim column_count As Long
+        Dim column_item As Variant
+        For Each column_item In DuplicateColumns
+            If column_count = 0 Then
+                ReDim result_columns(0 To 0)
+            Else
+                ReDim Preserve result_columns(0 To column_count)
+            End If
+            result_columns(column_count) = pGetValidatedRelativeColumnIndex(RangeBounds, column_item, "DuplicateColumns")
+            column_count = column_count + 1
+        Next column_item
+
+        If column_count = 0 Then
+            Err.Raise vbObjectError + 1, "Class WorksheetService", "DuplicateColumns には 1 つ以上の列番号を指定してください。"
+        End If
+
+        pBuildDuplicateColumnsArgument = result_columns
+    Else
+        pBuildDuplicateColumnsArgument = pGetValidatedRelativeColumnIndex(RangeBounds, DuplicateColumns, "DuplicateColumns")
+    End If
+End Function
+
+Private Function pGetValidatedRelativeColumnIndex(ByVal RangeBounds As WorksheetRangeBounds, ByVal ColumnIndex As Variant, ByVal ArgumentName As String) As Long
+    Dim column_num As Long
+    column_num = pGetValidatedLong(ColumnIndex, ArgumentName)
+    If column_num < 1 Or RangeBounds.ColumnCount < column_num Then
+        Err.Raise vbObjectError + 1, "Class WorksheetService", ArgumentName & " は対象範囲内の相対列番号を指定してください。"
+    End If
+
+    pGetValidatedRelativeColumnIndex = column_num
+End Function
+
+Private Function pGetValidatedLong(ByVal TargetValue As Variant, ByVal ArgumentName As String) As Long
+    On Error GoTo INVALID_VALUE
+    If IsObject(TargetValue) Then GoTo INVALID_VALUE
+    If IsError(TargetValue) Then GoTo INVALID_VALUE
+    If IsEmpty(TargetValue) Then GoTo INVALID_VALUE
+    If IsNull(TargetValue) Then GoTo INVALID_VALUE
+    If Not IsNumeric(TargetValue) Then GoTo INVALID_VALUE
+
+    Dim result_value As Long
+    result_value = CLng(TargetValue)
+    If CDbl(TargetValue) <> CDbl(result_value) Then GoTo INVALID_VALUE
+
+    pGetValidatedLong = result_value
+    On Error GoTo 0
+    Exit Function
+
+INVALID_VALUE:
+    On Error GoTo 0
+    Err.Raise vbObjectError + 1, "Class WorksheetService", ArgumentName & " には整数を指定してください。"
+End Function
+
+Private Sub pRaiseIfNotEntireRowRange(ByVal RangeBounds As WorksheetRangeBounds, ByVal MethodName As String)
+    If RangeBounds.IsEmpty Or Not RangeBounds.IsEntireRow Then
+        Err.Raise vbObjectError + 1, "Class WorksheetService", MethodName & " には行全体の範囲を指定してください。"
+    End If
 End Sub
 
 '

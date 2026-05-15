@@ -46,10 +46,10 @@ End Function
 '* 範囲内をソートします。
 '*
 '* @param RangeBounds ソート対象の範囲。
-'* @param SortKeyAndOrder [可変長] ソートのキーとなる列番号と、昇順降順指定の組。奇数番目の要素はソートのキーとなる列の番号であり、偶数番目の要素は、xlAscending か xlDescending です。
+'* @param SortKeyAndOrder [可変長] ソートのキーとなる相対列番号と、昇順降順指定の組。列番号は RangeBounds の左端を 1 とし、1 から RangeBounds.ColumnCount までを指定します。並び順は xlAscending または xlDescending です。
 '*
 '* @details
-'* 範囲内をソートします。
+'* 範囲内をソートします。SortKeyAndOrder は列番号と並び順を 1 組として指定します。
 Public Sub Sort(ByVal RangeBounds As WorksheetRangeBounds, ParamArray SortKeyAndOrder() As Variant)
 End Sub
 
@@ -260,28 +260,28 @@ End Sub
 '* 範囲内の重複行を削除します。
 '*
 '* @param RangeBounds 重複削除対象の範囲。
-'* @param DuplicateColumns 重複判定に使う列番号配列。RangeBounds の左端を 1 とする相対列番号を指定します。
+'* @param DuplicateColumns 重複判定に使う列番号または列番号配列。RangeBounds の左端を 1 とする相対列番号を指定します。
 '*
 '* @details
-'* Excel の RemoveDuplicates と同じ判定で、指定範囲内の重複行を削除します。
+'* Excel の RemoveDuplicates と同じ判定で、指定範囲内の重複行を削除します。DuplicateColumns は 1 から RangeBounds.ColumnCount までの値を 1 つ以上指定します。
 Public Sub RemoveDuplicates(ByVal RangeBounds As WorksheetRangeBounds, ByVal DuplicateColumns As Variant)
 End Sub
 
 '* 行を挿入します。
 '*
-'* @param RangeBounds 挿入する行範囲。
+'* @param RangeBounds 挿入する行範囲。行全体の範囲だけを受け付けます。
 '*
 '* @details
-'* RangeBounds.Row から RangeBounds.FinishRow までのシート行を挿入します。
+'* RangeBounds.Row から RangeBounds.FinishRow までのシート行を挿入します。空範囲やセル範囲はエラーにします。
 Public Sub InsertRows(ByVal RangeBounds As WorksheetRangeBounds)
 End Sub
 
 '* 行を削除します。
 '*
-'* @param RangeBounds 削除する行範囲。
+'* @param RangeBounds 削除する行範囲。行全体の範囲だけを受け付けます。
 '*
 '* @details
-'* RangeBounds.Row から RangeBounds.FinishRow までのシート行を削除します。
+'* RangeBounds.Row から RangeBounds.FinishRow までのシート行を削除します。空範囲やセル範囲はエラーにします。
 Public Sub DeleteRows(ByVal RangeBounds As WorksheetRangeBounds)
 End Sub
 
@@ -297,11 +297,11 @@ End Sub
 '* 表示するアウトライン レベルを設定します。
 '*
 '* @param RangeBounds アウトライン レベルを設定する対象シートの情報。列や行の範囲情報は無視されます。
-'* @param RowLevels [省略可] 行のアウトライン レベル。
-'* @param RowLevels [省略可] 列のアウトライン レベル。
+'* @param RowLevels [省略可] 行のアウトライン レベル。0 は指定なし、1 から 8 は表示レベルです。
+'* @param ColumnLevels [省略可] 列のアウトライン レベル。0 は指定なし、1 から 8 は表示レベルです。
 '*
 '* @details
-'* 構成済みのアウトラインに対して、表示するアウトライン レベルを設定します。
+'* 構成済みのアウトラインに対して、表示するアウトライン レベルを設定します。RowLevels と ColumnLevels が両方 0 の場合は何もしません。
 Public Sub SetSheetOutlineLevel(ByVal RangeBounds As WorksheetRangeBounds, Optional ByVal RowLevels As Long = 0, Optional ByVal ColumnLevels As Long = 0)
 End Sub
 

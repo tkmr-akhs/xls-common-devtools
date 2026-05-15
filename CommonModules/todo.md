@@ -15,31 +15,11 @@
 
 ## 高優先度
 
-- [ ] [bug] WorksheetService.InsertRows / DeleteRows で行範囲以外を拒否する
-  - 詳細: `InsertRows` / `DeleteRows` は `RangeBounds.Row` から `RangeBounds.FinishRow` だけを使って `"行:行"` の Range を作るため、列範囲や通常のセル範囲を渡しても行全体の挿入・削除として実行される。特に `A:A` のような列範囲では全行相当を対象にし得る。
-  - 影響: 呼び出し側が範囲オブジェクトを誤って渡したとき、明示エラーではなくシート構造を大きく変更する可能性がある。基盤 API として、範囲単位操作と行単位操作の境界が危険に曖昧になる。
-  - 対応案: `RangeBounds.IsEntireRow` または行方向の範囲だけを受け付ける契約に固定し、列範囲、セル範囲、複数行範囲、空範囲のテストを追加する。
-
 - [ ] [bug] ObjectList / ObjectSet の検索・削除 API で要素型を検査する
   - 詳細: `ObjectList.Exists` / `GetIndexByItem` / `RemoveItem` は特殊値チェックだけで `pCheckItemType` を通さず、プリミティブ比較では `ItemObject1 = ItemObject2` の暗黙変換に任せている。そのため数値 `1` のリストに文字列 `"1"` を渡すと同一扱いになり得る。
   - 詳細: `ObjectSet.Exists` / `GetContains` / `RemoveItem` も追加時と同じ型検査を通さず、`IDuplicateCheckable` / `IEquatable` のキー生成経路では型違いの値が実装詳細由来の実行時エラーになる可能性がある。
   - 影響: 追加・更新では型を固定しているのに、検索・削除では型違いを False、暗黙一致、実行時エラーのどれにするかが揃わない。コレクション基盤として「同じ要素」の意味が操作ごとに変わる。
   - 対応案: 検索・削除系 API でも保存済み型との照合を行い、型違いは明示エラーまたは常に不一致のどちらかに統一する。数値と数値文字列、Boolean と数値、IEquatable 実装と非オブジェクト引数のテストを追加する。
-
-- [ ] [bug] WorksheetService.SetSheetOutlineLevel の既定値 0 を Excel に渡さない
-  - 詳細: `SetSheetOutlineLevel` は `RowLevels:=0`、`ColumnLevels:=0` を既定値にし、そのまま `target_sheet.Outline.ShowLevels(RowLevels:=RowLevels, ColumnLevels:=ColumnLevels)` へ渡している。Excel のアウトラインレベルは 1 以上の指定または引数省略が前提で、0 を渡すと実行時エラーになり得る。
-  - 影響: 引数省略で「変更しない」つもりの呼び出しや、行だけ・列だけを指定する呼び出しが、アウトライン操作ではなく基盤 API 側の既定値で失敗する。
-  - 対応案: `0` は未指定を表す値として扱い、行・列それぞれ 1 以上のときだけ `ShowLevels` へ渡す。`0`、行のみ、列のみ、両方指定、範囲外値のテストを追加する。
-
-- [ ] [bug] WorksheetService.Sort のキー列番号と並び順を事前検証する
-  - 詳細: `WorksheetService.Sort` は `SortKeyAndOrder` の個数が偶数であることだけを確認し、キー列番号が `RangeBounds` の列数内か、並び順が `xlAscending` / `xlDescending` かを検証していない。`0`、負数、範囲外列、無効な並び順が Excel 呼び出しへそのまま渡る。
-  - 影響: 呼び出し側の指定ミスで、対象範囲外の列をキーにしたソートや Excel 由来の実行時エラーが発生する。データ並べ替えの基盤 API として、誤ったデータ移動の原因を特定しにくい。
-  - 対応案: キー列番号は `1 To RangeBounds.ColumnCount`、並び順は未指定時の既定値または Excel の有効値だけに制限する。`0`、負数、列数超過、無効な並び順のテストを追加する。
-
-- [ ] [bug] WorksheetService.RemoveDuplicates の重複判定列を対象範囲内に検証する
-  - 詳細: `RemoveDuplicates` は `DuplicateColumns` をそのまま Excel `Range.RemoveDuplicates` に渡しており、0、負数、対象範囲の列数超過、空配列、絶対列番号の誤指定を基盤側で検出しない。
-  - 影響: 呼び出し側の指定ミスが Excel 由来の実行時エラーになるか、意図と違う列を基準にした行削除として実行される可能性がある。行削除系 API として失敗時の影響が大きい。
-  - 対応案: 判定列は `1 To RangeBounds.ColumnCount` の相対列番号に統一し、Scalar / Array の双方で全要素を検証する。空配列、0、負数、範囲外、正常複数列のテストを追加する。
 
 - [ ] [bug] WorkbookService.ActivateWorksheet で対象ブックを先にアクティブ化する
   - 詳細: `WorkbookService.ActivateWorksheet` は `target_sheet.Activate` を直接呼ぶだけで、対象ブックを先にアクティブにしていない。

@@ -15,12 +15,6 @@
 
 ## 高優先度
 
-- [ ] [bug] WorksheetService.ReadCell(GetText:=True) の副作用と表示形式戻り値を修正する
-  - 詳細: `ReadCell(GetText:=True)` は `Range.Text` を読むために列幅を変更するが、元の `ColumnWidth` を `Long` に保存しているため、小数を含む列幅を正確に復元できない。途中でエラーが発生した場合に列幅が戻らない経路もある。
-  - 詳細: `GetText:=False` では `NumberFormatLocal` を返す一方、`GetText:=True` では `NumberFormat` を返しており、インターフェイスコメントと `WriteCell` の表示形式指定と揃っていない。
-  - 影響: 読み取り API の呼び出しだけでシートの列幅が変わる可能性があり、表示形式の戻り値もロケール依存の読み書きで不整合になる。
-  - 対応案: 列幅は `Double` で退避し、エラー時も復元する。`NumberFormat` の返却値は `NumberFormatLocal` に統一し、列幅保持とローカル表示形式のテストを追加する。
-
 - [ ] [bug] WorkbookService.CloseWorkbook の確認表示契約を守る
   - 詳細: `WorkbookService.CloseWorkbook` は `Force:=False` のとき確認画面を表示する契約だが、実装は `Workbooks(Book).Close(SaveChanges:=Not Force)` となっており、確認なしで保存して閉じる可能性がある。
   - 影響: 利用者が確認してから保存可否を判断する前提の処理で、意図しない変更をブックへ保存してしまう可能性がある。
@@ -492,7 +486,7 @@
 ## TODO 整理メモ
 
 - `CloseWorkbook` は保存確認契約のバグ、`OpenWorkbook` は API 名とテンプレート作成挙動の仕様改善として分ける。WorkbookService 内の話でも、バグと非バグは混ぜない。
-- `WorksheetService` の通常数式コピーはコピー処理のバグ、`ReadCell(GetText:=True)` は読み取り副作用と表示形式戻り値のバグ、`WorksheetService / IWorksheetService` 分割は責務整理として分ける。
+- `WorksheetService` の通常数式コピーはコピー処理のバグ、`WorksheetService / IWorksheetService` 分割は責務整理として分ける。
 - `TextFileEntity` のファイルモード、EOF、明示 Close 漏れは同じファイルライフサイクルのバグとして統合する。文字コードと改行コード指定は仕様拡張なので別 TODO のままにする。
 - `FileSystemService` の実装バグ、`Lib_Common` のパス/Excel アドレス境界仕様、`FileSystemServiceTestDouble.CreateDirectory` のテストダブルキー不整合は、それぞれ実装層・仕様境界・テスト支援層の違いがあるため分ける。
 - `UnitTestUtils` のキー生成はテストダブル記録基盤の整理へ統合する。ただし `CreateDirectory` の戻り値キー不整合は特定メソッドの観測可能なテスト不足なので、横断リファクタリングとは別に残す。

@@ -1160,6 +1160,59 @@ End Sub
 '    Assert.IsTrue IsEmpty(actual_value))
 'End Sub
 
+
+Public Sub Test_ReadCell_GetText_PreservesFractionalColumnWidth(ByVal Assert As UnitTestAssert)
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+    target_sheet.Cells(12, 2).Value = DateSerial(2026, 5, 15)
+    target_sheet.Cells(12, 2).NumberFormatLocal = "yyyy/mm/dd"
+    target_sheet.Columns(2).ColumnWidth = 4.71
+
+    Dim expected_width As Double
+    expected_width = target_sheet.Columns(2).ColumnWidth
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=12, Column:=2, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Dim actual_value As String
+    Call sheet_srv.ReadCell(range_bounds, actual_value, GetText:=True)
+
+    Dim actual_width As Double
+    actual_width = target_sheet.Columns(2).ColumnWidth
+
+    ' Assert
+    Assert.EqualsNumeric expected_width, actual_width
+End Sub
+
+Public Sub Test_ReadCell_GetText_ReturnsNumberFormatLocal(ByVal Assert As UnitTestAssert)
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+    target_sheet.Cells(12, 2).Value = 123
+
+    Dim expected_format As String
+    expected_format = target_sheet.Cells(12, 2).NumberFormatLocal
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=12, Column:=2, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Dim actual_value As String
+    Dim actual_format As String
+    Call sheet_srv.ReadCell(range_bounds, actual_value, NumberFormat:=actual_format, GetText:=True)
+
+    ' Assert
+    Assert.Equals expected_format, actual_format
+End Sub
+
 Public Sub Test_ReadCell_EmptyCellWithGetText_ReturnsEmptyString(ByVal Assert As UnitTestAssert)
     ' Arrange
     Dim target_sheet As Worksheet

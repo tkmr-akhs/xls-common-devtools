@@ -720,20 +720,47 @@ Private Sub pReadCellText(ByVal TargetCell As Range, ByRef Expression As String,
     Dim result_string As String
     result_string = TargetCell.Text
     
+    Dim target_column As Range
+    Dim current_width As Double
+    Dim width_changed As Boolean
+    
     If result_string <> "" And Replace(result_string, "#", "") = "" Then
-        Dim current_width As Long
-        current_width = TargetCell.Parent.Columns(TargetCell.Column).ColumnWidth
-        TargetCell.Parent.Columns(TargetCell.Column).ColumnWidth = 254.88
+        Set target_column = TargetCell.Parent.Columns(TargetCell.Column)
+        current_width = target_column.ColumnWidth
+        
+        On Error GoTo RESTORE_COLUMN_WIDTH
+        target_column.ColumnWidth = 254.88
+        width_changed = True
         result_string = TargetCell.Text
-        TargetCell.Parent.Columns(TargetCell.Column).ColumnWidth = current_width
+        target_column.ColumnWidth = current_width
+        width_changed = False
+        On Error GoTo 0
         
         If result_string <> "" And Replace(result_string, "#", "") = "" Then
-            result_string = "" & TargetCell.Value
+            If IsError(TargetCell.Value) Then
+                result_string = pConvertErrorToString(TargetCell.Value)
+            Else
+                result_string = CStr(TargetCell.Value)
+            End If
         End If
     End If
     
     Expression = result_string
-    NumberFormat = TargetCell.NumberFormat
+    NumberFormat = TargetCell.NumberFormatLocal
+    Exit Sub
+    
+RESTORE_COLUMN_WIDTH:
+    Dim err_number As Long
+    Dim err_source As String
+    Dim err_description As String
+    err_number = Err.Number
+    err_source = Err.Source
+    err_description = Err.Description
+    
+    On Error Resume Next
+    If width_changed Then target_column.ColumnWidth = current_width
+    On Error GoTo 0
+    Err.Raise err_number, err_source, err_description
 End Sub
 
 '

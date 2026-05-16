@@ -32,6 +32,9 @@ Public Const G_COL_MAX As Long = 16384
 '* 行番号および列番号の省略値
 Public Const G_OMIT_CELL_INDEX As Long = -2147483648#
 
+'* WorksheetService.SetAlignment で設定を変更しないことを表す値
+Public Const G_ALIGNMENT_NO_CHANGE As Long = -2147483648#
+
 '* ファイルシステムのパス区切り文字
 Public Const G_FS_PATH_SEP As String = "\"
 

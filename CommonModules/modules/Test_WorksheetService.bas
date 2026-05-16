@@ -4141,6 +4141,144 @@ Public Sub Test_SetAlignment_RightBottom_SetsHorizontalAndVerticalAlignment(ByVa
     Assert.EqualsNumeric CLng(xlRight), CLng(target_sheet.Range("B2").HorizontalAlignment)
     Assert.EqualsNumeric CLng(xlBottom), CLng(target_sheet.Range("B2").VerticalAlignment)
 End Sub
+
+Public Sub Test_SetAlignment_OmittedArguments_DoNotChangeExistingAlignment(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+
+    target_sheet.Range("B2").Value = "test"
+    target_sheet.Range("B2").HorizontalAlignment = xlLeft
+    target_sheet.Range("B2").VerticalAlignment = xlTop
+    target_sheet.Range("B2").Orientation = 45
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=2, Column:=2, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Err.Clear
+    sheet_srv.SetAlignment range_bounds
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then
+        On Error GoTo 0
+        Exit Sub
+    End If
+    On Error GoTo 0
+
+    Assert.EqualsNumeric CLng(xlLeft), CLng(target_sheet.Range("B2").HorizontalAlignment)
+    Assert.EqualsNumeric CLng(xlTop), CLng(target_sheet.Range("B2").VerticalAlignment)
+    Assert.EqualsNumeric 45, CLng(target_sheet.Range("B2").Orientation)
+End Sub
+
+Public Sub Test_SetAlignment_NoChangeValue_SkipsOnlySpecifiedProperties(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+
+    target_sheet.Range("B2").Value = "test"
+    target_sheet.Range("B2").HorizontalAlignment = xlLeft
+    target_sheet.Range("B2").VerticalAlignment = xlTop
+    target_sheet.Range("B2").IndentLevel = 2
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=2, Column:=2, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Err.Clear
+    Call sheet_srv.SetAlignment( _
+            range_bounds, _
+            HorizontalAlignment:=G_ALIGNMENT_NO_CHANGE, _
+            VerticalAlignment:=xlBottom, _
+            IndentLevel:=G_ALIGNMENT_NO_CHANGE)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then
+        On Error GoTo 0
+        Exit Sub
+    End If
+    On Error GoTo 0
+
+    Assert.EqualsNumeric CLng(xlLeft), CLng(target_sheet.Range("B2").HorizontalAlignment)
+    Assert.EqualsNumeric CLng(xlBottom), CLng(target_sheet.Range("B2").VerticalAlignment)
+    Assert.EqualsNumeric 2, CLng(target_sheet.Range("B2").IndentLevel)
+End Sub
+
+Public Sub Test_SetAlignment_ZeroOrientation_SetsValue(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+
+    target_sheet.Range("B2").Value = "test"
+    target_sheet.Range("B2").Orientation = 45
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=2, Column:=2, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Err.Clear
+    Call sheet_srv.SetAlignment( _
+            range_bounds, _
+            Orientation:=0)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then
+        On Error GoTo 0
+        Exit Sub
+    End If
+    On Error GoTo 0
+
+    Assert.EqualsNumeric CLng(xlHorizontal), CLng(target_sheet.Range("B2").Orientation)
+End Sub
+
+Public Sub Test_SetAlignment_ZeroIndentLevel_SetsValue(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim target_sheet As Worksheet
+    Set target_sheet = pPrepareTestSheet("test_output")
+
+    target_sheet.Range("B2").Value = "test"
+    target_sheet.Range("B2").HorizontalAlignment = xlLeft
+    target_sheet.Range("B2").IndentLevel = 2
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=2, Column:=2, Sheet:="test_output")
+
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    ' Act
+    Err.Clear
+    Call sheet_srv.SetAlignment( _
+            range_bounds, _
+            IndentLevel:=0)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then
+        On Error GoTo 0
+        Exit Sub
+    End If
+    On Error GoTo 0
+
+    Assert.EqualsNumeric 0, CLng(target_sheet.Range("B2").IndentLevel)
+End Sub
+
 ' -----------------------------------------------------------------------------
 ' EvaluateFormula / XLookup
 ' -----------------------------------------------------------------------------

@@ -10,6 +10,7 @@ Attribute VB_Exposed = False
 Option Explicit
 
 Private WithEvents pTargetSheet As Worksheet
+Attribute pTargetSheet.VB_VarHelpID = -1
 Private pTargetAddress As String
 Private pMarkerAddress As String
 

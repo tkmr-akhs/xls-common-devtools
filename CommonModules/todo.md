@@ -15,11 +15,6 @@
 
 ## 高優先度
 
-- [ ] [bug] WorksheetService.SetAlignment の垂直配置で横配置専用の `xlFill` を設定しない
-  - 詳細: `SetAlignment` の `VerticalAlignment` 分岐に `Case xlFill` があり、該当時に `target_range.VerticalAlignment = xlFill` を実行する。`xlFill` は水平配置用の定数で、垂直配置としては Excel が受け付けないため、`VerticalAlignment:=xlFill` を渡すと基盤側の検証ではなく Excel の実行時エラーになる。
-  - 影響: 呼び出し側が `SetAlignment` の公開引数に Excel 配置定数を渡したとき、横配置では有効な `xlFill` が縦配置でも有効に見える。書式設定 API として、許可している分岐と Excel が実際に受け付ける値がずれている。
-  - 対応案: 垂直配置では `xlTop` / `xlCenter` / `xlBottom` / `xlJustify` / `xlDistributed` だけを許可し、`xlFill` は明示エラーまたは既定値扱いにする。`VerticalAlignment:=xlFill`、有効な垂直配置値、既定値のテストを追加する。
-
 - [ ] [bug] WorkbookService.IsSaved をパス区切り文字ではなくブック状態で判定する
   - 詳細: `IsSaved` は `Workbooks(Book).FullName` に `G_FS_PATH_SEP` が含まれるかだけで保存済み判定している。保存先が URL / SharePoint / OneDrive など通常の `\` を含まない表現になる場合や、Excel が返す `FullName` の形式差で、実際には保存済みでも False になり得る。
   - 影響: 保存済み判定を前提にした上書き確認、バックアップ、閉じる前の分岐で、保存済みブックを未保存扱いにする。WorkbookService の基盤 API として、ブック名文字列の見た目に依存した判定は環境差に弱い。
@@ -79,6 +74,10 @@
 
 ## 中優先度
 
+- [ ] [bug] FileSystemServiceTestDouble.CreateDirectory の既定戻り値を実装契約へ合わせる
+  - 詳細: `FileSystemService.CreateDirectory` は対象ディレクトリが既に存在する場合に `False` を返し、親ディレクトリがなく `Recursive:=False` の場合は明示エラーにする。一方で `FileSystemServiceTestDouble.CreateDirectory` は `CreateDirectory_Values` に登録がない限り常に `True` を返し、`IsDirectory_Values` や親ディレクトリ有無を見ない。
+  - 影響: 呼び出し側の「既存ディレクトリなら作成しない」「親がないなら失敗する」という分岐をテストダブルで検証できず、実ファイルシステムでは no-op やエラーになる処理を、単体テストでは作成成功として通してしまう。
+  - 対応案: 未登録時の既定動作を実装に近づけるか、既定は未設定エラーにしてテストごとに戻り値を明示する。既存ディレクトリ、親なし、通常作成、登録済み戻り値のテストを追加する。
 - [ ] [ref] WorksheetService.CopyCell / CopyRange の配列数式コピー失敗時の復元処理を明示する
   - 詳細: `pCopyCellCore` の配列数式経路は、`src_cell.FormulaArray` を退避した後に `src_cell = formula_str` でコピー元を通常数式へ一時変更し、後続処理の後で `src_cell.FormulaArray = formula_str` へ戻している。既存の失敗系テストではコピー元破壊は再現していないが、復元責務がコード上は通常数式経路ほど明示されていない。
   - 影響: 現時点では実害未確認だが、将来の配列数式コピー処理の変更や別の失敗経路追加時に、コピー元・コピー先の復元契約を読み取りづらい。
@@ -94,7 +93,7 @@
   - 影響: 等価要素を含む並び替えで不要な入れ替えが発生し、安定性や比較契約に依存する処理の前提が崩れる可能性がある。
   - 対応案: 昇順・降順とも「小さい」「大きい」「等価」を分けて判定し、等価要素を入れ替えないテストを追加する。
 
-- [ ] [bug] FileSystemService.GetLastModified で存在しないパスを明示エラーにする
+- [ ] [ux] FileSystemService.GetLastModified で存在しないパスを明示エラーにする
   - 詳細: `GetLastModified` は `IsFile(path_str)` が False の場合に `pFSO.GetFolder(path_str)` へ進むため、存在しないパスやファイル/フォルダー以外の指定が、共通基盤の明示エラーではなく FSO の実行時エラーになる。
   - 影響: 更新日時比較や最新ファイル選択の前処理で、対象不存在とフォルダー取得失敗の区別がつかない。テストダブル側も未登録値は `UnitTestUtils.GetValue` のキー不一致エラーで、実装と同じ契約を固定しにくい。
   - 対応案: `PathExists` / `IsFile` / `IsDirectory` を使って、存在しないパス、ファイル、フォルダーを入口で分岐し、存在しない場合は `Source:="Class FileSystemService"` の明示エラーにする。存在しないファイル、存在しないフォルダー、正常ファイル、正常フォルダーのテストを追加する。
@@ -104,7 +103,7 @@
   - 影響: 実装の `TextFileEntity` では未オープン、読み書きモード違反がエラーになるのに、テストダブルでは成功するため、呼び出し側の Open/Close 順序やモード指定ミスをテストで見逃す。
   - 対応案: `pCheckOpened` 相当と読み取り/書き込みモード検査をテストダブルにも入れる。未オープン Read/Write、読み取りモード Write、書き込みモード Read、Close 後の Read/Write をテストに追加する。
 
-- [ ] [bug] WorkbookServiceTestDouble.RemoveVBComponents の配列キー生成を衝突しない形にする
+- [ ] [req] WorkbookServiceTestDouble.RemoveVBComponents の配列キー生成を衝突しない形にする
   - 詳細: `RemoveVBComponents` は `pBuildComponentNamesKey(ComponentNames)` で配列をカンマ連結した文字列にしてから `UnitTestUtils` のキーへ渡している。配列要素内のカンマをエスケープせず、要素型や配列境界も含めないため、`Array("A,B", "C")` と `Array("A", "B,C")` のような指定を区別できない。
   - 影響: VBComponent 削除のスパイ記録で別の呼び出しが同じキーになり、テストが誤った呼び出しを検出または見逃す可能性がある。`Null` や `CVErr(...)` を含む配列では `CStr` 変換時の実行時エラーにもなる。
   - 対応案: 配列引数は要素数、境界、型タグ、エスケープ済み値を含めてキー化するか、`UnitTestUtils` 側の配列キー対応へ寄せる。カンマを含むモジュール名、単一要素配列とスカラー、特殊値配列のテストを追加する。
@@ -169,18 +168,18 @@
   - 影響: メッセージ表示系の補助 API に不正または小さすぎるページサイズが渡ると処理が戻らない可能性がある。
   - 対応案: `PageSize` の下限を入口で検証するか、`pTakeString` が 1 文字も消費できない場合は明示エラーにする。`PageSize` が 0、負数、1、マルチバイト境界のテストを追加する。
 
-- [ ] [bug] Lib_Common の配列境界・列挙ヘルパーの空配列と多次元配列契約を揃える
+- [ ] [spec] Lib_Common の配列境界・列挙ヘルパーの空配列と多次元配列契約を揃える
   - 詳細: `GetArrayBounds` は未初期化動的配列で 1 次元目の `LBound` / `UBound` が失敗すると、出力側の `LBoundArray` / `UBoundArray` も未初期化のまま返す。
   - 詳細: `GetArrayEnumerator` / `Enumerator` は `LBound` / `UBound` と `pArray(pIndex)` を 1 次元配列前提で使うため、`ReadRange` の戻り値のような 2 次元配列では列挙中に実行時エラーになる。
   - 影響: 空配列、未初期化配列、2 次元配列を共通配列ヘルパーへ渡したとき、入口で契約違反として落ちるのではなく、利用途中の別箇所で失敗する。呼び出し側ごとに防御分岐が増える。
   - 対応案: 1 次元配列専用 API と多次元配列対応 API を分け、サポート外は入口で明示エラーにする。空配列、未初期化配列、1 次元/2 次元配列のテストを追加する。
 
-- [ ] [bug] Lib_IPv4.ParseIpAddressAndMask でマスク省略入力を明示的に扱う
+- [ ] [spec] Lib_IPv4.ParseIpAddressAndMask でマスク省略入力を明示的に扱う
   - 詳細: `G_IPV4_NW_RE` と `WellFormedAddress` はマスクなし IPv4 も扱えるように見えるが、`ParseIpAddressAndMask` は `Split(..., "/")` 後に `ip_arr(1)` を無条件参照する。`"192.168.0.1"` のようにマスク部がない入力では、形式エラーや `/32` 扱いではなく添字範囲外の実行時エラーになる。
   - 影響: IP アドレス単体をホスト `/32` として扱いたい呼び出しや、入力検証で正規表現を通した後の解析が、基盤 API 由来の分かりにくいエラーになる。
   - 対応案: `ParseIpAddressAndMask` 側でマスク省略を `/32` とするか明示的な形式エラーにする。`WellFormedAddress` との責務分担を決め、マスクなし、`/24`、`/255.255.255.0`、空マスクのテストを追加する。
 
-- [ ] [bug] Lib_IPv4.NarrowNetwork の狭小化上限をコメントと実装で揃える
+- [ ] [spec] Lib_IPv4.NarrowNetwork の狭小化上限をコメントと実装で揃える
   - 詳細: `NarrowNetwork` のコメントは「マスク長が 32 に達している場合」にエラーと説明しているが、実装は `29 < MaskLength And MaskLength < 33` で `/30` と `/31` も拒否している。`/30` から `/31`、`/31` から `/32` を作るべきか、仕様として禁止するのかがコードから読み取れない。
   - 影響: IPv4 範囲を機械的に細分化する呼び出しで、まだ狭められるネットワークが基盤 API 側で止まる可能性がある。逆に `/31` や `/32` を扱わない方針なら、利用側がコメントを信じて境界条件を誤る。
   - 対応案: `/30`、`/31`、`/32` の扱いを仕様化し、実装・コメント・テストを揃える。ホストルート、ポイントツーポイント用途の `/31` を扱うかも合わせて決める。
@@ -555,6 +554,26 @@
   - 影響: 呼び出し側やテストが失敗理由を `Source` / `Description` で追うとき、基盤クラスの契約違反なのか内部 Dictionary の例外なのかが読み取りにくい。エラー番号を基盤独自に揃える作業は低優先度の利便性改善として扱う。
   - 対応案: 公開 API の入口で重複・存在・インデックス範囲を検証し、`Source:="Class ..."` の独自エラーへ変換する。重複追加、空集合アクセス、範囲外更新、存在しない削除のエラー番号・Source・Description をテストで固定する。
 
+- [ ] [spec] WorkbookService / WorksheetService の空一覧・検索結果戻り値を固定する
+  - 詳細: `WorkbookService.GetAllWorkbook` は `ThisWorkbook` 以外のブックがない場合に未初期化の `String()` を返す。`WorksheetService.Find` / `WorkbookService.Find` も検索結果なしや空範囲では未初期化の `WorksheetRangeBounds()` を返す。
+  - 影響: 呼び出し側が空結果を通常ケースとして扱うだけでも、未初期化配列判定や `IsEmptyArray` を知っている必要がある。ファイル一覧や `ObjectList` / `ObjectSet` の空変換と同様に、基盤 API 間で空結果の扱いが揺れる。
+  - 対応案: 空配列、未初期化配列、または専用の `Has...` / `Count` 付き結果型のどれを返すかを仕様化し、ブック 0 件、検索 0 件、検索 1 件、複数件のテストを追加する。
+
+- [ ] [ref] WorksheetService.Find の検索状態リセットと継続判定を局所化する
+  - 詳細: `Find` は検索後に `pResetFindState` で `A1:A2.Find What:=""` を実行し、Excel の Find 設定を副作用的に戻している。また継続判定は `found_cell.Address <> first_cell.Address` だけで、探索範囲が 1 シートである前提がコード上に埋め込まれている。
+  - 影響: 現状の `target_range.FindNext` では同一範囲内を探すため直ちにバグではないが、検索 API 拡張や複数シート検索の共通化時に、Excel アプリケーション全体の検索状態や同一アドレス別シートを誤って扱う種になる。
+  - 対応案: 検索状態に依存しない `Find` 呼び出し方を明示し、終了判定は `Address(External:=True)` または対象範囲内の同一セル判定へ寄せる。Find 状態の保存/復元が必要かもテストで固定する。
+
+- [ ] [spec] StartsWith / EndsWith の空検索文字列の扱いを固定する
+  - 詳細: `StartsWith(Expression, SearchString:="")` / `EndsWith(..., "")` は `Len(Expression) < 1` などで `False` を返す。一般的な文字列 API では空検索文字列を常に一致と扱うことが多く、現在の挙動を仕様として読むにはコメントが足りない。
+  - 影響: 設定値から接頭辞・接尾辞条件を組み立てる呼び出し側で、空条件を「条件なし」とするか「常に不一致」とするかが読み取りにくい。
+  - 対応案: 空検索文字列は `True` / `False` / 明示エラーのどれにするか決め、空文字列同士、非空文字列と空検索文字列、通常一致/不一致のテストを追加する。
+
+- [ ] [ux] AddButton / ClearButton の削除対象を作成済みボタンに限定する
+  - 詳細: `ClearButton` は `OnAction <> ""` の全 `Shape` を削除する。`AddButton` で作成した再実行ボタン以外でも、マクロ割り当て済み図形が同じシートにあると削除対象になる。
+  - 影響: `UNIT_TEST_SHEET` では通常問題になりにくいが、共通 GUI ヘルパーとして呼ぶ場合、利用者が配置したマクロ付き図形を削除する可能性がある。
+  - 対応案: 作成時の名前プレフィックス、`AlternativeText`、タグ相当のメタデータなどで識別し、`ClearButton` は対象識別条件を引数で指定できるようにする。
+
 ## TODO 整理メモ
 
 - `OpenWorkbook` は API 名とテンプレート作成挙動の仕様改善として扱う。WorkbookService 内の話でも、バグと非バグは混ぜない。
@@ -576,6 +595,11 @@
   - 保留解除条件: 必要とされたら
 
 ## 対応しないと決定した事項
+
+- [x] [ux] WorksheetRangeBounds.Transform で空範囲を非空範囲へ戻さない
+  - 詳細: `WorksheetRangeBounds` の空範囲は、位置情報を持たない単なる空ではなく、開始位置や片側の行・列範囲を保持したゼロサイズ範囲として扱われる。例えば列方向に交差しない結果として `Row:=1, Column:=3, FinishRow:=10, FinishColumn:=0` になった空範囲へ `Transform(AddColumn:=1)` を呼ぶと、保持していた位置と行範囲を使って `C1:C10` の非空範囲になる。
+  - 影響: 空範囲を「位置を持ったゼロサイズ範囲」と読むか、「常に処理対象なし」と読むかで、`Transform` の挙動が直感に合わない可能性がある。
+  - 結論: 対応しない。`WorksheetRangeBounds` は位置情報を持った空範囲を表現しており、`Transform` により行数・列数を与え直して非空範囲へ復活できることは現行設計として自然である。既存ユニットテストでもこの挙動を明示的に期待しているため、バグではなく仕様理解上の注意点として扱う。
 
 - [x] [bug] WorksheetService.CopyRange の部分配列数式コピーで非アンカーセルを書き換えない
   - 詳細: `CopyRange` が配列数式のアンカーではないセルを処理起点にした場合、非アンカーセルへの一時書き込みにより Excel の「配列の一部を変更できない」系エラーになるという想定だった。

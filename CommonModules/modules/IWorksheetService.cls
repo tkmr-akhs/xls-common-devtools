@@ -360,13 +360,18 @@ End Sub
 '* セル内の配置を設定する。
 '*
 '* @param RangeBounds 設定する対象の範囲情報。
+'* @param HorizontalAlignment 水平方向の配置。G_ALIGNMENT_NO_CHANGE の場合は変更しない。
+'* @param VerticalAlignment 垂直方向の配置。G_ALIGNMENT_NO_CHANGE の場合は変更しない。
+'* @param Orientation 文字の方向。G_ALIGNMENT_NO_CHANGE の場合は変更しない。
+'* @param IndentLevel インデント レベル。G_ALIGNMENT_NO_CHANGE の場合は変更しない。
 '*
 '* @details
 '* セル内の配置を設定する。
+'* G_ALIGNMENT_NO_CHANGE を指定した項目は既存設定を変更しない。
 Public Sub SetAlignment( _
         ByVal RangeBounds As WorksheetRangeBounds, _
-        Optional ByVal HorizontalAlignment As Long = xlGeneral, _
-        Optional ByVal VerticalAlignment As Long = xlBottom, _
-        Optional ByVal Orientation As Long = 0, _
-        Optional ByVal IndentLevel As Long = 0)
+        Optional ByVal HorizontalAlignment As Long = G_ALIGNMENT_NO_CHANGE, _
+        Optional ByVal VerticalAlignment As Long = G_ALIGNMENT_NO_CHANGE, _
+        Optional ByVal Orientation As Long = G_ALIGNMENT_NO_CHANGE, _
+        Optional ByVal IndentLevel As Long = G_ALIGNMENT_NO_CHANGE)
 End Sub

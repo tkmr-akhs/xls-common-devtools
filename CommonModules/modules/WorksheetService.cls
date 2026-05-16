@@ -28,26 +28,26 @@ Public Function Find( _
         Optional ByVal LookAtWhole As Boolean = True, _
         Optional ByVal MatchCase As Boolean = True, _
         Optional ByVal MatchByte As Boolean = True) As WorksheetRangeBounds()
-    
+
     If RangeBounds.IsEmpty Then Exit Function
 
     Dim target_sheet As Worksheet
     Set target_sheet = pGetWorksheet(RangeBounds)
-    
+
     Dim look_in As Long
     If LookInValues Then
         look_in = xlValues
     Else
         look_in = xlFormulas
     End If
-    
+
     Dim look_at As Long
     If LookAtWhole Then
         look_at = xlWhole
     Else
         look_at = xlPart
     End If
-    
+
     Dim target_range As Range
     If RangeBounds.IsEntireSheet Then
         ' シート全体を検索
@@ -56,7 +56,7 @@ Public Function Find( _
         ' 範囲を検索
         Set target_range = target_sheet.Range(RangeBounds.ToString(CellOnly:=True))
     End If
-    
+
     ' 1 個目を検索
     Dim first_cell As Range
     Set first_cell = target_range.Find( _
@@ -69,13 +69,13 @@ Public Function Find( _
             MatchCase:=MatchCase, _
             MatchByte:=MatchByte, _
             SearchFormat:=False)
-    
+
     ' 1 個も見つからない場合は即終了
     If first_cell Is Nothing Then
         Call pResetFindState(target_sheet)
         Exit Function
     End If
-    
+
     Dim result_arr() As WorksheetRangeBounds
     Dim found_cell As Range
     Set found_cell = first_cell
@@ -83,10 +83,10 @@ Public Function Find( _
         Call pAddItemToRangeBoundsArray(result_arr, found_cell)
         Set found_cell = target_range.FindNext(After:=found_cell)
     Loop While found_cell.Address <> first_cell.Address
-    
+
     ' 完全一致を解除する (通常使用時に完全一致は扱いづらい)
     Call pResetFindState(target_sheet)
-    
+
     Find = result_arr
 End Function
 Private Function IWorksheetService_Find( _
@@ -96,7 +96,7 @@ Private Function IWorksheetService_Find( _
         Optional ByVal LookAtWhole As Boolean = True, _
         Optional ByVal MatchCase As Boolean = True, _
         Optional ByVal MatchByte As Boolean = True) As WorksheetRangeBounds()
-    
+
     IWorksheetService_Find = Find( _
             What, RangeBounds, _
             LookInValues:=LookInValues, _
@@ -218,20 +218,20 @@ Public Sub WriteCell( _
         Optional ByVal ClearWhenEmpty As Boolean = True, _
         Optional ByVal IgnoreEmpty As Boolean = False, _
         Optional ByVal TypeConvert As Boolean = True)
-    
+
     If RangeBounds.IsEmpty Then Exit Sub
     If Not RangeBounds.IsCell Then Err.Raise vbObjectError + 1, "Class WorksheetService", "RangeBounds がセルではありません。(" & RangeBounds.ToString() & ")"
-    
+
     Dim target_cell As Range
     Set target_cell = pGetCell(RangeBounds)
-    
+
     If Expression = "" And IgnoreEmpty Then Exit Sub
-    
+
     ' 表示形式を設定する
     If NumberFormat <> "" Then
         target_cell.NumberFormatLocal = NumberFormat
     End If
-    
+
     ' 空白の処理
     If Expression = "" Then
         If ClearWhenEmpty Then
@@ -244,7 +244,7 @@ Public Sub WriteCell( _
         End If
         Exit Sub
     End If
-    
+
     If AsFormula Then
         ' 通常数式の処理
         target_cell.Formula = Expression
@@ -256,24 +256,24 @@ Public Sub WriteCell( _
                 target_cell.Value = err_val  ' CVErr(...) をセット
                 Exit Sub
             End If
-            
+
             Dim long_value As Long
             Dim double_value As Double
             Dim long_error As Long
             Dim double_error As Long
-            
+
             On Error Resume Next
-            
+
             Err.Clear
             long_value = CLng(Expression)
             long_error = Err.Number
-            
+
             Err.Clear
             double_value = CDbl(Expression)
             double_error = Err.Number
-            
+
             On Error GoTo 0
-            
+
             If long_error = 0 Or double_error = 0 Then
                 If long_error = 0 And double_error = 0 Then
                     If double_value - CDbl(long_value) = 0# Then
@@ -288,7 +288,7 @@ Public Sub WriteCell( _
                 End If
                 Exit Sub
             End If
-            
+
             Dim bool_value As Boolean
             Dim bool_error As Long
             On Error Resume Next
@@ -301,7 +301,7 @@ Public Sub WriteCell( _
                 target_cell.Value = bool_value
                 Exit Sub
             End If
-            
+
             Dim date_value As Date
             Dim date_error As Long
             On Error Resume Next
@@ -314,7 +314,7 @@ Public Sub WriteCell( _
                 target_cell.Value = date_value
                 Exit Sub
             End If
-            
+
             Dim currency_value As Currency
             Dim currency_error As Long
             On Error Resume Next
@@ -328,7 +328,7 @@ Public Sub WriteCell( _
                 Exit Sub
             End If
         End If
-        
+
         ' 文字列として処理
         Dim target_was_protected As Boolean
         target_was_protected = target_cell.Worksheet.ProtectContents
@@ -381,7 +381,7 @@ Private Sub IWorksheetService_WriteCell( _
         Optional ByVal ClearWhenEmpty As Boolean = True, _
         Optional ByVal IgnoreEmpty As Boolean = False, _
         Optional ByVal TypeConvert As Boolean = True)
-    
+
     Call WriteCell( _
             RangeBounds, Expression, _
             NumberFormat:=NumberFormat, AsFormula:=AsFormula, ClearWhenEmpty:=ClearWhenEmpty, IgnoreEmpty:=IgnoreEmpty, TypeConvert:=TypeConvert)
@@ -411,10 +411,10 @@ End Sub
 '
 Public Sub WriteArrayFormula(ByVal RangeBounds As WorksheetRangeBounds, ByVal FormulaArray As String)
     If RangeBounds.IsEmpty Then Exit Sub
-    
+
     Dim target_range As Range
     Set target_range = pGetRange(RangeBounds)
-    
+
     target_range.FormulaArray = FormulaArray
 End Sub
 Private Sub IWorksheetService_WriteArrayFormula(ByVal RangeBounds As WorksheetRangeBounds, ByVal FormulaArray As String)
@@ -536,7 +536,7 @@ Private Function pGetFormulaLiteral(ByVal Value As Variant) As String
         pGetFormulaLiteral = """"""
         Exit Function
     End If
-    
+
     Select Case VarType(Value)
      Case vbBoolean
         If CBool(Value) Then
@@ -654,10 +654,10 @@ End Function
 Public Function ReadCell(ByVal RangeBounds As WorksheetRangeBounds, Optional ByRef Expression As String = "", Optional ByRef NumberFormat As String = "", Optional ByVal GetText As Boolean = False) As String
     If RangeBounds.IsEmpty Then Exit Function
     If Not RangeBounds.IsCell Then Err.Raise vbObjectError + 1, "Class WorksheetService", "RangeBounds がセルではありません。(" & RangeBounds.ToString() & ")"
-    
+
     Dim target_cell As Range
     Set target_cell = pGetCell(RangeBounds)
-    
+
     If GetText Then
         Call pReadCellText(target_cell, Expression, NumberFormat)
     Else
@@ -674,10 +674,10 @@ End Function
 '
 Public Function ReadRange(ByVal RangeBounds As WorksheetRangeBounds) As Variant()
     If RangeBounds.IsEmpty Then Exit Function
-    
+
     Dim target_range As Range
     Set target_range = pGetRange(RangeBounds)
-    
+
     If RangeBounds.IsCell Then
         Dim result_value(1 To 1, 1 To 1) As Variant
         result_value(1, 1) = target_range.Value
@@ -695,10 +695,10 @@ End Function
 '
 Public Function EvaluateFormula(ByVal ContextRangeBounds As WorksheetRangeBounds, ByVal Formula As String) As Variant
     If ContextRangeBounds.IsEmpty Then Exit Function
-    
+
     Dim target_sheet As Worksheet
     Set target_sheet = pGetWorksheet(ContextRangeBounds)
-    
+
     EvaluateFormula = target_sheet.Evaluate(Formula)
 End Function
 Private Function IWorksheetService_EvaluateFormula(ByVal ContextRangeBounds As WorksheetRangeBounds, ByVal Formula As String) As Variant
@@ -715,10 +715,10 @@ Public Function XLookup( _
         Optional ByVal IfNotFound As Variant = "", _
         Optional ByVal MatchMode As Long = 0, _
         Optional ByVal SearchMode As Long = 1) As Variant
-    
+
     If LookupRangeBounds.IsEmpty Then Exit Function
     If ReturnRangeBounds.IsEmpty Then Exit Function
-    
+
     Dim xlookup_formula As String
     xlookup_formula = "=XLOOKUP(" & _
             pGetFormulaLiteral(LookupValue) & "," & _
@@ -727,7 +727,7 @@ Public Function XLookup( _
             pGetFormulaLiteral(IfNotFound) & "," & _
             CStr(MatchMode) & "," & _
             CStr(SearchMode) & ")"
-    
+
     XLookup = EvaluateFormula(LookupRangeBounds, xlookup_formula)
 End Function
 Private Function IWorksheetService_XLookup( _
@@ -737,7 +737,7 @@ Private Function IWorksheetService_XLookup( _
         Optional ByVal IfNotFound As Variant = "", _
         Optional ByVal MatchMode As Long = 0, _
         Optional ByVal SearchMode As Long = 1) As Variant
-    
+
     IWorksheetService_XLookup = XLookup( _
             LookupValue, _
             LookupRangeBounds, _
@@ -759,15 +759,15 @@ End Sub
 Private Sub pReadCellText(ByVal TargetCell As Range, ByRef Expression As String, ByRef NumberFormat As String)
     Dim result_string As String
     result_string = TargetCell.Text
-    
+
     Dim target_column As Range
     Dim current_width As Double
     Dim width_changed As Boolean
-    
+
     If result_string <> "" And Replace(result_string, "#", "") = "" Then
         Set target_column = TargetCell.Parent.Columns(TargetCell.Column)
         current_width = target_column.ColumnWidth
-        
+
         On Error GoTo RESTORE_COLUMN_WIDTH
         target_column.ColumnWidth = 254.88
         width_changed = True
@@ -775,7 +775,7 @@ Private Sub pReadCellText(ByVal TargetCell As Range, ByRef Expression As String,
         target_column.ColumnWidth = current_width
         width_changed = False
         On Error GoTo 0
-        
+
         If result_string <> "" And Replace(result_string, "#", "") = "" Then
             If IsError(TargetCell.Value) Then
                 result_string = pConvertErrorToString(TargetCell.Value)
@@ -784,11 +784,11 @@ Private Sub pReadCellText(ByVal TargetCell As Range, ByRef Expression As String,
             End If
         End If
     End If
-    
+
     Expression = result_string
     NumberFormat = TargetCell.NumberFormatLocal
     Exit Sub
-    
+
 RESTORE_COLUMN_WIDTH:
     Dim err_number As Long
     Dim err_source As String
@@ -796,7 +796,7 @@ RESTORE_COLUMN_WIDTH:
     err_number = Err.Number
     err_source = Err.Source
     err_description = Err.Description
-    
+
     On Error Resume Next
     If width_changed Then target_column.ColumnWidth = current_width
     On Error GoTo 0
@@ -812,18 +812,18 @@ Public Sub CopyCell( _
         ByVal DestinationRangeBounds As WorksheetRangeBounds, _
         Optional ByVal AsValue As Boolean = False, _
         Optional ByVal CopyNumberFormat As Boolean = False)
-    
+
     If SourceRangeBounds.IsEmpty Then Exit Sub
     If DestinationRangeBounds.IsEmpty Then Exit Sub
     If Not SourceRangeBounds.IsCell Then Err.Raise vbObjectError + 1, "Class WorksheetService", "SourceRangeBounds がセルではありません。(" & SourceRangeBounds.ToString() & ")"
     If Not DestinationRangeBounds.IsCell Then Err.Raise vbObjectError + 1, "Class WorksheetService", "DestinationRangeBounds がセルではありません。(" & DestinationRangeBounds.ToString() & ")"
-    
+
     Dim src_sheet As Worksheet
     Set src_sheet = pGetWorksheet(SourceRangeBounds)
-    
+
     Dim dst_sheet As Worksheet
     Set dst_sheet = pGetWorksheet(DestinationRangeBounds)
-    
+
     Call pCopyCellCore( _
         SourceRangeBounds.Row, SourceRangeBounds.Column, _
         DestinationRangeBounds.Row, DestinationRangeBounds.Column, _
@@ -834,7 +834,7 @@ Private Sub IWorksheetService_CopyCell( _
         ByVal DestinationRangeBounds As WorksheetRangeBounds, _
         Optional ByVal AsValue As Boolean = False, _
         Optional ByVal CopyNumberFormat As Boolean = False)
-    
+
     Call CopyCell(SourceRangeBounds, DestinationRangeBounds, AsValue:=AsValue, CopyNumberFormat:=CopyNumberFormat)
 End Sub
 
@@ -847,20 +847,20 @@ Public Sub CopyRange( _
         ByVal DestinationRangeBounds As WorksheetRangeBounds, _
         Optional ByVal AsValue As Boolean = False, _
         Optional ByVal CopyNumberFormat As Boolean = False)
-    
+
     If SourceRangeBounds.IsEmpty Then Exit Sub
     Call pRaiseIfDestinationShapeIsInvalid(DestinationRangeBounds, SourceRangeBounds.RowCount, SourceRangeBounds.ColumnCount, "DestinationRangeBounds")
     Call pRaiseIfCopyRangeDestinationOutOfSheet(SourceRangeBounds, DestinationRangeBounds)
-    
+
     Dim src_sheet As Worksheet
     Set src_sheet = pGetWorksheet(SourceRangeBounds)
-    
+
     Dim dst_sheet As Worksheet
     Set dst_sheet = pGetWorksheet(DestinationRangeBounds)
-    
+
     Dim src_bounds As WorksheetRangeBounds
     Set src_bounds = GetUsedRangeBounds(SourceRangeBounds, IgnoreEmpty:=False, IsUsedStartRow:=True, IsUsedStartColumn:=True)
-    
+
     Dim dst_bounds As WorksheetRangeBounds
     Set dst_bounds = New_RangeBounds( _
             Row:=DestinationRangeBounds.Row, Column:=DestinationRangeBounds.Column, _
@@ -868,7 +868,7 @@ Public Sub CopyRange( _
             FinishColumn:=DestinationRangeBounds.Column + SourceRangeBounds.ColumnCount - 1, _
             Sheet:=DestinationRangeBounds.WorksheetName, Book:=DestinationRangeBounds.WorkbookName)
     Set dst_bounds = GetUsedRangeBounds(dst_bounds, IgnoreEmpty:=False, IsUsedStartRow:=True, IsUsedStartColumn:=True)
-    
+
     Dim last_row_idx As Long, last_col_idx As Long
     last_row_idx = MaxLng(src_bounds.RowCount, dst_bounds.RowCount) - 1
     last_col_idx = MaxLng(src_bounds.ColumnCount, dst_bounds.ColumnCount) - 1
@@ -935,7 +935,7 @@ Private Sub IWorksheetService_CopyRange( _
         ByVal DestinationRangeBounds As WorksheetRangeBounds, _
         Optional ByVal AsValue As Boolean = False, _
         Optional ByVal CopyNumberFormat As Boolean = False)
-    
+
     Call CopyRange(SourceRangeBounds, DestinationRangeBounds, AsValue:=AsValue, CopyNumberFormat:=CopyNumberFormat)
 End Sub
 
@@ -948,7 +948,7 @@ End Sub
 
 Private Sub pAddItemToStringArray(ByRef TargetArray() As String, ByVal ItemToBeAdded As String)
     Dim new_ubound As Long
-    
+
     If (Not TargetArray) = -1 Then
         ReDim Preserve TargetArray(0 To 0) As String
     Else
@@ -982,7 +982,7 @@ Private Function pIsArrayFormulaToBeProcessed(ByVal TargetCell As Range, ByRef P
         pIsArrayFormulaToBeProcessed = False
         Exit Function
     End If
-    
+
     If pContainsItemInStringArray(ProcessedArray, TargetCell.Address) Then
         pIsArrayFormulaToBeProcessed = False
     Else
@@ -994,15 +994,15 @@ Private Sub pCalcurateArrayCount(ByRef ArrayRowCount As Long, ByRef ArrayColumnC
     Dim array_last_row As Long, array_last_col As Long
     array_last_row = TargetArrayAnchor.Row + TargetArrayAnchor.CurrentArray.Rows.Count - 1
     array_last_col = TargetArrayAnchor.Column + TargetArrayAnchor.CurrentArray.Columns.Count - 1
-    
+
     Dim paste_start_row As Long, paste_start_col As Long
     paste_start_row = MaxLng(TargetArrayAnchor.Row, RangeBounds.Row)
     paste_start_col = MaxLng(TargetArrayAnchor.Column, RangeBounds.Column)
-    
+
     Dim paste_finish_row As Long, paste_finish_col As Long
     paste_finish_row = MinLng(array_last_row, RangeBounds.FinishRow)
     paste_finish_col = MinLng(array_last_col, RangeBounds.FinishColumn)
-    
+
     ArrayRowCount = MaxLng(paste_finish_row - paste_start_row + 1, 0)
     ArrayColumnCount = MaxLng(paste_finish_col - paste_start_col + 1, 0)
 End Sub
@@ -1016,15 +1016,15 @@ Private Sub pCopyCellCore( _
         Optional ByVal RemainRowCount As Long = 2147483647#, _
         Optional ByVal RemainColumnCount As Long = 2147483647#, _
         Optional ByVal ForcePasteIfArrayFormula As Boolean = False)
-    
+
     If DestinationSheet Is Nothing Then Set DestinationSheet = SourceSheet
-    
+
     Dim src_cell As Range
     Set src_cell = SourceSheet.Cells(SourceRow, SourceColumn)
-    
+
     Dim dst_cell As Range
     Set dst_cell = DestinationSheet.Cells(DestinationRow, DestinationColumn)
-    
+
     ' 値コピー
     If AsValue Then
         If IsEmpty(src_cell.Value) Then
@@ -1032,11 +1032,11 @@ Private Sub pCopyCellCore( _
         Else
             dst_cell.Value = src_cell.Value
         End If
-                
+
         If CopyNumberFormat Then dst_cell.NumberFormatLocal = src_cell.NumberFormatLocal
         Exit Sub
     End If
-    
+
     ' 数式コピー
     If src_cell.HasFormula Then
         ' これだと相対参照が処理されない。(元のままとなってしまう)
@@ -1055,7 +1055,7 @@ Private Sub pCopyCellCore( _
                 End If
                 ' 元セルを配列関数に戻す
                 src_cell.FormulaArray = formula_str
-                
+
                 ' 宛先セルの通常関数を配列関数に入れる。
                 formula_str = dst_cell.Formula
                 Dim resized_dst As Range
@@ -1165,10 +1165,10 @@ Public Function IsEmptyCell(ByVal RangeBounds As WorksheetRangeBounds, Optional 
         IsEmptyCell = True
         Exit Function
     End If
-    
+
     Dim target_range As Range
     Set target_range = pGetRange(RangeBounds)
-    
+
     Dim cell_item As Range
     For Each cell_item In target_range
         If Not pIsEmptyCellCore(cell_item, IgnoreEmptyString:=IgnoreEmptyString) Then
@@ -1176,7 +1176,7 @@ Public Function IsEmptyCell(ByVal RangeBounds As WorksheetRangeBounds, Optional 
             Exit Function
         End If
     Next cell_item
-    
+
     IsEmptyCell = True
 End Function
 Private Function IWorksheetService_IsEmptyCell(ByVal RangeBounds As WorksheetRangeBounds, Optional ByVal IgnoreEmptyString As Boolean = False) As Boolean
@@ -1197,17 +1197,17 @@ End Function
 Private Function pIsEmptyCellCore(ByVal TargetCell As Range, Optional ByVal IgnoreEmptyString As Boolean = False) As Boolean
     Dim cell_value As Variant
     cell_value = TargetCell.Value
-    
+
     If IsEmpty(cell_value) Then
         pIsEmptyCellCore = True
         Exit Function
     End If
-    
+
     If Not IgnoreEmptyString Then
         pIsEmptyCellCore = False
         Exit Function
     End If
-    
+
     If VarType(cell_value) = vbString Then
         pIsEmptyCellCore = (Len(cell_value) = 0)
     Else
@@ -1224,56 +1224,56 @@ Public Function GetUsedRangeBounds( _
         Optional ByVal IsUsedStartRow As Boolean = True, _
         Optional ByVal IsUsedStartColumn As Boolean = True, _
         Optional ByVal GetRawRange As Boolean = False) As WorksheetRangeBounds
-    
+
     ' 空範囲はそのまま返す。
     If RangeBounds.IsEmpty Then
         Set GetUsedRangeBounds = RangeBounds
         Exit Function
     End If
-    
+
     Dim target_sheet As Worksheet
     Set target_sheet = pGetWorksheet(RangeBounds)
-    
+
     ' 生の UsedRange を得る。
     Dim raw_range As WorksheetRangeBounds
     Set raw_range = pGetRawUsedRange(target_sheet, RangeBounds, IsUsedStartRow, IsUsedStartColumn)
-    
+
     ' GetRawRange が True か、UsedRange の時点で空の場合はここで処理終了。
     If GetRawRange Or raw_range.IsEmpty Then
         Set GetUsedRangeBounds = raw_range
         Exit Function
     End If
-    
+
     Dim row_start As Long, row_finish As Long
     Dim col_start As Long, col_finish As Long
-    
+
     ' 最終行を得る。
     row_finish = pGetLastRowCore(target_sheet, raw_range.Row, raw_range.Column, raw_range.FinishRow, raw_range.FinishColumn, IgnoreEmpty)
-    
+
     ' 最初の行を得る。
     If IsUsedStartRow Then
         row_start = RangeBounds.Row
     Else
         row_start = pGetFirstRowCore(target_sheet, raw_range.Row, raw_range.Column, row_finish, raw_range.FinishColumn, IgnoreEmpty)
     End If
-    
+
     ' 最終列を得る。
     col_finish = pGetLastColumnCore(target_sheet, row_start, raw_range.Column, row_finish, raw_range.FinishColumn, IgnoreEmpty)
-    
+
     ' 最初の列を得る。
     If IsUsedStartColumn Then
         col_start = RangeBounds.Column
     Else
         col_start = pGetFirstColumnCore(target_sheet, row_start, raw_range.Column, row_finish, col_finish, IgnoreEmpty)
     End If
-    
+
     ' 処理結果を整形
     If row_finish < row_start Or col_finish < col_start Then
         Set GetUsedRangeBounds = New_RangeBounds(Row:=RangeBounds.Row, Column:=RangeBounds.Column, FinishRow:=0, FinishColumn:=0, Sheet:=RangeBounds.WorksheetName, Book:=RangeBounds.WorkbookName)
     Else
         Set GetUsedRangeBounds = New_RangeBounds(Row:=row_start, Column:=col_start, FinishRow:=row_finish, FinishColumn:=col_finish, Sheet:=RangeBounds.WorksheetName, Book:=RangeBounds.WorkbookName)
     End If
-    
+
     ' 完全一致を解除する (通常使用時に完全一致は扱いづらい)
     Call pResetFindState(target_sheet)
 End Function
@@ -1283,7 +1283,7 @@ Private Function IWorksheetService_GetUsedRangeBounds( _
         Optional ByVal IsUsedStartRow As Boolean = True, _
         Optional ByVal IsUsedStartColumn As Boolean = True, _
         Optional ByVal GetRawRange As Boolean = False) As WorksheetRangeBounds
-    
+
     Set IWorksheetService_GetUsedRangeBounds = GetUsedRangeBounds(RangeBounds, IgnoreEmpty:=IgnoreEmpty, IsUsedStartRow:=IsUsedStartRow, IsUsedStartColumn:=IsUsedStartColumn, GetRawRange:=GetRawRange)
 End Function
 
@@ -1292,7 +1292,7 @@ Private Function pGetRawUsedRange( _
         ByVal RangeBounds As WorksheetRangeBounds, _
         ByVal IsUsedStartRow As Boolean, _
         ByVal IsUsedStartColumn As Boolean) As WorksheetRangeBounds
-    
+
     Dim used_s_row As Long, used_f_row As Long
     Dim used_s_col As Long, used_f_col As Long
     If 0 < TargetSheet.UsedRange.Rows.Count Then
@@ -1309,7 +1309,7 @@ Private Function pGetRawUsedRange( _
         used_s_row = 1
         used_s_col = 1
     End If
-    
+
     Dim used_bounds As WorksheetRangeBounds
     If used_s_row = used_f_row And used_s_col = used_f_col _
             And IsEmpty(TargetSheet.Cells(used_s_row, used_s_col).Value) _
@@ -1335,11 +1335,11 @@ Private Function pGetRawUsedRange( _
                 Sheet:=TargetSheet.Name, _
                 Book:=TargetSheet.Parent.Name)
     End If
-    
+
     ' 元の範囲との交差を取る
     Dim intersect_bounds As WorksheetRangeBounds
     Set intersect_bounds = RangeBounds.Intersect(used_bounds)
-    
+
     If IsUsedStartRow And IsUsedStartColumn Then
         Set pGetRawUsedRange = New_RangeBounds( _
             Row:=RangeBounds.Row, Column:=RangeBounds.Column, _
@@ -1367,25 +1367,25 @@ Private Function pGetLastRowCore( _
         ByVal MaxRow As Long, _
         ByVal MaxColumn As Long, _
         ByVal IgnoreEmpty As Boolean) As Long
-    
+
     If MaxRow < MinRow Or MaxColumn < MinColumn Then
         pGetLastRowCore = 0
         Exit Function
     End If
-    
+
     Dim srch_rng As Range
     Set srch_rng = TargetSheet.Range( _
         TargetSheet.Cells(MinRow, MinColumn), _
         TargetSheet.Cells(MaxRow, MaxColumn) _
     )
-    
+
     Dim look_in_mode As XlFindLookIn
     If IgnoreEmpty Then
         look_in_mode = xlValues
     Else
         look_in_mode = xlFormulas
     End If
-    
+
     Dim fnd_cell As Range
     ' 最終行 → SearchOrder=xlByRows, SearchDirection=xlPrevious
     ' After は検索範囲の左上セル
@@ -1397,7 +1397,7 @@ Private Function pGetLastRowCore( _
                                  SearchDirection:=xlPrevious, _
                                  MatchCase:=False, _
                                  SearchFormat:=False)
-    
+
     If fnd_cell Is Nothing Then
         pGetLastRowCore = 0
     Else
@@ -1412,25 +1412,25 @@ Private Function pGetLastColumnCore( _
         ByVal MaxRow As Long, _
         ByVal MaxColumn As Long, _
         ByVal IgnoreEmpty As Boolean) As Long
-    
+
     If MaxRow < MinRow Or MaxColumn < MinColumn Then
         pGetLastColumnCore = 0
         Exit Function
     End If
-    
+
     Dim srch_rng As Range
     Set srch_rng = TargetSheet.Range( _
         TargetSheet.Cells(MinRow, MinColumn), _
         TargetSheet.Cells(MaxRow, MaxColumn) _
     )
-    
+
     Dim look_in_mode As XlFindLookIn
     If IgnoreEmpty Then
         look_in_mode = xlValues
     Else
         look_in_mode = xlFormulas
     End If
-    
+
     Dim fnd_cell As Range
     ' 最終列 → SearchOrder=xlByColumns, SearchDirection=xlPrevious
     ' After は検索範囲の左上セル
@@ -1442,7 +1442,7 @@ Private Function pGetLastColumnCore( _
                                  SearchDirection:=xlPrevious, _
                                  MatchCase:=False, _
                                  SearchFormat:=False)
-    
+
     If fnd_cell Is Nothing Then
         pGetLastColumnCore = 0
     Else
@@ -1457,25 +1457,25 @@ Private Function pGetFirstRowCore( _
         ByVal MaxRow As Long, _
         ByVal MaxColumn As Long, _
         ByVal IgnoreEmpty As Boolean) As Long
-    
+
     If MaxRow < MinRow Or MaxColumn < MinColumn Then
         pGetFirstRowCore = 2147483647#
         Exit Function
     End If
-    
+
     Dim srch_rng As Range
     Set srch_rng = TargetSheet.Range( _
         TargetSheet.Cells(MinRow, MinColumn), _
         TargetSheet.Cells(MaxRow, MaxColumn) _
     )
-    
+
     Dim look_in_mode As XlFindLookIn
     If IgnoreEmpty Then
         look_in_mode = xlValues
     Else
         look_in_mode = xlFormulas
     End If
-    
+
     Dim fnd_cell As Range
     ' 最初の行 → SearchOrder=xlByRows, SearchDirection=xlNext
     ' After は検索範囲の右下セル
@@ -1487,7 +1487,7 @@ Private Function pGetFirstRowCore( _
                                  SearchDirection:=xlNext, _
                                  MatchCase:=False, _
                                  SearchFormat:=False)
-    
+
     If fnd_cell Is Nothing Then
         pGetFirstRowCore = 2147483647#
     Else
@@ -1502,25 +1502,25 @@ Private Function pGetFirstColumnCore( _
         ByVal MaxRow As Long, _
         ByVal MaxColumn As Long, _
         ByVal IgnoreEmpty As Boolean) As Long
-    
+
     If MaxRow < MinRow Or MaxColumn < MinColumn Then
         pGetFirstColumnCore = 2147483647#
         Exit Function
     End If
-    
+
     Dim srch_rng As Range
     Set srch_rng = TargetSheet.Range( _
         TargetSheet.Cells(MinRow, MinColumn), _
         TargetSheet.Cells(MaxRow, MaxColumn) _
     )
-    
+
     Dim look_in_mode As XlFindLookIn
     If IgnoreEmpty Then
         look_in_mode = xlValues
     Else
         look_in_mode = xlFormulas
     End If
-    
+
     Dim fnd_cell As Range
     ' 最初の列 → SearchOrder=xlByColumns, SearchDirection=xlNext
     ' After は検索範囲の右下セル
@@ -1532,7 +1532,7 @@ Private Function pGetFirstColumnCore( _
                                  SearchDirection:=xlNext, _
                                  MatchCase:=False, _
                                  SearchFormat:=False)
-    
+
     If fnd_cell Is Nothing Then
         pGetFirstColumnCore = 2147483647#
     Else
@@ -1551,18 +1551,18 @@ Public Sub ClearRange( _
         Optional ByVal ClearColors As Boolean = False, _
         Optional ByVal ClearComments As Boolean = False, _
         Optional ByVal ClearHyperlinks As Boolean = False)
-    
+
     If RangeBounds.IsEmpty Then Exit Sub
-    
+
     Dim target_sheet As Worksheet
     Set target_sheet = pGetWorksheet(RangeBounds)
-    
+
     Dim target_range As Range
     Set target_range = pGetRange(RangeBounds)
-    
+
     ' ひとまず範囲全体を処理
     Call pClearRangeCore(target_range, ClearAll, ClearContents, ClearNumberFormats, ClearColors, ClearComments, ClearHyperlinks)
-    
+
     ' 使用中の範囲を取得
     Dim used_row As Long, used_col As Long
     If 0 < target_sheet.UsedRange.Rows.Count Then
@@ -1571,7 +1571,7 @@ Public Sub ClearRange( _
     If 0 < target_sheet.UsedRange.Columns.Count Then
         used_col = target_sheet.UsedRange.Columns(target_sheet.UsedRange.Columns.Count).Column
     End If
-    
+
     Dim item_idx As Long
     For item_idx = RangeBounds.Row To MinLng(used_row, RangeBounds.FinishRow)
         If target_sheet.Rows(item_idx).Hidden Then
@@ -1580,7 +1580,7 @@ Public Sub ClearRange( _
             Call pClearRangeCore(target_range, ClearAll, ClearContents, ClearNumberFormats, ClearColors, ClearComments, ClearHyperlinks)
         End If
     Next item_idx
-    
+
     For item_idx = RangeBounds.Column To MinLng(used_col, RangeBounds.FinishColumn)
         If target_sheet.Columns(item_idx).Hidden Then
             ' 範囲内の非表示状態の列を処理
@@ -1597,7 +1597,7 @@ Private Sub IWorksheetService_ClearRange( _
         Optional ByVal ClearColors As Boolean = False, _
         Optional ByVal ClearComments As Boolean = False, _
         Optional ByVal ClearHyperlinks As Boolean = False)
-    
+
     Call ClearRange( _
             RangeBounds, ClearAll:=ClearAll, _
             ClearContents:=ClearContents, ClearNumberFormats:=ClearNumberFormats, ClearColors:=ClearColors, _
@@ -1608,7 +1608,7 @@ Private Sub pClearRangeCore( _
         ByVal TargetRange As Range, _
         ByVal ClearAll As Boolean, ByVal ClearContents As Boolean, ByVal ClearNumberFormats As Boolean, _
         ByVal ClearColors As Boolean, ByVal ClearComments As Boolean, ByVal ClearHyperlinks As Boolean)
-    
+
     If ClearAll Or ClearContents Then Call TargetRange.ClearContents
     If ClearAll Or ClearNumberFormats Then TargetRange.NumberFormat = "General"
     If ClearAll Or ClearColors Then
@@ -1671,7 +1671,7 @@ End Sub
 Public Sub SetAllDataVisible(ByVal RangeBounds As WorksheetRangeBounds)
     Dim target_sheet As Worksheet
     Set target_sheet = pGetWorksheet(RangeBounds)
-    
+
     If target_sheet.FilterMode Then
         Call target_sheet.ShowAllData
     End If
@@ -1778,7 +1778,7 @@ Public Sub SetSheetTabColor( _
         Optional ByVal TabColor As Long = -1)
     Dim target_sheet As Worksheet
     Set target_sheet = pGetWorksheet(RangeBounds)
-    
+
     If TabColor >= 0 Then
         target_sheet.Tab.Color = TabColor
     Else
@@ -1789,7 +1789,7 @@ Private Sub IWorksheetService_SetSheetTabColor( _
         ByVal RangeBounds As WorksheetRangeBounds, _
         Optional ByVal TabColorIndex As Long = xlColorIndexNone, _
         Optional ByVal TabColor As Long = -1)
-    
+
     Call SetSheetTabColor(RangeBounds, TabColorIndex:=TabColorIndex, TabColor:=TabColor)
 End Sub
 
@@ -1803,16 +1803,16 @@ Public Sub SetRangeColor( _
         Optional ByVal InteriorColorIndex As Long = xlColorIndexNone, _
         Optional ByVal InteriorColor As Long = -1)
     If RangeBounds.IsEmpty Then Exit Sub
-    
+
     Dim target_range As Range
     Set target_range = pGetRange(RangeBounds)
-    
+
     If FontColor >= 0 Then
         target_range.Font.Color = FontColor
     Else
         target_range.Font.ColorIndex = FontColorIndex
     End If
-    
+
     If InteriorColor >= 0 Then
         target_range.Interior.Color = InteriorColor
     Else
@@ -1825,7 +1825,7 @@ Private Sub IWorksheetService_SetRangeColor( _
         Optional ByVal FontColor As Long = -1, _
         Optional ByVal InteriorColorIndex As Long = xlColorIndexNone, _
         Optional ByVal InteriorColor As Long = -1)
-    
+
     Call SetRangeColor(RangeBounds, FontColorIndex:=FontColorIndex, FontColor:=FontColor, InteriorColorIndex:=InteriorColorIndex, InteriorColor:=InteriorColor)
 End Sub
 
@@ -1834,10 +1834,10 @@ End Sub
 '
 Public Sub SetWrapText(ByVal RangeBounds As WorksheetRangeBounds, ByVal WrapText As Boolean)
     If RangeBounds.IsEmpty Then Exit Sub
-    
+
     Dim target_range As Range
     Set target_range = pGetRange(RangeBounds)
-    
+
     target_range.WrapText = WrapText
 End Sub
 Private Sub IWorksheetService_SetWrapText(ByVal RangeBounds As WorksheetRangeBounds, ByVal WrapText As Boolean)
@@ -1849,10 +1849,10 @@ End Sub
 '
 Public Sub SetShrinkToFit(ByVal RangeBounds As WorksheetRangeBounds, ByVal ShrinkToFit As Boolean)
     If RangeBounds.IsEmpty Then Exit Sub
-    
+
     Dim target_range As Range
     Set target_range = pGetRange(RangeBounds)
-    
+
     target_range.ShrinkToFit = ShrinkToFit
 End Sub
 Private Sub IWorksheetService_SetShrinkToFit(ByVal RangeBounds As WorksheetRangeBounds, ByVal ShrinkToFit As Boolean)
@@ -1864,59 +1864,76 @@ End Sub
 '
 Public Sub SetAlignment( _
         ByVal RangeBounds As WorksheetRangeBounds, _
-        Optional ByVal HorizontalAlignment As Long = xlGeneral, _
-        Optional ByVal VerticalAlignment As Long = xlBottom, _
-        Optional ByVal Orientation As Long = 0, _
-        Optional ByVal IndentLevel As Long = 0)
+        Optional ByVal HorizontalAlignment As Long = G_ALIGNMENT_NO_CHANGE, _
+        Optional ByVal VerticalAlignment As Long = G_ALIGNMENT_NO_CHANGE, _
+        Optional ByVal Orientation As Long = G_ALIGNMENT_NO_CHANGE, _
+        Optional ByVal IndentLevel As Long = G_ALIGNMENT_NO_CHANGE)
     If RangeBounds.IsEmpty Then Exit Sub
-    
+
+    If HorizontalAlignment = G_ALIGNMENT_NO_CHANGE _
+            And VerticalAlignment = G_ALIGNMENT_NO_CHANGE _
+            And Orientation = G_ALIGNMENT_NO_CHANGE _
+            And IndentLevel = G_ALIGNMENT_NO_CHANGE Then
+        Exit Sub
+    End If
+
     Dim target_range As Range
     Set target_range = pGetRange(RangeBounds)
-    
-    target_range.Orientation = Orientation ' 文字の方向
-    target_range.IndentLevel = IndentLevel ' インデント
-    
-    Select Case HorizontalAlignment
-     Case xlLeft ' 左詰め
-        target_range.HorizontalAlignment = xlLeft
-     Case xlCenter ' 中央揃え
-        target_range.HorizontalAlignment = xlCenter
-     Case xlRight ' 右詰め
-        target_range.HorizontalAlignment = xlRight
-     Case xlFill ' 繰り返し
-        target_range.HorizontalAlignment = xlFill
-     Case xlJustify ' 両端揃え
-        target_range.HorizontalAlignment = xlJustify
-     Case xlCenterAcrossSelection ' 選択範囲内で中央
-        target_range.HorizontalAlignment = xlCenterAcrossSelection
-     Case xlDistributed ' 均等割り付け
-        target_range.HorizontalAlignment = xlDistributed
-     Case Else ' 標準
-        target_range.HorizontalAlignment = xlGeneral
-    End Select
-    
-    Select Case VerticalAlignment
-     Case xlTop ' 上詰め
-        target_range.VerticalAlignment = xlTop
-     Case xlCenter ' 中央揃え
-        target_range.VerticalAlignment = xlCenter
-     Case xlFill ' 繰り返し
-        target_range.VerticalAlignment = xlFill
-     Case xlJustify ' 両端揃え
-        target_range.VerticalAlignment = xlJustify
-     Case xlDistributed ' 均等割り付け
-        target_range.VerticalAlignment = xlDistributed
-     Case Else ' 下詰め
-        target_range.VerticalAlignment = xlBottom
-    End Select
+
+    If Orientation <> G_ALIGNMENT_NO_CHANGE Then
+        target_range.Orientation = Orientation ' 文字の方向
+    End If
+
+    If IndentLevel <> G_ALIGNMENT_NO_CHANGE Then
+        target_range.IndentLevel = IndentLevel ' インデント
+    End If
+
+    If HorizontalAlignment <> G_ALIGNMENT_NO_CHANGE Then
+        target_range.HorizontalAlignment = HorizontalAlignment
+    End If
+
+    If VerticalAlignment <> G_ALIGNMENT_NO_CHANGE Then
+        target_range.VerticalAlignment = VerticalAlignment
+    End If
+
+'    Select Case HorizontalAlignment
+'     Case xlLeft ' 左詰め
+'        target_range.HorizontalAlignment = xlLeft
+'     Case xlCenter ' 中央揃え
+'        target_range.HorizontalAlignment = xlCenter
+'     Case xlRight ' 右詰め
+'        target_range.HorizontalAlignment = xlRight
+'     Case xlFill ' 繰り返し
+'        target_range.HorizontalAlignment = xlFill
+'     Case xlJustify ' 両端揃え
+'        target_range.HorizontalAlignment = xlJustify
+'     Case xlCenterAcrossSelection ' 選択範囲内で中央
+'        target_range.HorizontalAlignment = xlCenterAcrossSelection
+'     Case xlDistributed ' 均等割り付け
+'        target_range.HorizontalAlignment = xlDistributed
+'     Case Else ' 標準
+'        target_range.HorizontalAlignment = xlGeneral
+'    End Select
+'    Select Case VerticalAlignment
+'     Case xlTop ' 上詰め
+'        target_range.VerticalAlignment = xlTop
+'     Case xlCenter ' 中央揃え
+'        target_range.VerticalAlignment = xlCenter
+'     Case xlJustify ' 両端揃え
+'        target_range.VerticalAlignment = xlJustify
+'     Case xlDistributed ' 均等割り付け
+'        target_range.VerticalAlignment = xlDistributed
+'     Case Else ' 下詰め
+'        target_range.VerticalAlignment = xlBottom
+'    End Select
 End Sub
 Private Sub IWorksheetService_SetAlignment( _
         ByVal RangeBounds As WorksheetRangeBounds, _
-        Optional ByVal HorizontalAlignment As Long = xlGeneral, _
-        Optional ByVal VerticalAlignment As Long = xlBottom, _
-        Optional ByVal Orientation As Long = 0, _
-        Optional ByVal IndentLevel As Long = 0)
-    
+        Optional ByVal HorizontalAlignment As Long = G_ALIGNMENT_NO_CHANGE, _
+        Optional ByVal VerticalAlignment As Long = G_ALIGNMENT_NO_CHANGE, _
+        Optional ByVal Orientation As Long = G_ALIGNMENT_NO_CHANGE, _
+        Optional ByVal IndentLevel As Long = G_ALIGNMENT_NO_CHANGE)
+
     Call SetAlignment( _
             RangeBounds, _
             HorizontalAlignment:=HorizontalAlignment, _

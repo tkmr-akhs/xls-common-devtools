@@ -829,7 +829,7 @@ Public Sub Test_Sort_WhenCalled_SortsItems(ByVal Assert As UnitTestAssert)
     Call obj_set.Add("beta")
 
     ' Act
-    Call obj_set.Sort()
+    Call obj_set.Sort
 
     ' Assert
     If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub

@@ -16,18 +16,18 @@ Public Sub Test_GetValue_StoredString_ReturnsValue(ByVal Assert As UnitTestAsser
     Dim test_util As UnitTestUtils
     Set test_util = New UnitTestUtils
 
-    Dim values As Dictionary
-    Set values = New Dictionary
-    Call test_util.SetValue(values, "stored", "arg1", 10&)
+    Dim stored_values As Dictionary
+    Set stored_values = New Dictionary
+    Call test_util.SetValue(stored_values, "stored", "arg1", 10&)
 
     ' Act
     Dim actual_value As String
-    actual_value = test_util.GetValue(values, "arg1", 10&)
+    actual_value = test_util.GetValue(stored_values, "arg1", 10&)
 
     ' Assert
     If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
     Assert.Equals "stored", actual_value
-    Assert.EqualsNumeric 1, values.Count
+    Assert.EqualsNumeric 1, stored_values.Count
 End Sub
 
 Public Sub Test_GetValue_StoredObject_ReturnsSameObject(ByVal Assert As UnitTestAssert)
@@ -37,21 +37,21 @@ Public Sub Test_GetValue_StoredObject_ReturnsSameObject(ByVal Assert As UnitTest
     Dim test_util As UnitTestUtils
     Set test_util = New UnitTestUtils
 
-    Dim values As Dictionary
-    Set values = New Dictionary
+    Dim stored_values As Dictionary
+    Set stored_values = New Dictionary
 
     Dim expected_value As WorksheetRangeBounds
     Set expected_value = New_RangeBounds(Row:=1, Column:=2, Sheet:="SheetA", Book:="BookA.xlsm")
-    Call test_util.SetValue(values, expected_value, "range")
+    Call test_util.SetValue(stored_values, expected_value, "range")
 
     ' Act
     Dim actual_value As WorksheetRangeBounds
-    Set actual_value = test_util.GetValue(values, "range")
+    Set actual_value = test_util.GetValue(stored_values, "range")
 
     ' Assert
     If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
     Assert.Equals expected_value, actual_value
-    Assert.EqualsNumeric 1, values.Count
+    Assert.EqualsNumeric 1, stored_values.Count
 End Sub
 
 Public Sub Test_GetValue_WithIEquatableArgumentWithoutPublicIdentityMember_ReturnsValue(ByVal Assert As UnitTestAssert)
@@ -61,13 +61,13 @@ Public Sub Test_GetValue_WithIEquatableArgumentWithoutPublicIdentityMember_Retur
     Dim test_util As UnitTestUtils
     Set test_util = New UnitTestUtils
 
-    Dim values As Dictionary
-    Set values = New Dictionary
+    Dim stored_values As Dictionary
+    Set stored_values = New Dictionary
 
     Dim stored_arg As Test_ObjectSetEquatableDouble
     Set stored_arg = New Test_ObjectSetEquatableDouble
     stored_arg.IdentityKey = "same-key"
-    Call test_util.SetValue(values, "stored", stored_arg)
+    Call test_util.SetValue(stored_values, "stored", stored_arg)
 
     Dim lookup_arg As Test_ObjectSetEquatableDouble
     Set lookup_arg = New Test_ObjectSetEquatableDouble
@@ -75,12 +75,12 @@ Public Sub Test_GetValue_WithIEquatableArgumentWithoutPublicIdentityMember_Retur
 
     ' Act
     Dim actual_value As String
-    actual_value = test_util.GetValue(values, lookup_arg)
+    actual_value = test_util.GetValue(stored_values, lookup_arg)
 
     ' Assert
     If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
     Assert.Equals "stored", actual_value
-    Assert.EqualsNumeric 1, values.Count
+    Assert.EqualsNumeric 1, stored_values.Count
 End Sub
 
 Public Sub Test_GetValue_MissingKey_RaisesErrorAndDoesNotAddKey(ByVal Assert As UnitTestAssert)
@@ -90,17 +90,17 @@ Public Sub Test_GetValue_MissingKey_RaisesErrorAndDoesNotAddKey(ByVal Assert As 
     Dim test_util As UnitTestUtils
     Set test_util = New UnitTestUtils
 
-    Dim values As Dictionary
-    Set values = New Dictionary
+    Dim stored_values As Dictionary
+    Set stored_values = New Dictionary
 
     ' Act
     Dim actual_value As Variant
-    actual_value = test_util.GetValue(values, "missing")
+    actual_value = test_util.GetValue(stored_values, "missing")
 
     ' Assert
     If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
     Err.Clear
-    Assert.EqualsNumeric 0, values.Count
+    Assert.EqualsNumeric 0, stored_values.Count
 End Sub
 
 Public Sub Test_GetValue_WithSpecialPrimitiveArguments_ReturnsDistinctValues(ByVal Assert As UnitTestAssert)
@@ -110,27 +110,27 @@ Public Sub Test_GetValue_WithSpecialPrimitiveArguments_ReturnsDistinctValues(ByV
     Dim test_util As UnitTestUtils
     Set test_util = New UnitTestUtils
 
-    Dim values As Dictionary
-    Set values = New Dictionary
+    Dim stored_values As Dictionary
+    Set stored_values = New Dictionary
 
     Dim empty_arg As Variant
-    Call test_util.SetValue(values, "empty-value", empty_arg)
-    Call test_util.SetValue(values, "null-value", Null)
-    Call test_util.SetValue(values, "div0-value", CVErr(xlErrDiv0))
-    Call test_util.SetValue(values, "na-value", CVErr(xlErrNA))
+    Call test_util.SetValue(stored_values, "empty-value", empty_arg)
+    Call test_util.SetValue(stored_values, "null-value", Null)
+    Call test_util.SetValue(stored_values, "div0-value", CVErr(xlErrDiv0))
+    Call test_util.SetValue(stored_values, "na-value", CVErr(xlErrNA))
 
     ' Act
     Dim actual_empty As String
-    actual_empty = test_util.GetValue(values, empty_arg)
+    actual_empty = test_util.GetValue(stored_values, empty_arg)
 
     Dim actual_null As String
-    actual_null = test_util.GetValue(values, Null)
+    actual_null = test_util.GetValue(stored_values, Null)
 
     Dim actual_div0 As String
-    actual_div0 = test_util.GetValue(values, CVErr(xlErrDiv0))
+    actual_div0 = test_util.GetValue(stored_values, CVErr(xlErrDiv0))
 
     Dim actual_na As String
-    actual_na = test_util.GetValue(values, CVErr(xlErrNA))
+    actual_na = test_util.GetValue(stored_values, CVErr(xlErrNA))
 
     ' Assert
     If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
@@ -139,7 +139,7 @@ Public Sub Test_GetValue_WithSpecialPrimitiveArguments_ReturnsDistinctValues(ByV
     Assert.Equals "null-value", actual_null
     Assert.Equals "div0-value", actual_div0
     Assert.Equals "na-value", actual_na
-    Assert.EqualsNumeric 4, values.Count
+    Assert.EqualsNumeric 4, stored_values.Count
 End Sub
 
 Public Sub Test_HasValue_WithNullArgument_ReturnsTrue(ByVal Assert As UnitTestAssert)
@@ -149,13 +149,13 @@ Public Sub Test_HasValue_WithNullArgument_ReturnsTrue(ByVal Assert As UnitTestAs
     Dim test_util As UnitTestUtils
     Set test_util = New UnitTestUtils
 
-    Dim values As Dictionary
-    Set values = New Dictionary
-    Call test_util.SetValue(values, "stored", Null)
+    Dim stored_values As Dictionary
+    Set stored_values = New Dictionary
+    Call test_util.SetValue(stored_values, "stored", Null)
 
     ' Act
     Dim actual_value As Boolean
-    actual_value = test_util.HasValue(values, Null)
+    actual_value = test_util.HasValue(stored_values, Null)
 
     ' Assert
     If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub

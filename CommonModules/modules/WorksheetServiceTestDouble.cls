@@ -577,19 +577,19 @@ End Sub
 '* Call TUtl.SetValue(SetAlignment_Results, Array(HorizontalAlignment, VerticalAlignment, Orientation, IndentLevel), RangeBounds)
 Public Sub SetAlignment( _
         ByVal RangeBounds As WorksheetRangeBounds, _
-        Optional ByVal HorizontalAlignment As Long = xlGeneral, _
-        Optional ByVal VerticalAlignment As Long = xlBottom, _
-        Optional ByVal Orientation As Long = 0, _
-        Optional ByVal IndentLevel As Long = 0)
+        Optional ByVal HorizontalAlignment As Long = G_ALIGNMENT_NO_CHANGE, _
+        Optional ByVal VerticalAlignment As Long = G_ALIGNMENT_NO_CHANGE, _
+        Optional ByVal Orientation As Long = G_ALIGNMENT_NO_CHANGE, _
+        Optional ByVal IndentLevel As Long = G_ALIGNMENT_NO_CHANGE)
     
     Call TUtl.SetValue(SetAlignment_Results, Array(HorizontalAlignment, VerticalAlignment, Orientation, IndentLevel), RangeBounds)
 End Sub
 Private Sub IWorksheetService_SetAlignment( _
         ByVal RangeBounds As WorksheetRangeBounds, _
-        Optional ByVal HorizontalAlignment As Long = xlGeneral, _
-        Optional ByVal VerticalAlignment As Long = xlBottom, _
-        Optional ByVal Orientation As Long = 0, _
-        Optional ByVal IndentLevel As Long = 0)
+        Optional ByVal HorizontalAlignment As Long = G_ALIGNMENT_NO_CHANGE, _
+        Optional ByVal VerticalAlignment As Long = G_ALIGNMENT_NO_CHANGE, _
+        Optional ByVal Orientation As Long = G_ALIGNMENT_NO_CHANGE, _
+        Optional ByVal IndentLevel As Long = G_ALIGNMENT_NO_CHANGE)
     
     Call SetAlignment( _
             RangeBounds, _

@@ -993,6 +993,39 @@ Public Sub Test_RemoveVBComponents_StandardModule_RemovesModule(ByVal Assert As 
     Assert.IsFalse actual_exists
 End Sub
 
+
+Public Sub Test_RemoveVBComponents_CaseVariantNames_DefaultRemovesOnce(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim component_name As String
+    component_name = C_TEMP_VB_COMPONENT_PREFIX & "Case"
+    Call pAddTempStandardModule(component_name)
+
+    Dim book_srv As IWorkbookService
+    Set book_srv = New WorkbookService
+
+    ' Act
+    Err.Clear
+    Call book_srv.RemoveVBComponents(Array(LCase$(component_name), UCase$(component_name)), ComponentType:=C_VBEXT_CT_STDMODULE, Book:=ThisWorkbook.Name)
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+
+    Dim actual_exists As Boolean
+    actual_exists = pHasVBComponent(component_name)
+    Call pRemoveTempVBComponent(component_name)
+    On Error GoTo 0
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, actual_error_number, actual_error_source, actual_error_description) Then Exit Sub
+    Assert.IsFalse actual_exists
+End Sub
+
 Public Sub Test_RemoveVBComponents_DocumentMixed_PreservesStandardModule(ByVal Assert As UnitTestAssert)
     On Error Resume Next
 

@@ -1053,6 +1053,70 @@ Public Sub Test_Shift_TooLargeColumn_RaisesRangeErrorBeforeOverflow(ByVal Assert
     Err.Clear
 End Sub
 
+
+Public Sub Test_Equals_BookAndSheetCaseDiff_DefaultReturnsTrue(ByVal Assert As UnitTestAssert)
+    ' Arrange
+    Dim rng1 As WorksheetRangeBounds
+    Set rng1 = New_RangeBounds(Row:=1, Column:=1, FinishRow:=2, FinishColumn:=2, Sheet:="Data", Book:="BookA.xlsm")
+
+    Dim rng2 As WorksheetRangeBounds
+    Set rng2 = New_RangeBounds(Row:=1, Column:=1, FinishRow:=2, FinishColumn:=2, Sheet:="data", Book:="booka.xlsm")
+
+    ' Act
+    Dim actual_value As Boolean
+    actual_value = rng1.Equals(rng2)
+
+    ' Assert
+    Assert.IsTrue actual_value
+End Sub
+
+Public Sub Test_GetIdentityString_BookAndSheetCaseDiff_DefaultMatches(ByVal Assert As UnitTestAssert)
+    ' Arrange
+    Dim rng1 As WorksheetRangeBounds
+    Set rng1 = New_RangeBounds(Row:=1, Column:=1, FinishRow:=2, FinishColumn:=2, Sheet:="Data", Book:="BookA.xlsm")
+
+    Dim rng2 As WorksheetRangeBounds
+    Set rng2 = New_RangeBounds(Row:=1, Column:=1, FinishRow:=2, FinishColumn:=2, Sheet:="data", Book:="booka.xlsm")
+
+    ' Act
+    Dim actual_value As Boolean
+    actual_value = (rng1.GetIdentityString() = rng2.GetIdentityString())
+
+    ' Assert
+    Assert.IsTrue actual_value
+End Sub
+
+Public Sub Test_Intersect_BookAndSheetCaseDiff_DefaultReturnsOverlap(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim rng1 As WorksheetRangeBounds
+    Set rng1 = New_RangeBounds(Row:=1, Column:=1, FinishRow:=4, FinishColumn:=4, Sheet:="Data", Book:="BookA.xlsm")
+
+    Dim rng2 As WorksheetRangeBounds
+    Set rng2 = New_RangeBounds(Row:=2, Column:=2, FinishRow:=5, FinishColumn:=5, Sheet:="data", Book:="booka.xlsm")
+
+    ' Act
+    Err.Clear
+    Dim actual_bounds As WorksheetRangeBounds
+    Set actual_bounds = rng1.Intersect(rng2)
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+    On Error GoTo 0
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, actual_error_number, actual_error_source, actual_error_description) Then Exit Sub
+    Assert.EqualsNumeric 2, actual_bounds.Row
+    Assert.EqualsNumeric 2, actual_bounds.Column
+    Assert.EqualsNumeric 4, actual_bounds.FinishRow
+    Assert.EqualsNumeric 4, actual_bounds.FinishColumn
+End Sub
+
 ' -----------------------------------------------------------------------------
 ' Intersect
 ' -----------------------------------------------------------------------------

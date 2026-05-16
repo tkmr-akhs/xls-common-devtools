@@ -811,7 +811,7 @@ End Sub
 Private Function pBuildComponentNameSet(ByVal ComponentNames As Variant) As Object
     Dim component_name_set As Object
     Set component_name_set = CreateObject("Scripting.Dictionary")
-    component_name_set.CompareMode = vbBinaryCompare
+    component_name_set.CompareMode = vbTextCompare
     
     If IsArray(ComponentNames) Then
         If Not pIsArrayInitialized(ComponentNames) Then Err.Raise vbObjectError + 1, "Class WorkbookService", "ComponentNames には 1 件以上のコンポーネント名を指定してください。"

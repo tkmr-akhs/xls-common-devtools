@@ -15,16 +15,6 @@
 
 ## 高優先度
 
-- [ ] [bug] WorkbookService.RemoveVBComponents の重複名判定を VBA 名の大文字小文字非区別に合わせる
-  - 詳細: `pBuildComponentNameSet` は `Scripting.Dictionary` を `vbBinaryCompare` で使うため、`Array("ModuleA", "modulea")` のような大文字小文字だけが違う指定を別キーとして保持する。一方で `VBComponents.Item(...)` は VBA コンポーネント名を実質的に大文字小文字非区別で解決するため、検証では同じコンポーネントが複数回通り、削除時に 1 回目で消した後の 2 回目で失敗し得る。
-  - 影響: 削除対象リストに同一名の大小文字違いが混ざると、事前検証を通過したのに処理途中で失敗する。複数コンポーネント削除では、一部だけ削除済みの状態が残る可能性がある。
-  - 対応案: コンポーネント名セットは `vbTextCompare` にするか、VBProject 上の実名へ正規化して重複排除する。単一名、同一名の大小文字違い、別名混在、存在しない名前混在のテストを追加する。
-
-- [ ] [bug] WorksheetRangeBounds のブック名・シート名比較を Excel の大文字小文字非区別に合わせる
-  - 詳細: `Intersect` は `pWorksheetName <> OtherRangeBounds.WorksheetName Or pWorkbookName <> OtherRangeBounds.WorkbookName` で文字列をそのまま比較している。`Equals` / `GetIdentityString` も `ToString` の文字列表現に依存するため、`Sheet1` と `sheet1`、ブック名の大文字小文字違いのように Excel では同じ対象を指す指定を別範囲として扱う。
-  - 影響: `New_RangeBounds(Sheet:="Sheet1")` と `New_RangeBounds(Sheet:="sheet1")` の `Intersect` がワークシート不一致で失敗し、`ObjectSet` など `IEquatable` の同一性文字列を使う利用箇所でも同じ範囲を重複扱いできない。Excel オブジェクト参照では成功する大文字小文字違いの指定が、範囲値オブジェクト同士の操作だけで破綻する。
-  - 対応案: ブック名・シート名は `vbTextCompare` で比較するか、Excel 上の実名へ正規化してから比較・同一性文字列化する。大文字小文字違いの `Intersect`、`Equals`、`GetIdentityString`、`ObjectSet` 重複判定のテストを追加する。
-
 - [ ] [bug] WorkbookService.GetThisWorkbookDirectoryPath で URL 保存パスを FSO のローカルパスとして解決しない
   - 詳細: `GetThisWorkbookDirectoryPath` は `ThisWorkbook.Path` が非空なら常に `Scripting.FileSystemObject.GetAbsolutePathName` へ渡す。`ThisWorkbook.Path` が `https://...` のような URL 形式になる保存先では、FSO が URL をローカル相対パスとして解釈し、`C:\...\https:\...` のような実在しないパスを返し得る。
   - 影響: `pGetAbsolutePath` 経由の `OpenWorkbook` / `SaveWorkbook` / `FileSystemService.GetAbsolutePath` など、相対パスを ThisWorkbook 基準にする API が、URL 保存ブックで誤った基準ディレクトリを使う。SharePoint / OneDrive などで保存したブックでは、ブックは保存済みでもファイル操作だけが別パスへ向く。
@@ -579,6 +569,16 @@
   - 影響: `UNIT_TEST_SHEET` では通常問題になりにくいが、共通 GUI ヘルパーとして呼ぶ場合、利用者が配置したマクロ付き図形を削除する可能性がある。
   - 対応案: 作成時の名前プレフィックス、`AlternativeText`、タグ相当のメタデータなどで識別し、`ClearButton` は対象識別条件を引数で指定できるようにする。
 
+- [ ] [ux] WorksheetService.SetSheetOutlineLevel のアウトライン レベル範囲を入口で検証する
+  - 詳細: `SetSheetOutlineLevel` はコメント上 `RowLevels` / `ColumnLevels` を 1 から 8 のアウトライン レベルとして扱うが、入口では `0` 以外の範囲を検証せず、そのまま `Worksheet.Outline.ShowLevels` へ渡している。
+  - 影響: `RowLevels:=9` や負数などを渡した場合、共通基盤の契約違反として読める明示エラーではなく Excel 側の実行時エラーになる。呼び出し側が「何を指定してはいけないか」をテストしづらい。
+  - 対応案: `0` は未指定、指定値は `1 <= Level <= 8` として入口で検証する。行のみ、列のみ、両方、0、1、8、9、負数のテストを追加する。
+
+- [ ] [spec] ReplaceMulti の空置換候補と空検索文字列の契約を決める
+  - 詳細: `ReplaceMulti` は置換後候補に空配列を渡すと `pReplaceMultiCore` が結果リストを 0 件に置き換え、戻り値は未初期化の `String()` になる。`FindString:=""` の場合も VBA `Replace` の空検索文字列挙動をそのまま使うが、共通ヘルパーとして許容するか明記されていない。
+  - 影響: 設定値から置換候補を組み立てる利用側で、候補 0 件を「変更なし」「結果 0 件」「エラー」のどれとして扱うべきか分からない。空検索文字列を混ぜた場合、意図しない文字列増殖や未初期化配列が後続処理へ流れる可能性がある。
+  - 対応案: 空候補配列と空検索文字列を許可/禁止/変更なしのどれにするか仕様化し、単一置換、複数候補、候補 0 件、空検索文字列のテストを追加する。
+
 ## TODO 整理メモ
 
 - `OpenWorkbook` は API 名とテンプレート作成挙動の仕様改善として扱う。WorkbookService 内の話でも、バグと非バグは混ぜない。
@@ -591,7 +591,7 @@
 
 ## 対応を見送る事項 (無期ペンディング)
 
-- [ ] [bug] UnitTestUtils の配列引数と区切り文字入り同一性キーを安全に扱う
+- [ ] [ref] UnitTestUtils の配列引数と区切り文字入り同一性キーを安全に扱う
   - 詳細: `UnitTestUtils.pGetKeyCore` は非オブジェクト引数を `pGetPrimitiveKey` へ渡し、最終的に `CStr(ArgItem)` するため、テストダブル対象メソッドの引数を配列のままキー化すると型不一致になる。
   - 詳細: `IEquatable` 引数では `GetIdentityString()` をそのまま `|` 連結に使い、プリミティブ値のような `|` / `<` / `>` のエスケープを行っていない。実装クラスの同一性文字列に区切り文字が入ると、複数引数キーの衝突や誤読が起こり得る。
   - 影響: 配列引数を持つ API を個別変換なしでテストダブルに記録できず、任意文字列を同一性に含む値オブジェクトではスタブ値やスパイ結果の照合が不安定になる。

@@ -689,7 +689,7 @@ End Function
 Public Function Intersect(ByVal OtherRangeBounds As WorksheetRangeBounds) As WorksheetRangeBounds
     Call pCheckInit
     
-    If pWorksheetName <> OtherRangeBounds.WorksheetName Or pWorkbookName <> OtherRangeBounds.WorkbookName Then
+    If StrComp(pWorksheetName, OtherRangeBounds.WorksheetName, vbTextCompare) <> 0 Or StrComp(pWorkbookName, OtherRangeBounds.WorkbookName, vbTextCompare) <> 0 Then
         Err.Raise vbObjectError + 1, "Class WorksheetRangeBounds", "ワークシートが異なります。(this: " & pWorksheetName & "@" & pWorkbookName & " / other: " & OtherRangeBounds.WorksheetName & "@" & OtherRangeBounds.WorkbookName & ")"
     End If
     
@@ -876,7 +876,7 @@ End Function
 '
 Public Function GetIdentityString() As String
     Call pCheckInit
-    GetIdentityString = ToString(CellOnly:=False)
+    GetIdentityString = LCase$(ToString(CellOnly:=False))
 End Function
 Private Function IEquatable_GetIdentityString() As String
     IEquatable_GetIdentityString = GetIdentityString()

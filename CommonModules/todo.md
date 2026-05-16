@@ -15,16 +15,6 @@
 
 ## 高優先度
 
-- [ ] [bug] WorksheetService.CopyRange の部分配列数式コピーで非アンカーセルを書き換えない
-  - 詳細: `CopyRange` は配列数式セルを見つけると `pGetArrayFormulaAnchor` でアンカーセルを取得するが、`pCopyCellCore` には走査中の `src_bounds.Row + row_idx` / `src_bounds.Column + col_idx` を渡している。コピー元範囲が複数セル配列数式の途中から始まる場合、`pCopyCellCore` はアンカーではないセルに対して `src_cell = formula_str` を実行し、Excel が「配列の一部を変更できない」系の実行時エラーにする。
-  - 影響: `A1:C2` の配列数式に対して `B1:C2` のような部分範囲をコピーすると、基盤コピー API が通常の範囲コピーとして処理できず失敗する。コピー範囲の取り方によって同じ配列数式のコピー可否が変わる。
-  - 対応案: 配列数式コピーでは常にアンカーセルを基準に一時変換するか、部分配列数式コピーを非対応として入口で明示エラーにする。アンカーを含む範囲、アンカーを含まない部分範囲、配列数式の一部だけを含む範囲のテストを追加する。
-
-- [ ] [bug] WorksheetService.ActivateRange の空範囲入力を明示的に扱う
-  - 詳細: `ActivateRange` は `RangeBounds.IsEmpty` を確認せず、ブックとシートをアクティブ化した後に `Range(RangeBounds.ToString(CellOnly:=True)).Activate` を実行する。空範囲の `ToString` は `A1:EMPTY(R0,C0)` のような Excel 範囲として無効な文字列になり、汎用的な Range エラーになる。
-  - 影響: `Intersect` や `GetUsedRangeBounds` から返った空範囲をそのまま渡すと、対象ブック・対象シートへアクティブ状態を変えた後で失敗する。空範囲を no-op とする他の `WorksheetService` API と契約が揺れ、呼び出し側が追加分岐を持つ必要がある。
-  - 対応案: 空範囲は no-op にするか、アクティブ状態を変える前に `Class WorksheetService` の明示エラーにする。空範囲、単一セル、行全体、列全体の `ActivateRange` テストを追加する。
-
 - [ ] [bug] WorksheetService.SetAlignment の垂直配置で横配置専用の `xlFill` を設定しない
   - 詳細: `SetAlignment` の `VerticalAlignment` 分岐に `Case xlFill` があり、該当時に `target_range.VerticalAlignment = xlFill` を実行する。`xlFill` は水平配置用の定数で、垂直配置としては Excel が受け付けないため、`VerticalAlignment:=xlFill` を渡すと基盤側の検証ではなく Excel の実行時エラーになる。
   - 影響: 呼び出し側が `SetAlignment` の公開引数に Excel 配置定数を渡したとき、横配置では有効な `xlFill` が縦配置でも有効に見える。書式設定 API として、許可している分岐と Excel が実際に受け付ける値がずれている。
@@ -168,14 +158,16 @@
 
 - [ ] [bug] 状態管理系小クラスの戻り値・境界値をテスト可能にする
   - 詳細: `Counter.Initialize` は `If CountStep = 0 Then` で既存プロパティを確認しており、引数 `CountStepNumber:=0` を検出できない。
+  - 詳細: `Counter.HasNext` は `StopWhenMax=True` のときに `pCount + pCountStep` を `Long` のまま計算するため、`InitialCount:=2147483647`、`CountStepNumber:=1`、`MaxCount:=2147483647` のような境界で `False` ではなく Overflow になる。負方向でも `Long` 下限付近で同様に境界判定前に失敗し得る。
   - 詳細: `DebugInformation.pBuildMessageByIndex` は先頭 `*` を設定した直後に上書きしており、`FinishTask(TaskName:=...)` は対象タスクを見つけても戻り値を `True` にしていない。
   - 詳細: `ProgressStatus.SetForLoop` は `pTotalValue = FinishIndex` を直接代入して `TotalValue` プロパティの検証を通らず、`Application.StatusBar` と `DoEvents` への依存により進捗計算単体のテストが書きにくい。
-  - 対応案: `Counter`、`DebugInformation`、`ProgressStatus` の境界値、戻り値、表示文字列生成をテストで固定する。`ProgressStatus` は進捗率・文言生成と StatusBar 書き込みを分ける。
+  - 対応案: `Counter`、`DebugInformation`、`ProgressStatus` の境界値、戻り値、表示文字列生成をテストで固定する。`Counter.HasNext` は `Long` 境界で加算前に進行可否を判定する。`ProgressStatus` は進捗率・文言生成と StatusBar 書き込みを分ける。
 
 - [ ] [bug] SplitMessage の PageSize 境界値を検証する
-  - 詳細: `SplitMessage` は `PageSize` を検証せず、`PageSize <= 0` の場合に `pTakeString` が 1 文字も消費しないため、長い行を処理する `Do While` が進まない。さらに `pTakeString` の `LengthByte` は `Integer` で、`SplitMessage` の `Long` 引数より狭い。
-  - 影響: メッセージ表示系の補助 API に不正なページサイズが渡ると処理が戻らない、または大きなページサイズで型変換エラーになる可能性がある。
-  - 対応案: `PageSize >= 1` を入口で検証し、`pTakeString` の `LengthByte` を `Long` に揃える。`PageSize` が 0、負数、32767 超、マルチバイト境界のテストを追加する。
+  - 詳細: `SplitMessage` は `PageSize` を検証せず、`PageSize <= 0` の場合に `pTakeString` が 1 文字も消費しないため、長い行を処理する `Do While` が進まない。
+  - 詳細: `PageSize` が正数でも、Shift_JIS で 2 バイトになる文字に対して `PageSize:=1` のように 1 文字のバイト数未満を指定すると、`pTakeString` が空文字列を返して `RemainingString` が変わらず、同じ `Do While` が進まない。
+  - 影響: メッセージ表示系の補助 API に不正または小さすぎるページサイズが渡ると処理が戻らない可能性がある。
+  - 対応案: `PageSize` の下限を入口で検証するか、`pTakeString` が 1 文字も消費できない場合は明示エラーにする。`PageSize` が 0、負数、1、マルチバイト境界のテストを追加する。
 
 - [ ] [bug] Lib_Common の配列境界・列挙ヘルパーの空配列と多次元配列契約を揃える
   - 詳細: `GetArrayBounds` は未初期化動的配列で 1 次元目の `LBound` / `UBound` が失敗すると、出力側の `LBoundArray` / `UBoundArray` も未初期化のまま返す。
@@ -584,6 +576,11 @@
   - 保留解除条件: 必要とされたら
 
 ## 対応しないと決定した事項
+
+- [x] [bug] WorksheetService.CopyRange の部分配列数式コピーで非アンカーセルを書き換えない
+  - 詳細: `CopyRange` が配列数式のアンカーではないセルを処理起点にした場合、非アンカーセルへの一時書き込みにより Excel の「配列の一部を変更できない」系エラーになるという想定だった。
+  - 影響: 当初は、配列数式を含むコピー元範囲の取り方によって、同じ配列数式のコピー可否が変わる懸念があった。
+  - 結論: 対応しない。`D2:F3` の配列数式に対してアンカーを含まない `E2:F3` を `CopyRange` した実行確認では、エラーは発生せず、コピー先 `H2:I3` に `=TRANSPOSE({10,20})` の 2x2 配列数式として正常に入った。コピー元 `D2:F3` も配列数式のまま維持されたため、指摘は現行実装の実挙動と一致しない。
 
 - [x] [bug] UnitTestAssert の失敗経路で IsFailed を必ず True にする
   - 詳細: `pSetUnsupportedComparisonResult`、`IsTypeOf`、`EqualsArray` / `NotEqualsArray` の非配列引数などで `IsFailed=False` のまま残り得るという指摘だった。

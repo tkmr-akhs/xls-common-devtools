@@ -190,6 +190,8 @@ End Sub
 ' @details
 ' 範囲をアクティブにします。
 Public Sub ActivateRange(ByVal RangeBounds As WorksheetRangeBounds)
+    If RangeBounds.IsEmpty Then Err.Raise vbObjectError + 1, "Class WorksheetService", "RangeBounds が空範囲です。(" & RangeBounds.ToString() & ")"
+
     Dim target_book As Workbook
     Set target_book = pGetWorkbook(RangeBounds)
 

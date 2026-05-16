@@ -183,6 +183,68 @@ Public Sub Test_ActivateRange_NonActiveWorksheet_ActivatesTargetSheetAndCell(ByV
     Assert.Equals "E4", actual_active_cell_address
 End Sub
 
+Public Sub Test_ActivateRange_EmptyRange_RaisesBeforeActivatingTarget(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim sheet_srv As IWorksheetService
+    Set sheet_srv = New WorksheetService
+
+    Dim target_book As Workbook
+    Set target_book = Workbooks.Add
+    Do While target_book.Worksheets.Count < 2
+        Call target_book.Worksheets.Add(After:=target_book.Worksheets(target_book.Worksheets.Count))
+    Loop
+    target_book.Worksheets(1).Name = "target_start"
+    target_book.Worksheets(2).Name = "target_activate"
+    Call target_book.Worksheets("target_start").Activate
+
+    Dim control_book As Workbook
+    Set control_book = Workbooks.Add
+    control_book.Worksheets(1).Name = "control_active"
+    Call control_book.Worksheets("control_active").Activate
+    Call control_book.Worksheets("control_active").Range("B2").Activate
+
+    Dim target_book_name As String
+    target_book_name = target_book.Name
+
+    Dim control_book_name As String
+    control_book_name = control_book.Name
+
+    Dim range_bounds As WorksheetRangeBounds
+    Set range_bounds = New_RangeBounds(Row:=3, Column:=4, FinishRow:=2, FinishColumn:=4, Sheet:="target_activate", Book:=target_book_name)
+
+    ' Act
+    Err.Clear
+    Call sheet_srv.ActivateRange(range_bounds)
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+
+    Dim actual_active_book_name As String
+    Dim actual_active_sheet_name As String
+    Dim actual_active_cell_address As String
+    actual_active_book_name = ActiveWorkbook.Name
+    actual_active_sheet_name = ActiveSheet.Name
+    actual_active_cell_address = ActiveCell.Address(RowAbsolute:=False, ColumnAbsolute:=False)
+
+    ' Cleanup
+    Call control_book.Close(SaveChanges:=False)
+    Call target_book.Close(SaveChanges:=False)
+    On Error GoTo 0
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, actual_error_number, actual_error_source, actual_error_description) Then Exit Sub
+    Assert.Equals "Class WorksheetService", actual_error_source
+    Assert.Equals control_book_name, actual_active_book_name
+    Assert.Equals "control_active", actual_active_sheet_name
+    Assert.Equals "B2", actual_active_cell_address
+End Sub
+
 ' -----------------------------------------------------------------------------
 ' Find
 ' -----------------------------------------------------------------------------

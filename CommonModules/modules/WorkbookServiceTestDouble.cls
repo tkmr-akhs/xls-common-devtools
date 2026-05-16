@@ -45,6 +45,9 @@ Public SaveWorkbook_Results As Dictionary
 '* IsSaved の引数→戻り値辞書。引数がキーとなり、戻り値が値となります。
 Public IsSaved_Values As Dictionary
 
+'* HasPath の引数→戻り値辞書。引数がキーとなり、戻り値が値となります。
+Public HasPath_Values As Dictionary
+
 '* CloseWorkbook の引数→受け取り値辞書。引数がキーとなり、値が True となります。
 Public CloseWorkbook_Results As Dictionary
 
@@ -90,6 +93,7 @@ Private Sub Class_Initialize()
     Set OpenWorkbook_Results = New Dictionary
     Set SaveWorkbook_Results = New Dictionary
     Set IsSaved_Values = New Dictionary
+    Set HasPath_Values = New Dictionary
     Set CloseWorkbook_Results = New Dictionary
     Set Find_Values = New Dictionary
     Set AddWorksheet_Results = New Dictionary
@@ -204,7 +208,7 @@ End Function
 '* IsSaved のスタブです。
 '*
 '* @details
-'* IsSaved = TUtl.GetValue(IsSaved_Values, FilePath)
+'* IsSaved = TUtl.GetValue(IsSaved_Values, Book)
 Public Function IsSaved(ByVal Book As String) As Boolean
     If TUtl.HasValue(IsSaved_Values, Book) Then
         IsSaved = TUtl.GetValue(IsSaved_Values, Book)
@@ -214,6 +218,21 @@ Public Function IsSaved(ByVal Book As String) As Boolean
 End Function
 Private Function IWorkbookService_IsSaved(ByVal Book As String) As Boolean
     IWorkbookService_IsSaved = IsSaved(Book)
+End Function
+
+'* HasPath のスタブです。
+'*
+'* @details
+'* HasPath = TUtl.GetValue(HasPath_Values, Book)
+Public Function HasPath(ByVal Book As String) As Boolean
+    If TUtl.HasValue(HasPath_Values, Book) Then
+        HasPath = TUtl.GetValue(HasPath_Values, Book)
+    Else
+        HasPath = False
+    End If
+End Function
+Private Function IWorkbookService_HasPath(ByVal Book As String) As Boolean
+    IWorkbookService_HasPath = HasPath(Book)
 End Function
 
 '* CloseWorkbook のスパイです。

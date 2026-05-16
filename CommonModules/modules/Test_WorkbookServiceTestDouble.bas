@@ -230,6 +230,41 @@ Public Sub Test_IsSaved_NoValue_ReturnsFalse(ByVal Assert As UnitTestAssert)
 End Sub
 
 ' ----------------------------------------------------------------------------
+' HasPath のテスト
+' ----------------------------------------------------------------------------
+Public Sub Test_HasPath_RegisteredValue_ReturnsTrue(ByVal Assert As UnitTestAssert)
+    ' Arrange
+    Dim wb_double As WorkbookServiceTestDouble
+    Set wb_double = New WorkbookServiceTestDouble
+
+    Dim wb_name As String
+    wb_name = "BookX"
+
+    Call TUtl.SetValue(wb_double.HasPath_Values, True, wb_name)
+
+    ' Act
+    Dim actual_has_path As Boolean
+    actual_has_path = wb_double.HasPath(wb_name)
+
+    ' Assert
+    Assert.IsTrue actual_has_path
+End Sub
+
+Public Sub Test_HasPath_NoValue_ReturnsFalse(ByVal Assert As UnitTestAssert)
+    ' Arrange
+    Dim wb_double As WorkbookServiceTestDouble
+    Set wb_double = New WorkbookServiceTestDouble
+
+    ' Act
+    Dim actual_has_path As Boolean
+    actual_has_path = wb_double.HasPath("NoSuchBook")
+
+    ' Assert
+    Assert.IsFalse actual_has_path
+End Sub
+
+
+' ----------------------------------------------------------------------------
 ' CloseWorkbook のテスト
 ' ----------------------------------------------------------------------------
 Public Sub Test_CloseWorkbook_WithFalse_RecordsInDictionary(ByVal Assert As UnitTestAssert)

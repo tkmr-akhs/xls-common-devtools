@@ -15,15 +15,20 @@
 
 ## 高優先度
 
-- [ ] [bug] WorkbookService.IsSaved をパス区切り文字ではなくブック状態で判定する
-  - 詳細: `IsSaved` は `Workbooks(Book).FullName` に `G_FS_PATH_SEP` が含まれるかだけで保存済み判定している。保存先が URL / SharePoint / OneDrive など通常の `\` を含まない表現になる場合や、Excel が返す `FullName` の形式差で、実際には保存済みでも False になり得る。
-  - 影響: 保存済み判定を前提にした上書き確認、バックアップ、閉じる前の分岐で、保存済みブックを未保存扱いにする。WorkbookService の基盤 API として、ブック名文字列の見た目に依存した判定は環境差に弱い。
-  - 対応案: `Workbook.Path` の非空、`Workbook.Saved`、`FullName` と `Name` の関係など Excel オブジェクトの状態を使う。通常保存、未保存、URL / 同期フォルダー、別形式保存直後のテストを追加する。
-
 - [ ] [bug] WorkbookService.RemoveVBComponents の重複名判定を VBA 名の大文字小文字非区別に合わせる
   - 詳細: `pBuildComponentNameSet` は `Scripting.Dictionary` を `vbBinaryCompare` で使うため、`Array("ModuleA", "modulea")` のような大文字小文字だけが違う指定を別キーとして保持する。一方で `VBComponents.Item(...)` は VBA コンポーネント名を実質的に大文字小文字非区別で解決するため、検証では同じコンポーネントが複数回通り、削除時に 1 回目で消した後の 2 回目で失敗し得る。
   - 影響: 削除対象リストに同一名の大小文字違いが混ざると、事前検証を通過したのに処理途中で失敗する。複数コンポーネント削除では、一部だけ削除済みの状態が残る可能性がある。
   - 対応案: コンポーネント名セットは `vbTextCompare` にするか、VBProject 上の実名へ正規化して重複排除する。単一名、同一名の大小文字違い、別名混在、存在しない名前混在のテストを追加する。
+
+- [ ] [bug] WorksheetRangeBounds のブック名・シート名比較を Excel の大文字小文字非区別に合わせる
+  - 詳細: `Intersect` は `pWorksheetName <> OtherRangeBounds.WorksheetName Or pWorkbookName <> OtherRangeBounds.WorkbookName` で文字列をそのまま比較している。`Equals` / `GetIdentityString` も `ToString` の文字列表現に依存するため、`Sheet1` と `sheet1`、ブック名の大文字小文字違いのように Excel では同じ対象を指す指定を別範囲として扱う。
+  - 影響: `New_RangeBounds(Sheet:="Sheet1")` と `New_RangeBounds(Sheet:="sheet1")` の `Intersect` がワークシート不一致で失敗し、`ObjectSet` など `IEquatable` の同一性文字列を使う利用箇所でも同じ範囲を重複扱いできない。Excel オブジェクト参照では成功する大文字小文字違いの指定が、範囲値オブジェクト同士の操作だけで破綻する。
+  - 対応案: ブック名・シート名は `vbTextCompare` で比較するか、Excel 上の実名へ正規化してから比較・同一性文字列化する。大文字小文字違いの `Intersect`、`Equals`、`GetIdentityString`、`ObjectSet` 重複判定のテストを追加する。
+
+- [ ] [bug] WorkbookService.GetThisWorkbookDirectoryPath で URL 保存パスを FSO のローカルパスとして解決しない
+  - 詳細: `GetThisWorkbookDirectoryPath` は `ThisWorkbook.Path` が非空なら常に `Scripting.FileSystemObject.GetAbsolutePathName` へ渡す。`ThisWorkbook.Path` が `https://...` のような URL 形式になる保存先では、FSO が URL をローカル相対パスとして解釈し、`C:\...\https:\...` のような実在しないパスを返し得る。
+  - 影響: `pGetAbsolutePath` 経由の `OpenWorkbook` / `SaveWorkbook` / `FileSystemService.GetAbsolutePath` など、相対パスを ThisWorkbook 基準にする API が、URL 保存ブックで誤った基準ディレクトリを使う。SharePoint / OneDrive などで保存したブックでは、ブックは保存済みでもファイル操作だけが別パスへ向く。
+  - 対応案: `ThisWorkbook.Path` がローカルファイルシステムのパスか URL かを判定し、URL の場合は相対ファイル操作の対象外として明示エラーにするか、ローカル同期パス解決を別 API として切り出す。未保存、ローカル保存、URL 保存のテストを追加する。
 
 - [ ] [bug] Excel アドレス解析でクォート済みの `!` と不正な `$` 配置を正しく扱う
   - 詳細: `SplitExcelAddress` はクォートを解釈する前に `Split(AddressString, "!")` するため、`'入力!確認'!A1` のように `!` を含むシート名を、クォート済みでも不正なアドレスとして扱う。`WorkbookService.pRaiseIfInvalidWorksheetName` は `!` を禁止しておらず、`ExcelBookAndSheetAddress` も `!` をクォート対象としているため、生成側と解析側の契約がずれている。

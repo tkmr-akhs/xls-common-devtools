@@ -105,14 +105,24 @@ End Function
 Public Function SaveWorkbook(ByVal Book As String, ByVal FilePath As String, Optional ByVal Force As Boolean = True) As String
 End Function
 
-'* ワークブックが保存済みか確認します。
+'* ワークブックが最終保存後に変更されていないか確認します。
 '*
 '* @param Book 対象のブック名。
-'* @return 保存済みか否か。
+'* @return 最終保存後に変更されていないか否か。
 '*
 '* @details
-'* ワークブックが保存済みか確認します。。
+'* Excel の Workbook.Saved と同じ意味で、保存先パスの有無は判定しません。
 Public Function IsSaved(ByVal Book As String) As Boolean
+End Function
+
+'* ワークブックが保存先パスを持つか確認します。
+'*
+'* @param Book 対象のブック名。
+'* @return 保存先パスを持つか否か。
+'*
+'* @details
+'* 新規未保存ブックのように保存先パスを持たない場合は False を返します。変更有無は判定しません。
+Public Function HasPath(ByVal Book As String) As Boolean
 End Function
 
 '* ワークブックを閉じます。

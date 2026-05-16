@@ -794,6 +794,168 @@ AFTER_SAVE:
     Assert.ErrorRaised 0, err_num, err_source, err_desc
 End Sub
 
+' -----------------------------------------------------------------------------
+' IsSaved
+' -----------------------------------------------------------------------------
+
+Public Sub Test_IsSaved_SavedWorkbookWithUnsavedChanges_ReturnsFalse(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Call InitializeCommonService
+    Call InitializeFileSystemService
+
+    Dim book_srv As IWorkbookService
+    Set book_srv = New WorkbookService
+
+    Dim target_book As Workbook
+    Set target_book = Workbooks.Add
+
+    Dim book_name As String
+    book_name = target_book.Name
+
+    Dim file_path As String
+    file_path = JoinPath(WbSrv.GetThisWorkbookDirectoryPath(), "tmp_workbook_service_is_saved.xlsx")
+    If FsSrv.IsFile(file_path) Then Call FsSrv.RemoveFile(file_path, Force:=True)
+
+    book_name = book_srv.SaveWorkbook(book_name, file_path, Force:=True)
+    Workbooks(book_name).Worksheets(1).Range("A1").Value = "changed"
+
+    ' Act
+    Err.Clear
+    Dim actual_saved As Boolean
+    actual_saved = book_srv.IsSaved(book_name)
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+
+    ' Cleanup
+    Call book_srv.CloseWorkbook(book_name, Force:=True)
+    If FsSrv.IsFile(file_path) Then Call FsSrv.RemoveFile(file_path, Force:=True)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, actual_error_number, actual_error_source, actual_error_description) Then Exit Sub
+    Assert.IsFalse actual_saved
+End Sub
+
+Public Sub Test_IsSaved_NewWorkbookWithoutChanges_ReturnsTrue(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim book_srv As IWorkbookService
+    Set book_srv = New WorkbookService
+
+    Dim target_book As Workbook
+    Set target_book = Workbooks.Add
+
+    Dim book_name As String
+    book_name = target_book.Name
+
+    ' Act
+    Err.Clear
+    Dim actual_saved As Boolean
+    actual_saved = book_srv.IsSaved(book_name)
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+
+    ' Cleanup
+    Call book_srv.CloseWorkbook(book_name, Force:=True)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, actual_error_number, actual_error_source, actual_error_description) Then Exit Sub
+    Assert.IsTrue actual_saved
+End Sub
+
+' -----------------------------------------------------------------------------
+' HasPath
+' -----------------------------------------------------------------------------
+
+Public Sub Test_HasPath_NewWorkbook_ReturnsFalse(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim book_srv As IWorkbookService
+    Set book_srv = New WorkbookService
+
+    Dim target_book As Workbook
+    Set target_book = Workbooks.Add
+
+    Dim book_name As String
+    book_name = target_book.Name
+
+    ' Act
+    Err.Clear
+    Dim actual_has_path As Boolean
+    actual_has_path = book_srv.HasPath(book_name)
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+
+    ' Cleanup
+    Call book_srv.CloseWorkbook(book_name, Force:=True)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, actual_error_number, actual_error_source, actual_error_description) Then Exit Sub
+    Assert.IsFalse actual_has_path
+End Sub
+
+Public Sub Test_HasPath_SavedWorkbookWithUnsavedChanges_ReturnsTrue(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Call InitializeCommonService
+    Call InitializeFileSystemService
+
+    Dim book_srv As IWorkbookService
+    Set book_srv = New WorkbookService
+
+    Dim target_book As Workbook
+    Set target_book = Workbooks.Add
+
+    Dim book_name As String
+    book_name = target_book.Name
+
+    Dim file_path As String
+    file_path = JoinPath(WbSrv.GetThisWorkbookDirectoryPath(), "tmp_workbook_service_has_path.xlsx")
+    If FsSrv.IsFile(file_path) Then Call FsSrv.RemoveFile(file_path, Force:=True)
+
+    book_name = book_srv.SaveWorkbook(book_name, file_path, Force:=True)
+    Workbooks(book_name).Worksheets(1).Range("A1").Value = "changed"
+
+    ' Act
+    Err.Clear
+    Dim actual_has_path As Boolean
+    actual_has_path = book_srv.HasPath(book_name)
+
+    Dim actual_error_number As Long
+    Dim actual_error_source As String
+    Dim actual_error_description As String
+    actual_error_number = Err.Number
+    actual_error_source = Err.Source
+    actual_error_description = Err.Description
+
+    ' Cleanup
+    Call book_srv.CloseWorkbook(book_name, Force:=True)
+    If FsSrv.IsFile(file_path) Then Call FsSrv.RemoveFile(file_path, Force:=True)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, actual_error_number, actual_error_source, actual_error_description) Then Exit Sub
+    Assert.IsTrue actual_has_path
+End Sub
+
 
 ' -----------------------------------------------------------------------------
 ' RemoveVBComponents

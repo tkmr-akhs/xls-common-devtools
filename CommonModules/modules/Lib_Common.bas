@@ -3731,21 +3731,21 @@ Public Sub SplitExcelAddress(ByRef FolderPath As String, ByRef BookName As Strin
         Call pRaiseInvalidExcelAddress(AddressString)
     End If
 
-    Dim addr_parts() As String
-    addr_parts = Split(AddressString, "!")
-    If 1 < UBound(addr_parts) Then
+    Dim delimiter_idx As Long
+    delimiter_idx = pFindExcelAddressDelimiter(AddressString)
+    If delimiter_idx < 0 Then
         Call pRaiseInvalidExcelAddress(AddressString)
     End If
 
     Dim location_part As String
-    If UBound(addr_parts) = 0 Then
-        CellAddress = addr_parts(0)
+    If delimiter_idx = 0 Then
+        CellAddress = AddressString
         If 0 < InStr(CellAddress, "[") Or 0 < InStr(CellAddress, "]") Or 0 < InStr(CellAddress, "'") Then
             Call pRaiseInvalidExcelAddress(AddressString)
         End If
     Else
-        location_part = addr_parts(0)
-        CellAddress = addr_parts(1)
+        location_part = Left(AddressString, delimiter_idx - 1)
+        CellAddress = Mid(AddressString, delimiter_idx + 1)
 
         If location_part = "" Or CellAddress = "" Then
             Call pRaiseInvalidExcelAddress(AddressString)
@@ -3791,6 +3791,35 @@ Public Sub SplitExcelAddress(ByRef FolderPath As String, ByRef BookName As Strin
         Call pRaiseInvalidExcelAddress(AddressString)
     End If
 End Sub
+
+Private Function pFindExcelAddressDelimiter(ByVal AddressString As String) As Long
+    Dim result_value As Long
+    Dim is_in_quote As Boolean
+    Dim char_idx As Long
+    For char_idx = 1 To Len(AddressString)
+        Dim current_char As String
+        current_char = Mid$(AddressString, char_idx, 1)
+        If current_char = "'" Then
+            If is_in_quote And char_idx < Len(AddressString) And Mid$(AddressString, char_idx + 1, 1) = "'" Then
+                char_idx = char_idx + 1
+            Else
+                is_in_quote = Not is_in_quote
+            End If
+        ElseIf current_char = "!" And Not is_in_quote Then
+            If result_value <> 0 Then
+                pFindExcelAddressDelimiter = -1
+                Exit Function
+            End If
+            result_value = char_idx
+        End If
+    Next
+
+    If is_in_quote Then
+        pFindExcelAddressDelimiter = -1
+    Else
+        pFindExcelAddressDelimiter = result_value
+    End If
+End Function
 
 Private Sub pRaiseInvalidExcelAddress(ByVal AddressString As String)
     Err.Raise Number:=vbObjectError + 1, Source:="Sub SplitExcelAddress", Description:="Excel アドレス文字列の形式が正しくありません。(" & AddressString & ")"
@@ -3881,31 +3910,56 @@ Private Sub pSplitA1AddressToken( _
     TokenType = 0
 
     Dim normalized_token As String
-    normalized_token = UCase(Replace(AddressToken, "$", ""))
+    normalized_token = UCase(AddressToken)
     If normalized_token = "" Then
         Call pRaiseInvalidA1RangeAddress(OriginalAddressString)
     End If
 
-    Dim col_text As String
-    Dim row_text As String
-    Dim found_digit As Boolean
     Dim char_idx As Long
-    For char_idx = 1 To Len(normalized_token)
-        Dim char_code As Long
-        char_code = Asc(Mid(normalized_token, char_idx, 1))
+    char_idx = 1
 
-        If Asc("A") <= char_code And char_code <= Asc("Z") Then
-            If found_digit Then
-                Call pRaiseInvalidA1RangeAddress(OriginalAddressString)
-            End If
-            col_text = col_text & Chr(char_code)
-        ElseIf Asc("0") <= char_code And char_code <= Asc("9") Then
-            found_digit = True
-            row_text = row_text & Chr(char_code)
-        Else
+    Dim has_leading_dollar As Boolean
+    If Mid$(normalized_token, char_idx, 1) = "$" Then
+        has_leading_dollar = True
+        char_idx = char_idx + 1
+        If Len(normalized_token) < char_idx Then
             Call pRaiseInvalidA1RangeAddress(OriginalAddressString)
         End If
-    Next
+    End If
+
+    Dim col_text As String
+    Do While char_idx <= Len(normalized_token)
+        Dim char_code As Long
+        char_code = Asc(Mid$(normalized_token, char_idx, 1))
+        If char_code < Asc("A") Or Asc("Z") < char_code Then Exit Do
+        col_text = col_text & Chr(char_code)
+        char_idx = char_idx + 1
+    Loop
+
+    If col_text = "" And has_leading_dollar Then
+        If char_idx <= Len(normalized_token) And Mid$(normalized_token, char_idx, 1) = "$" Then
+            Call pRaiseInvalidA1RangeAddress(OriginalAddressString)
+        End If
+    ElseIf col_text <> "" Then
+        If char_idx <= Len(normalized_token) And Mid$(normalized_token, char_idx, 1) = "$" Then
+            char_idx = char_idx + 1
+            If Len(normalized_token) < char_idx Then
+                Call pRaiseInvalidA1RangeAddress(OriginalAddressString)
+            End If
+        End If
+    End If
+
+    Dim row_text As String
+    Do While char_idx <= Len(normalized_token)
+        char_code = Asc(Mid$(normalized_token, char_idx, 1))
+        If char_code < Asc("0") Or Asc("9") < char_code Then Exit Do
+        row_text = row_text & Chr(char_code)
+        char_idx = char_idx + 1
+    Loop
+
+    If char_idx <= Len(normalized_token) Then
+        Call pRaiseInvalidA1RangeAddress(OriginalAddressString)
+    End If
 
     If col_text <> "" Then
         ColumnIndex = pA1ColumnIndex(col_text, OriginalAddressString)

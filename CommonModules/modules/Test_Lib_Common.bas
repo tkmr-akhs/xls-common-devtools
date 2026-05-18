@@ -112,6 +112,46 @@ Public Sub Test_SplitExcelAddress_QuotedWorkbookSheet_ReturnsParts(ByVal Assert 
     Assert.Equals "$A$1:$B$2", cell_address
 End Sub
 
+Public Sub Test_SplitExcelAddress_QuotedSheetWithExclamation_ReturnsParts(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim folder_path As String
+    Dim book_name As String
+    Dim sheet_name As String
+    Dim cell_address As String
+
+    ' Act
+    Call SplitExcelAddress(folder_path, book_name, sheet_name, cell_address, "'入力!確認'!A1")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "", folder_path
+    Assert.Equals "", book_name
+    Assert.Equals "入力!確認", sheet_name
+    Assert.Equals "A1", cell_address
+End Sub
+
+Public Sub Test_SplitExcelAddress_QuotedSheetWithEscapedApostrophe_ReturnsParts(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim folder_path As String
+    Dim book_name As String
+    Dim sheet_name As String
+    Dim cell_address As String
+
+    ' Act
+    Call SplitExcelAddress(folder_path, book_name, sheet_name, cell_address, "'O''Brien'!$A$1")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "", folder_path
+    Assert.Equals "", book_name
+    Assert.Equals "O'Brien", sheet_name
+    Assert.Equals "$A$1", cell_address
+End Sub
+
 Public Sub Test_SplitExcelAddress_InvalidAddress_RaisesError(ByVal Assert As UnitTestAssert)
     On Error Resume Next
 
@@ -186,6 +226,97 @@ Public Sub Test_SplitA1RangeAddress_ColumnRange_ReturnsOmittedRows(ByVal Assert 
     Assert.EqualsNumeric 1, start_col
     Assert.EqualsNumeric G_OMIT_CELL_INDEX, finish_row
     Assert.EqualsNumeric 3, finish_col
+End Sub
+
+Public Sub Test_SplitA1RangeAddress_AbsoluteRowRange_ReturnsOmittedColumns(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim start_row As Long
+    Dim start_col As Long
+    Dim finish_row As Long
+    Dim finish_col As Long
+
+    ' Act
+    Call SplitA1RangeAddress(start_row, start_col, finish_row, finish_col, "$1:$3")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.EqualsNumeric 1, start_row
+    Assert.EqualsNumeric G_OMIT_CELL_INDEX, start_col
+    Assert.EqualsNumeric 3, finish_row
+    Assert.EqualsNumeric G_OMIT_CELL_INDEX, finish_col
+End Sub
+
+Public Sub Test_SplitA1RangeAddress_AbsoluteColumnRange_ReturnsOmittedRows(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim start_row As Long
+    Dim start_col As Long
+    Dim finish_row As Long
+    Dim finish_col As Long
+
+    ' Act
+    Call SplitA1RangeAddress(start_row, start_col, finish_row, finish_col, "$A:$C")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.EqualsNumeric G_OMIT_CELL_INDEX, start_row
+    Assert.EqualsNumeric 1, start_col
+    Assert.EqualsNumeric G_OMIT_CELL_INDEX, finish_row
+    Assert.EqualsNumeric 3, finish_col
+End Sub
+
+Public Sub Test_SplitA1RangeAddress_DollarInsideColumn_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim start_row As Long
+    Dim start_col As Long
+    Dim finish_row As Long
+    Dim finish_col As Long
+
+    ' Act
+    Call SplitA1RangeAddress(start_row, start_col, finish_row, finish_col, "A$B1")
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Sub SplitA1RangeAddress", Err.Source
+End Sub
+
+Public Sub Test_SplitA1RangeAddress_DoubleColumnDollar_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim start_row As Long
+    Dim start_col As Long
+    Dim finish_row As Long
+    Dim finish_col As Long
+
+    ' Act
+    Call SplitA1RangeAddress(start_row, start_col, finish_row, finish_col, "$$A$1")
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Sub SplitA1RangeAddress", Err.Source
+End Sub
+
+Public Sub Test_SplitA1RangeAddress_TrailingDollar_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim start_row As Long
+    Dim start_col As Long
+    Dim finish_row As Long
+    Dim finish_col As Long
+
+    ' Act
+    Call SplitA1RangeAddress(start_row, start_col, finish_row, finish_col, "A1$")
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Sub SplitA1RangeAddress", Err.Source
 End Sub
 
 Public Sub Test_SplitA1RangeAddress_MultiRange_RaisesError(ByVal Assert As UnitTestAssert)

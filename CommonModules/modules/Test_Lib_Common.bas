@@ -353,6 +353,65 @@ Public Sub Test_GetAbsolutePathFromParent_NonAbsoluteParentPath_RaisesError(ByVa
     Assert.Equals "Function GetAbsolutePathFromParent", Err.Source
 End Sub
 
+
+Public Sub Test_IsUrlPath_SchemeUrl_ReturnsTrue(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act / Assert
+    Assert.IsTrue IsUrlPath("https://example.com/sites/book.xlsm")
+    Assert.IsTrue IsUrlPath("custom+scheme://host/path")
+    Assert.IsFalse IsUrlPath("C:\Base\Child")
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+End Sub
+
+Public Sub Test_GetAbsolutePathFromParent_UrlParentRelativePath_NormalizesPath(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim actual_value As String
+    actual_value = GetAbsolutePathFromParent("https://example.com/sites/team/docs", "..\book.xlsm")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "https://example.com/sites/team/book.xlsm", actual_value
+End Sub
+
+Public Sub Test_GetAbsolutePathFromParent_UrlRootRelativePath_UsesUrlRoot(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim actual_value As String
+    actual_value = GetAbsolutePathFromParent("https://example.com/sites/team/docs", "\shared\book.xlsm")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "https://example.com/shared/book.xlsm", actual_value
+End Sub
+
+Public Sub Test_GetAbsolutePathFromParent_UrlQueryFragment_PreservesSuffix(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim actual_value As String
+    actual_value = GetAbsolutePathFromParent("https://example.com/sites/team/docs", "sub\..\book.xlsm?q=C:\Temp\A/B#frag/c")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "https://example.com/sites/team/docs/book.xlsm?q=C:\Temp\A/B#frag/c", actual_value
+End Sub
+
+Public Sub Test_GetAbsolutePathFromParent_WindowsForwardSlash_ReturnsBackslash(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim actual_value As String
+    actual_value = GetAbsolutePathFromParent("C:/Base/Child", "../File.txt")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "C:\Base\File.txt", actual_value
+End Sub
+
 Public Sub Test_GetPathRoot_DrivePath_ReturnsDriveRoot(ByVal Assert As UnitTestAssert)
     On Error Resume Next
 
@@ -417,4 +476,250 @@ Public Sub Test_IsAbsolutePath_DriveRelativePath_ReturnsFalse(ByVal Assert As Un
     ' Act / Assert
     Assert.IsFalse IsAbsolutePath("C:folder\file.txt")
     If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+End Sub
+
+Public Sub Test_GetPathRoot_Url_ReturnsAuthorityRoot(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim actual_value As String
+    actual_value = GetPathRoot("https://example.com/sites/team/book.xlsm")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "https://example.com/", actual_value
+End Sub
+
+Public Sub Test_IsDrivePath_DriveSpecifier_ReturnsTrue(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act / Assert
+    Assert.IsTrue IsDrivePath("C:\Base\File.txt")
+    Assert.IsTrue IsDrivePath("C:/Base/File.txt")
+    Assert.IsTrue IsDrivePath("C:Base\File.txt")
+    Assert.IsTrue IsDrivePath("C:")
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+End Sub
+
+Public Sub Test_IsDrivePath_NonDriveSpecifier_ReturnsFalse(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act / Assert
+    Assert.IsFalse IsDrivePath("\\Server\Share\File.txt")
+    Assert.IsFalse IsDrivePath("Base\File.txt")
+    Assert.IsFalse IsDrivePath("1:\Base\File.txt")
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+End Sub
+
+Public Sub Test_IsDriveAbsolutePath_DriveAbsolutePath_ReturnsTrue(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act / Assert
+    Assert.IsTrue IsDriveAbsolutePath("C:\Base\File.txt")
+    Assert.IsTrue IsDriveAbsolutePath("C:/Base/File.txt")
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+End Sub
+
+Public Sub Test_IsDriveAbsolutePath_DriveRelativePath_ReturnsFalse(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act / Assert
+    Assert.IsFalse IsDriveAbsolutePath("C:Base\File.txt")
+    Assert.IsFalse IsDriveAbsolutePath("C:")
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+End Sub
+
+Public Sub Test_IsDriveRelativePath_DriveRelativePath_ReturnsTrue(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act / Assert
+    Assert.IsTrue IsDriveRelativePath("C:Base\File.txt")
+    Assert.IsTrue IsDriveRelativePath("C:")
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+End Sub
+
+Public Sub Test_IsDriveRelativePath_DriveAbsolutePath_ReturnsFalse(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act / Assert
+    Assert.IsFalse IsDriveRelativePath("C:\Base\File.txt")
+    Assert.IsFalse IsDriveRelativePath("C:/Base/File.txt")
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+End Sub
+
+Public Sub Test_IsUncPath_ValidUncPath_ReturnsTrue(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act / Assert
+    Assert.IsTrue IsUncPath("\\Server\Share\File.txt")
+    Assert.IsTrue IsUncPath("//Server/Share/File.txt")
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+End Sub
+
+Public Sub Test_IsUncPath_IncompleteUncPath_ReturnsFalse(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act / Assert
+    Assert.IsFalse IsUncPath("\\Server")
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+End Sub
+
+Public Sub Test_SplitPath_WindowsPath_ReturnsParentAndLeaf(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim parent_path As String
+    Dim leaf_path As String
+    Call SplitPath(parent_path, leaf_path, "C:\Base\Child\File.txt")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "C:\Base\Child", parent_path
+    Assert.Equals "File.txt", leaf_path
+End Sub
+
+Public Sub Test_SplitPath_WindowsForwardSlash_ReturnsBackslashParent(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim parent_path As String
+    Dim leaf_path As String
+    Call SplitPath(parent_path, leaf_path, "C:/Base/Child/File.txt")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "C:\Base\Child", parent_path
+    Assert.Equals "File.txt", leaf_path
+End Sub
+
+Public Sub Test_SplitPath_NoSeparator_ReturnsEmptyParent(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim parent_path As String
+    Dim leaf_path As String
+    Call SplitPath(parent_path, leaf_path, "File.txt")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "", parent_path
+    Assert.Equals "File.txt", leaf_path
+End Sub
+
+Public Sub Test_SplitPath_EndSeparator_RespectsIgnoreEndSep(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim parent_path As String
+    Dim leaf_path As String
+    Call SplitPath(parent_path, leaf_path, "C:\Base\Child\")
+
+    Dim ignored_parent_path As String
+    Dim ignored_leaf_path As String
+    Call SplitPath(ignored_parent_path, ignored_leaf_path, "C:\Base\Child\", IgnoreEndSep:=True)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "C:\Base\Child", parent_path
+    Assert.Equals "", leaf_path
+    Assert.Equals "C:\Base", ignored_parent_path
+    Assert.Equals "Child", ignored_leaf_path
+End Sub
+
+Public Sub Test_SplitPath_Url_KeepsPathSuffixInLeaf(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim parent_path As String
+    Dim leaf_path As String
+    Call SplitPath(parent_path, leaf_path, "https://example.com/sites/team/book.xlsm?q=a/b#frag/c")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "https://example.com/sites/team", parent_path
+    Assert.Equals "book.xlsm?q=a/b#frag/c", leaf_path
+End Sub
+
+Public Sub Test_ParseLeafPath_FileName_ReturnsBaseNameAndExtension(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim base_name As String
+    Dim file_ext As String
+    Dim path_suffix As String
+    Call ParseLeafPath(base_name, file_ext, path_suffix, "book.xlsm")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "book", base_name
+    Assert.Equals ".xlsm", file_ext
+    Assert.Equals "", path_suffix
+End Sub
+
+Public Sub Test_ParseLeafPath_PathSuffix_ReturnsSuffixSeparately(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim base_name As String
+    Dim file_ext As String
+    Dim path_suffix As String
+    Call ParseLeafPath(base_name, file_ext, path_suffix, "book.xlsm?q=a/b#frag/c")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "book", base_name
+    Assert.Equals ".xlsm", file_ext
+    Assert.Equals "?q=a/b#frag/c", path_suffix
+End Sub
+
+Public Sub Test_ParseLeafPath_DotFile_ReturnsNoExtension(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim base_name As String
+    Dim file_ext As String
+    Dim path_suffix As String
+    Call ParseLeafPath(base_name, file_ext, path_suffix, ".gitignore#frag")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals ".gitignore", base_name
+    Assert.Equals "", file_ext
+    Assert.Equals "#frag", path_suffix
+End Sub
+
+Public Sub Test_GetParentPath_Url_IgnoresQueryFragment(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim actual_value As String
+    actual_value = GetParentPath("https://example.com/sites/team/book.xlsm?q=a/b#frag/c")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "https://example.com/sites/team", actual_value
+End Sub
+
+Public Sub Test_GetLeafFromPath_Url_IgnoresQueryFragment(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim actual_value As String
+    actual_value = GetLeafFromPath("https://example.com/sites/team/book.xlsm?q=a/b#frag/c")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "book.xlsm", actual_value
+End Sub
+
+Public Sub Test_GetLeafFromPath_UrlExtension_IgnoresPathSuffix(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim actual_value As String
+    actual_value = GetLeafFromPath("https://example.com/sites/team/book.xlsm?q=a/b#frag/c", BaseName:=False, Extension:=True)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals ".xlsm", actual_value
 End Sub

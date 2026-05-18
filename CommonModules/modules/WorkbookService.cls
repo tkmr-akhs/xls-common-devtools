@@ -48,7 +48,7 @@ Public Function GetThisWorkbookDirectoryPath() As String
         dir_path = CurDir()
     End If
     
-    GetThisWorkbookDirectoryPath = CreateObject("Scripting.FileSystemObject").GetAbsolutePathName(dir_path)
+    GetThisWorkbookDirectoryPath = GetAbsolutePathFromParent(dir_path, ".")
 End Function
 Private Function IWorkbookService_GetThisWorkbookDirectoryPath() As String
     IWorkbookService_GetThisWorkbookDirectoryPath = GetThisWorkbookDirectoryPath()

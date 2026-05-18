@@ -671,35 +671,42 @@ End Function
 '* 追加のパス文字列を可変長引数として渡すことができます。
 Public Function JoinPath(ByVal Path1 As String, ByVal Path2 As String, ParamArray Paths() As Variant) As String
     Dim result_value As String
-    
+
     result_value = pJoinPathCore(Path1, Path2)
-    
+
     If UBound(Paths) = -1 Then
         JoinPath = result_value
         Exit Function
     End If
-    
+
     Dim item_idx As Long
     For item_idx = LBound(Paths) To UBound(Paths)
         result_value = pJoinPathCore(result_value, Paths(item_idx))
     Next item_idx
-    
+
     JoinPath = result_value
 End Function
 
 Private Function pJoinPathCore(ByVal Path1 As String, ByVal Path2 As String) As String
-    
-    If EndsWith(Path1, G_FS_PATH_SEP) Then
-        If StartsWith(Path2, G_FS_PATH_SEP) Then
-            pJoinPathCore = Left(Path1, Len(Path1) - 1) & Path2
+    If IsUrlPath(Path1) Then
+        pJoinPathCore = pJoinPathCoreWithSep(Path1, pNormalizeUrlRelativePathForJoin(Path2), "/")
+    Else
+        pJoinPathCore = pJoinPathCoreWithSep(pNormalizeWindowsPathSeparators(Path1), pNormalizeWindowsPathSeparators(Path2), G_FS_PATH_SEP)
+    End If
+End Function
+
+Private Function pJoinPathCoreWithSep(ByVal Path1 As String, ByVal Path2 As String, ByVal PathSep As String) As String
+    If EndsWith(Path1, PathSep) Then
+        If StartsWith(Path2, PathSep) Then
+            pJoinPathCoreWithSep = Left$(Path1, Len(Path1) - 1) & Path2
         Else
-            pJoinPathCore = Path1 & Path2
+            pJoinPathCoreWithSep = Path1 & Path2
         End If
     Else
-        If StartsWith(Path2, G_FS_PATH_SEP) Then
-            pJoinPathCore = Path1 & Path2
+        If StartsWith(Path2, PathSep) Then
+            pJoinPathCoreWithSep = Path1 & Path2
         Else
-            pJoinPathCore = Path1 & G_FS_PATH_SEP & Path2
+            pJoinPathCoreWithSep = Path1 & PathSep & Path2
         End If
     End If
 End Function
@@ -715,88 +722,488 @@ End Function
 '* PathLikeString が絶対パスの場合は ParentAbsolutePath を使わず、正規化した絶対パスを返します。
 '* `\foo` のようなルート相対パスは ParentAbsolutePath のルートを基準にします。
 '* `C:foo` のようなドライブ相対パスはカレントディレクトリ依存になるためエラーにします。
+'* URL は FSO に渡さず、パス部分だけを `/` 区切りで正規化します。
 Public Function GetAbsolutePathFromParent(ByVal ParentAbsolutePath As String, ByVal PathLikeString As String) As String
-    If pIsDriveRelativePath(ParentAbsolutePath) Or Not IsAbsolutePath(ParentAbsolutePath) Then Err.Raise vbObjectError + 1, "Function GetAbsolutePathFromParent", "ParentAbsolutePath には絶対パスを指定してください。(" & ParentAbsolutePath & ")"
-    If pIsDriveRelativePath(PathLikeString) Then Err.Raise vbObjectError + 1, "Function GetAbsolutePathFromParent", "ドライブ相対パスは指定できません。(" & PathLikeString & ")"
-    
-    Dim fso As Object
-    Set fso = CreateObject("Scripting.FileSystemObject")
-    
+    If IsDriveRelativePath(ParentAbsolutePath) Or Not IsAbsolutePath(ParentAbsolutePath) Then Err.Raise vbObjectError + 1, "Function GetAbsolutePathFromParent", "ParentAbsolutePath には絶対パスを指定してください。(" & ParentAbsolutePath & ")"
+    If IsDriveRelativePath(PathLikeString) Then Err.Raise vbObjectError + 1, "Function GetAbsolutePathFromParent", "ドライブ相対パスは指定できません。(" & PathLikeString & ")"
+
     Dim parent_path As String
-    parent_path = fso.GetAbsolutePathName(ParentAbsolutePath)
-    
+    parent_path = pNormalizeAbsolutePath(ParentAbsolutePath)
+
     Dim target_path As String
-    If PathLikeString = "" Or PathLikeString = "." Or PathLikeString = ".\" Then
+    If PathLikeString = "" Or PathLikeString = "." Or PathLikeString = ".\" Or PathLikeString = "./" Then
         target_path = parent_path
     ElseIf IsAbsolutePath(PathLikeString) Then
         target_path = PathLikeString
-    ElseIf Left$(PathLikeString, 1) = G_FS_PATH_SEP Then
-        target_path = GetPathRoot(parent_path) & Mid$(PathLikeString, 2)
+    ElseIf pIsRootRelativePath(PathLikeString) Then
+        target_path = JoinPath(GetPathRoot(parent_path), Mid$(pNormalizePathPartSeparators(PathLikeString), 2) & pGetPathSuffix(PathLikeString))
     Else
         target_path = JoinPath(parent_path, PathLikeString)
     End If
-    
-    GetAbsolutePathFromParent = fso.GetAbsolutePathName(target_path)
+
+    GetAbsolutePathFromParent = pNormalizeAbsolutePath(target_path)
 End Function
 
 '* パスのルート部分を取得します。
 '*
 '* @param PathLikeString ルートを取得するパス文字列。
-'* @return ドライブパスでは `C:\`、UNC パスでは `\\server\share\` 形式のルート。
+'* @return ドライブパスでは `C:\`、UNC パスでは `\\server\share\`、URL では `scheme://authority/` 形式のルート。
 '*
 '* @details
 '* 先頭がアルファベット 1 文字、2 文字目が `:` の場合はドライブパスとして扱います。
-'* 先頭 2 文字が `\\` の場合は UNC パスとして扱います。
+'* 先頭 2 文字が `\\` または `//` の場合は UNC パスとして扱います。
+'* `scheme://` 形式の URL も絶対パスとして扱います。
 '* それ以外のパス文字列ではエラーを発生させます。
 Public Function GetPathRoot(ByVal PathLikeString As String) As String
-    If pIsDrivePath(PathLikeString) Then
+    If IsUrlPath(PathLikeString) Then
+        Dim url_prefix As String
+        Dim url_path As String
+        Dim url_suffix As String
+        Call pSplitUrl(url_prefix, url_path, url_suffix, PathLikeString)
+        GetPathRoot = url_prefix & "/"
+    ElseIf IsDriveRelativePath(PathLikeString) Then
+        Err.Raise vbObjectError + 1, "Function GetPathRoot", "ドライブ相対パスのルートは解決できません。(" & PathLikeString & ")"
+    ElseIf IsDriveAbsolutePath(PathLikeString) Then
         GetPathRoot = UCase$(Left$(PathLikeString, 1)) & ":" & G_FS_PATH_SEP
-    ElseIf pIsUncPath(PathLikeString) Then
-        GetPathRoot = pGetUncPathRoot(PathLikeString)
+    ElseIf IsUncPath(PathLikeString) Then
+        GetPathRoot = pNormalizeWindowsPathSeparators(pGetUncPathRootSlash(PathLikeString))
     Else
-        Err.Raise vbObjectError + 1, "Function GetPathRoot", "ドライブパスまたは UNC パスを指定してください。(" & PathLikeString & ")"
+        Err.Raise vbObjectError + 1, "Function GetPathRoot", "ドライブパス、UNC パス、または URL を指定してください。(" & PathLikeString & ")"
     End If
 End Function
 
-Private Function pIsDrivePath(ByVal PathLikeString As String) As Boolean
-    If Len(PathLikeString) < 2 Then Exit Function
-    If Mid$(PathLikeString, 2, 1) <> ":" Then Exit Function
-    pIsDrivePath = pIsAsciiAlphabet(Left$(PathLikeString, 1))
+'* ドライブ指定を持つパスか判定します。
+'*
+'* @param TestPath 判定対象のパス文字列。
+'* @return ドライブ指定を持つパスの場合は True、それ以外は False。
+'*
+'* @details
+'* `C:\foo`、`C:/foo`、`C:foo`、`C:` のように先頭がドライブ指定の場合は True とします。
+Public Function IsDrivePath(ByVal TestPath As String) As Boolean
+    If Len(TestPath) < 2 Then Exit Function
+    If Mid$(TestPath, 2, 1) <> ":" Then Exit Function
+    IsDrivePath = pIsAsciiAlphabet(Left$(TestPath, 1))
 End Function
 
-Private Function pIsDriveRelativePath(ByVal PathLikeString As String) As Boolean
-    If Not pIsDrivePath(PathLikeString) Then Exit Function
-    
-    If Len(PathLikeString) = 2 Then
-        pIsDriveRelativePath = True
+'* ドライブ絶対パスか判定します。
+'*
+'* @param TestPath 判定対象のパス文字列。
+'* @return ドライブ絶対パスの場合は True、それ以外は False。
+'*
+'* @details
+'* `C:\foo` または `C:/foo` のようなドライブ絶対パスを True とします。`C:foo` のようなドライブ相対パスは False です。
+Public Function IsDriveAbsolutePath(ByVal TestPath As String) As Boolean
+    If Not IsDrivePath(TestPath) Then Exit Function
+    If Len(TestPath) < 3 Then Exit Function
+    IsDriveAbsolutePath = (Mid$(TestPath, 3, 1) = G_FS_PATH_SEP Or Mid$(TestPath, 3, 1) = "/")
+End Function
+
+'* ドライブ相対パスか判定します。
+'*
+'* @param TestPath 判定対象のパス文字列。
+'* @return ドライブ相対パスの場合は True、それ以外は False。
+'*
+'* @details
+'* `C:foo` または `C:` のようにドライブ指定を持ち、区切り文字で始まらないパスを True とします。
+Public Function IsDriveRelativePath(ByVal TestPath As String) As Boolean
+    If Not IsDrivePath(TestPath) Then Exit Function
+    IsDriveRelativePath = Not IsDriveAbsolutePath(TestPath)
+End Function
+
+'* UNC パスか判定します。
+'*
+'* @param TestPath 判定対象のパス文字列。
+'* @return UNC パスの場合は True、それ以外は False。
+'*
+'* @details
+'* `\\server\share` または `//server/share` のような UNC パスを True とします。
+Public Function IsUncPath(ByVal TestPath As String) As Boolean
+    If Not (Left$(TestPath, 2) = "\\" Or Left$(TestPath, 2) = "//") Then Exit Function
+
+    On Error Resume Next
+    Err.Clear
+    Dim root_path As String
+    root_path = pGetUncPathRootSlash(TestPath)
+    IsUncPath = (Err.Number = 0)
+    Err.Clear
+    On Error GoTo 0
+End Function
+
+Private Function pNormalizeAbsolutePath(ByVal PathLikeString As String) As String
+    If IsUrlPath(PathLikeString) Then
+        pNormalizeAbsolutePath = pNormalizeUrlPath(PathLikeString)
     Else
-        pIsDriveRelativePath = (Mid$(PathLikeString, 3, 1) <> G_FS_PATH_SEP)
+        pNormalizeAbsolutePath = pNormalizeLocalAbsolutePath(PathLikeString)
     End If
 End Function
 
-Private Function pIsUncPath(ByVal PathLikeString As String) As Boolean
-    pIsUncPath = (Left$(PathLikeString, 2) = "\\")
+Private Function pNormalizeUrlPath(ByVal UrlPath As String) As String
+    Dim url_prefix As String
+    Dim url_path As String
+    Dim url_suffix As String
+    Call pSplitUrl(url_prefix, url_path, url_suffix, UrlPath)
+    pNormalizeUrlPath = url_prefix & pNormalizeSlashPath(url_path, True) & url_suffix
 End Function
+
+Private Function pNormalizeLocalAbsolutePath(ByVal PathLikeString As String) As String
+    Dim slash_path As String
+    slash_path = pNormalizePathSeparators(PathLikeString)
+
+    If IsDriveRelativePath(slash_path) Then Err.Raise vbObjectError + 1, "Function GetAbsolutePathFromParent", "ドライブ相対パスは指定できません。(" & PathLikeString & ")"
+
+    If IsDriveAbsolutePath(slash_path) Then
+        Dim drive_root As String
+        drive_root = UCase$(Left$(slash_path, 1)) & ":/"
+
+        Dim drive_rest As String
+        drive_rest = Mid$(slash_path, Len(drive_root) + 1)
+
+        Dim drive_normalized_path As String
+        drive_normalized_path = pNormalizeSlashPath("/" & drive_rest, True)
+        pNormalizeLocalAbsolutePath = pNormalizeWindowsPathSeparators(drive_root & Mid$(drive_normalized_path, 2))
+    ElseIf IsUncPath(slash_path) Then
+        Dim unc_root As String
+        unc_root = pGetUncPathRootSlash(slash_path)
+
+        Dim unc_rest As String
+        unc_rest = Mid$(slash_path, Len(unc_root) + 1)
+
+        Dim unc_normalized_path As String
+        unc_normalized_path = pNormalizeSlashPath("/" & unc_rest, True)
+        pNormalizeLocalAbsolutePath = pNormalizeWindowsPathSeparators(unc_root & Mid$(unc_normalized_path, 2))
+    Else
+        Err.Raise vbObjectError + 1, "Function GetAbsolutePathFromParent", "絶対パスを指定してください。(" & PathLikeString & ")"
+    End If
+End Function
+
+Private Function pNormalizeSlashPath(ByVal PathPart As String, ByVal IsAbsolute As Boolean) As String
+    Dim slash_path As String
+    slash_path = pNormalizePathSeparators(PathPart)
+
+    Dim path_parts As Variant
+    path_parts = Split(slash_path, "/")
+
+    Dim stack_items() As String
+    Dim stack_count As Long
+    stack_count = 0
+
+    Dim path_part As Variant
+    For Each path_part In path_parts
+        Dim part_text As String
+        part_text = CStr(path_part)
+
+        If part_text = "" Or part_text = "." Then
+            ' no operation
+        ElseIf part_text = ".." Then
+            If stack_count > 0 Then
+                stack_count = stack_count - 1
+            ElseIf Not IsAbsolute Then
+                Call pPushPathSegment(stack_items, stack_count, part_text)
+            End If
+        Else
+            Call pPushPathSegment(stack_items, stack_count, part_text)
+        End If
+    Next path_part
+
+    Dim result_path As String
+    If IsAbsolute Then result_path = "/"
+
+    Dim item_idx As Long
+    For item_idx = 0 To stack_count - 1
+        If result_path <> "" And Not EndsWith(result_path, "/") Then result_path = result_path & "/"
+        result_path = result_path & stack_items(item_idx)
+    Next item_idx
+
+    If result_path = "" Then
+        If IsAbsolute Then
+            result_path = "/"
+        Else
+            result_path = "."
+        End If
+    End If
+
+    pNormalizeSlashPath = result_path
+End Function
+
+Private Sub pPushPathSegment(ByRef StackItems() As String, ByRef StackCount As Long, ByVal PathSegment As String)
+    If StackCount = 0 Then
+        ReDim StackItems(0 To 0)
+    Else
+        ReDim Preserve StackItems(0 To StackCount)
+    End If
+
+    StackItems(StackCount) = PathSegment
+    StackCount = StackCount + 1
+End Sub
+
 
 Private Function pIsAsciiAlphabet(ByVal TestChar As String) As Boolean
     If Len(TestChar) <> 1 Then Exit Function
     pIsAsciiAlphabet = ("A" <= UCase$(TestChar) And UCase$(TestChar) <= "Z")
 End Function
 
-Private Function pGetUncPathRoot(ByVal UncPath As String) As String
+Private Function pIsAsciiDigit(ByVal TestChar As String) As Boolean
+    If Len(TestChar) <> 1 Then Exit Function
+    pIsAsciiDigit = ("0" <= TestChar And TestChar <= "9")
+End Function
+
+Private Function pGetUncPathRootSlash(ByVal UncPath As String) As String
+    Dim slash_path As String
+    slash_path = pNormalizePathSeparators(UncPath)
+
     Dim server_sep As Long
-    server_sep = InStr(3, UncPath, G_FS_PATH_SEP)
+    server_sep = InStr(3, slash_path, "/")
     If server_sep = 0 Then Err.Raise vbObjectError + 1, "Function GetPathRoot", "UNC パスのルートを解決できません。(" & UncPath & ")"
-    
+
     Dim share_sep As Long
-    share_sep = InStr(server_sep + 1, UncPath, G_FS_PATH_SEP)
+    share_sep = InStr(server_sep + 1, slash_path, "/")
     If share_sep = 0 Then
-        pGetUncPathRoot = UncPath
-        If Not EndsWith(pGetUncPathRoot, G_FS_PATH_SEP) Then pGetUncPathRoot = pGetUncPathRoot & G_FS_PATH_SEP
+        pGetUncPathRootSlash = slash_path
+        If Not EndsWith(pGetUncPathRootSlash, "/") Then pGetUncPathRootSlash = pGetUncPathRootSlash & "/"
     Else
-        pGetUncPathRoot = Left$(UncPath, share_sep)
+        pGetUncPathRootSlash = Left$(slash_path, share_sep)
     End If
 End Function
+
+'* URL 形式のパスか判定します。
+'*
+'* @param TestPath 判定対象のパス文字列。
+'* @return URL 形式の場合は True、それ以外は False。
+'*
+'* @details
+'* `scheme://` の形式を URL として扱います。スキーム名は英字で始まり、英数字、`+`、`.`、`-` を含めることができます。
+Public Function IsUrlPath(ByVal TestPath As String) As Boolean
+    Dim scheme_sep_pos As Long
+    scheme_sep_pos = InStr(1, TestPath, "://", vbBinaryCompare)
+    If scheme_sep_pos <= 1 Then Exit Function
+
+    Dim scheme_name As String
+    scheme_name = Left$(TestPath, scheme_sep_pos - 1)
+    If Not pIsAsciiAlphabet(Left$(scheme_name, 1)) Then Exit Function
+
+    Dim char_idx As Long
+    For char_idx = 2 To Len(scheme_name)
+        Dim scheme_char As String
+        scheme_char = Mid$(scheme_name, char_idx, 1)
+        If Not (pIsAsciiAlphabet(scheme_char) Or pIsAsciiDigit(scheme_char) Or scheme_char = "+" Or scheme_char = "." Or scheme_char = "-") Then Exit Function
+    Next char_idx
+
+    IsUrlPath = True
+End Function
+
+Private Sub pSplitUrl(ByRef UrlPrefix As String, ByRef UrlPathPart As String, ByRef UrlSuffix As String, ByVal UrlPath As String)
+    Dim scheme_sep_pos As Long
+    scheme_sep_pos = InStr(1, UrlPath, "://", vbBinaryCompare)
+    If scheme_sep_pos = 0 Then Err.Raise vbObjectError + 1, "Function GetPathRoot", "URL 形式ではありません。(" & UrlPath & ")"
+
+    Dim scan_start As Long
+    scan_start = scheme_sep_pos + Len("://")
+
+    Dim path_start As Long
+    Dim suffix_start As Long
+    Dim char_idx As Long
+    For char_idx = scan_start To Len(UrlPath)
+        Dim current_char As String
+        current_char = Mid$(UrlPath, char_idx, 1)
+        If current_char = "/" Or current_char = G_FS_PATH_SEP Then
+            path_start = char_idx
+            Exit For
+        ElseIf current_char = "?" Or current_char = "#" Then
+            suffix_start = char_idx
+            Exit For
+        End If
+    Next char_idx
+
+    If path_start = 0 Then
+        If suffix_start = 0 Then
+            UrlPrefix = UrlPath
+            UrlSuffix = ""
+        Else
+            UrlPrefix = Left$(UrlPath, suffix_start - 1)
+            UrlSuffix = Mid$(UrlPath, suffix_start)
+        End If
+        UrlPathPart = "/"
+        Exit Sub
+    End If
+
+    UrlPrefix = Left$(UrlPath, path_start - 1)
+    Call pSplitPathSuffix(UrlPathPart, UrlSuffix, Mid$(UrlPath, path_start))
+    UrlPathPart = pNormalizePathSeparators(UrlPathPart)
+End Sub
+
+Private Sub pSplitPathSuffix(ByRef PathPart As String, ByRef PathSuffix As String, ByVal PathWithSuffix As String)
+    Dim query_pos As Long
+    query_pos = InStr(1, PathWithSuffix, "?", vbBinaryCompare)
+
+    Dim fragment_pos As Long
+    fragment_pos = InStr(1, PathWithSuffix, "#", vbBinaryCompare)
+
+    Dim suffix_pos As Long
+    If query_pos > 0 And fragment_pos > 0 Then
+        suffix_pos = IIf(query_pos < fragment_pos, query_pos, fragment_pos)
+    ElseIf query_pos > 0 Then
+        suffix_pos = query_pos
+    Else
+        suffix_pos = fragment_pos
+    End If
+
+    If suffix_pos = 0 Then
+        PathPart = PathWithSuffix
+        PathSuffix = ""
+    Else
+        PathPart = Left$(PathWithSuffix, suffix_pos - 1)
+        PathSuffix = Mid$(PathWithSuffix, suffix_pos)
+    End If
+End Sub
+
+Private Function pNormalizeUrlRelativePathForJoin(ByVal PathWithSuffix As String) As String
+    Dim path_part As String
+    Dim path_suffix As String
+    Call pSplitPathSuffix(path_part, path_suffix, PathWithSuffix)
+    pNormalizeUrlRelativePathForJoin = pNormalizePathSeparators(path_part) & path_suffix
+End Function
+
+Private Function pIsRootRelativePath(ByVal PathWithSuffix As String) As Boolean
+    pIsRootRelativePath = StartsWith(pNormalizePathPartSeparators(PathWithSuffix), "/")
+End Function
+
+Private Function pNormalizePathPartSeparators(ByVal PathWithSuffix As String) As String
+    Dim path_part As String
+    Dim path_suffix As String
+    Call pSplitPathSuffix(path_part, path_suffix, PathWithSuffix)
+    pNormalizePathPartSeparators = pNormalizePathSeparators(path_part)
+End Function
+
+Private Function pGetPathSuffix(ByVal PathWithSuffix As String) As String
+    Dim path_part As String
+    Dim path_suffix As String
+    Call pSplitPathSuffix(path_part, path_suffix, PathWithSuffix)
+    pGetPathSuffix = path_suffix
+End Function
+
+Private Function pNormalizePathSeparators(ByVal PathLikeString As String) As String
+    pNormalizePathSeparators = Replace(PathLikeString, G_FS_PATH_SEP, "/")
+End Function
+
+Private Function pNormalizeWindowsPathSeparators(ByVal PathLikeString As String) As String
+    pNormalizeWindowsPathSeparators = Replace(PathLikeString, "/", G_FS_PATH_SEP)
+End Function
+
+'* パスを親パスと末端パスに分割します。
+'*
+'* @param ParentPath [出力] 親パス。
+'* @param LeafPath [出力] 末端パス。
+'* @param Path 入力パス文字列。
+'* @param IgnoreEndSep [省略可] 入力パス文字列の末尾の区切り文字を無視するか否か。
+'*
+'* @details
+'* Path を最後のパス区切り文字で親パスと末端パスに分割します。
+'* URL では query / fragment 内の区切り文字を分割対象から除外し、PathSuffix は LeafPath に含めて返します。
+Public Sub SplitPath( _
+        ByRef ParentPath As String, _
+        ByRef LeafPath As String, _
+        ByVal Path As String, _
+        Optional ByVal IgnoreEndSep As Boolean = False)
+
+    If IsUrlPath(Path) Then
+        Call pSplitUrlPath(ParentPath, LeafPath, Path, IgnoreEndSep)
+    Else
+        Call pSplitWindowsPath(ParentPath, LeafPath, Path, IgnoreEndSep)
+    End If
+End Sub
+
+Private Sub pSplitUrlPath( _
+        ByRef ParentPath As String, _
+        ByRef LeafPath As String, _
+        ByVal UrlPath As String, _
+        ByVal IgnoreEndSep As Boolean)
+
+    Dim url_prefix As String
+    Dim url_path As String
+    Dim url_suffix As String
+    Call pSplitUrl(url_prefix, url_path, url_suffix, UrlPath)
+
+    Dim normalized_path As String
+    normalized_path = pNormalizeSlashPath(url_path, True)
+    If EndsWith(url_path, "/") And normalized_path <> "/" Then normalized_path = normalized_path & "/"
+    url_path = normalized_path
+
+    If EndsWith(url_path, "/") And url_path <> "/" Then
+        url_path = Left$(url_path, Len(url_path) - 1)
+        If Not IgnoreEndSep Then
+            ParentPath = url_prefix & url_path
+            LeafPath = url_suffix
+            Exit Sub
+        End If
+    End If
+
+    Dim last_sep As Long
+    last_sep = InStrRev(url_path, "/")
+    If last_sep <= 1 Then
+        ParentPath = url_prefix & "/"
+        LeafPath = Mid$(url_path, 2) & url_suffix
+    Else
+        ParentPath = url_prefix & Left$(url_path, last_sep - 1)
+        LeafPath = Mid$(url_path, last_sep + 1) & url_suffix
+    End If
+End Sub
+
+Private Sub pSplitWindowsPath( _
+        ByRef ParentPath As String, _
+        ByRef LeafPath As String, _
+        ByVal WindowsPath As String, _
+        ByVal IgnoreEndSep As Boolean)
+
+    WindowsPath = pNormalizeWindowsPathSeparators(WindowsPath)
+    If EndsWith(WindowsPath, G_FS_PATH_SEP) Then
+        WindowsPath = Left$(WindowsPath, Len(WindowsPath) - 1)
+        If Not IgnoreEndSep Then
+            ParentPath = WindowsPath
+            LeafPath = ""
+            Exit Sub
+        End If
+    End If
+
+    Dim last_sep As Long
+    last_sep = InStrRev(WindowsPath, G_FS_PATH_SEP)
+    If last_sep = 0 Then
+        ParentPath = ""
+        LeafPath = WindowsPath
+    Else
+        ParentPath = Left$(WindowsPath, last_sep - 1)
+        LeafPath = Mid$(WindowsPath, last_sep + 1)
+    End If
+End Sub
+
+'* 末端パスをベース名、拡張子、パスサフィックスに分解します。
+'*
+'* @param BaseName [出力] 拡張子とパスサフィックスを除いた末端名。
+'* @param Extension [出力] `.` を含む拡張子。拡張子がない場合は空文字列。
+'* @param PathSuffix [出力] query / fragment を含むパスサフィックス。
+'* @param LeafPath 入力末端パス文字列。
+'*
+'* @details
+'* `?` または `#` 以降を PathSuffix とし、それより前の文字列を最後の `.` で分割します。
+Public Sub ParseLeafPath( _
+        ByRef BaseName As String, _
+        ByRef Extension As String, _
+        ByRef PathSuffix As String, _
+        ByVal LeafPath As String)
+
+    Dim leaf_body As String
+    Call pSplitPathSuffix(leaf_body, PathSuffix, LeafPath)
+
+    Dim last_period As Long
+    last_period = InStrRev(leaf_body, ".")
+
+    If 1 < last_period Then
+        BaseName = Left$(leaf_body, last_period - 1)
+        Extension = Mid$(leaf_body, last_period)
+    Else
+        BaseName = leaf_body
+        Extension = ""
+    End If
+End Sub
 
 '* パスの最後の部分を除いたパスを取得します。
 '*
@@ -808,15 +1215,11 @@ End Function
 '* 入力されたパス文字列の最後のパス区切り文字より前の部分を返します。
 '* 例えば、`Path\to\File` の場合は `Path\to` を返します。
 Public Function GetParentPath(ByVal Path As String, Optional ByVal IgnoreEndSep As Boolean = False) As String
-    If EndsWith(Path, G_FS_PATH_SEP) Then
-        Path = Left(Path, Len(Path) - 1)
-        If Not IgnoreEndSep Then
-            GetParentPath = Path
-            Exit Function
-        End If
-    End If
-    
-    GetParentPath = Left(Path, InStrRev(Path, G_FS_PATH_SEP) - 1)
+    Dim parent_path As String
+    Dim leaf_path As String
+    Call SplitPath(parent_path, leaf_path, Path, IgnoreEndSep:=IgnoreEndSep)
+
+    GetParentPath = parent_path
 End Function
 
 '* パスの最後の部分を取得します。
@@ -830,53 +1233,22 @@ End Function
 '* @details
 '* 入力されたパス文字列の最後のパス区切り文字より後の部分を返します。
 '* オプション引数 `Extension` を False にすると、拡張子を除去した結果を返します。
+'* URL の PathSuffix は返却に含めません。PathSuffix が必要な場合は SplitPath と ParseLeafPath を使用します。
 '* 例えば、`Path\to\File.txt` の場合は `File` を返します。
 Public Function GetLeafFromPath(ByVal Path As String, Optional ByVal BaseName As Boolean = True, Optional ByVal Extension As Boolean = True, Optional ByVal IgnoreEndSep As Boolean = False) As String
     If Not BaseName And Not Extension Then Exit Function
-    
-    If EndsWith(Path, G_FS_PATH_SEP) Then
-        If Not IgnoreEndSep Then
-            GetLeafFromPath = ""
-            Exit Function
-        Else
-            Path = Left(Path, Len(Path) - 1)
-        End If
-    End If
-    
-    Dim last_sep As Long
-    last_sep = InStrRev(Path, G_FS_PATH_SEP)
-    
-    Dim leaf_str As String
-    If last_sep > 0 Then
-        leaf_str = Mid(Path, last_sep + 1)
-    Else
-        leaf_str = Path
-    End If
-    
-    If BaseName And Extension Then
-        GetLeafFromPath = leaf_str
-        Exit Function
-    End If
-    
-    Dim last_period As Long
-    last_period = InStrRev(leaf_str, ".")
-    
-    Dim base_name As String, file_ext As String
-    If 1 < last_period Then
-        base_name = Left(leaf_str, last_period - 1)
-        file_ext = Right(leaf_str, Len(leaf_str) - last_period + 1)
-    Else
-        base_name = leaf_str
-        file_ext = ""
-    End If
-    
-    If BaseName And Not Extension Then
-        GetLeafFromPath = base_name
-    ElseIf Not BaseName And Extension Then
-        GetLeafFromPath = file_ext
-    Else
-        GetLeafFromPath = leaf_str
-    End If
+
+    Dim parent_path As String
+    Dim leaf_path As String
+    Call SplitPath(parent_path, leaf_path, Path, IgnoreEndSep:=IgnoreEndSep)
+
+    Dim base_name As String
+    Dim file_ext As String
+    Dim path_suffix As String
+    Call ParseLeafPath(base_name, file_ext, path_suffix, leaf_path)
+
+    If BaseName Then GetLeafFromPath = GetLeafFromPath & base_name
+    If Extension Then GetLeafFromPath = GetLeafFromPath & file_ext
 End Function
 
 '* あるパス文字列が絶対パスかを判定します。
@@ -886,16 +1258,16 @@ End Function
 '*
 '* @details
 '* 入力されたパス文字列が絶対パスかどうかを判定します。
+'* URL 形式の文字列も絶対パスとして扱います。
 Public Function IsAbsolutePath(ByVal TestPath As String) As Boolean
-    If pIsDriveRelativePath(TestPath) Then Exit Function
-    
+    If IsDriveRelativePath(TestPath) Then Exit Function
+
     On Error Resume Next
     Call GetPathRoot(TestPath)
     IsAbsolutePath = (Err.Number = 0)
     Err.Clear
     On Error GoTo 0
 End Function
-
 ' #############################################################################
 '
 ' 日付操作関連
@@ -3607,5 +3979,4 @@ Public Function ConvertRangeToStringList(ByVal TargetRange As WorksheetRangeBoun
 
     Set ConvertRangeToStringList = result_value
 End Function
-
 

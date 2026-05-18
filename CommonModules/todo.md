@@ -15,11 +15,6 @@
 
 ## 高優先度
 
-- [ ] [bug] WorkbookService.GetThisWorkbookDirectoryPath で URL 保存パスを FSO のローカルパスとして解決しない
-  - 詳細: `GetThisWorkbookDirectoryPath` は `ThisWorkbook.Path` が非空なら常に `Scripting.FileSystemObject.GetAbsolutePathName` へ渡す。`ThisWorkbook.Path` が `https://...` のような URL 形式になる保存先では、FSO が URL をローカル相対パスとして解釈し、`C:\...\https:\...` のような実在しないパスを返し得る。
-  - 影響: `pGetAbsolutePath` 経由の `OpenWorkbook` / `SaveWorkbook` / `FileSystemService.GetAbsolutePath` など、相対パスを ThisWorkbook 基準にする API が、URL 保存ブックで誤った基準ディレクトリを使う。SharePoint / OneDrive などで保存したブックでは、ブックは保存済みでもファイル操作だけが別パスへ向く。
-  - 対応案: `ThisWorkbook.Path` がローカルファイルシステムのパスか URL かを判定し、URL の場合は相対ファイル操作の対象外として明示エラーにするか、ローカル同期パス解決を別 API として切り出す。未保存、ローカル保存、URL 保存のテストを追加する。
-
 - [ ] [bug] Excel アドレス解析でクォート済みの `!` と不正な `$` 配置を正しく扱う
   - 詳細: `SplitExcelAddress` はクォートを解釈する前に `Split(AddressString, "!")` するため、`'入力!確認'!A1` のように `!` を含むシート名を、クォート済みでも不正なアドレスとして扱う。`WorkbookService.pRaiseIfInvalidWorksheetName` は `!` を禁止しておらず、`ExcelBookAndSheetAddress` も `!` をクォート対象としているため、生成側と解析側の契約がずれている。
   - 詳細: `SplitA1RangeAddress` は `pSplitA1AddressToken` で `Replace(AddressToken, "$", "")` してから解析するため、`A$B1`、`$$A$1`、`A1$` のような Excel A1 形式として不正な `$` 配置を、`AB1` や `A1` として受け入れ得る。
@@ -40,6 +35,12 @@
   - 詳細: 現状は ObjectSet.pGetKey、UnitTestUtils.pGetKey、WorkbookServiceTestDouble.pBuildComponentNamesKey などが個別にキー化しており、型タグ、エスケープ、特殊値、配列境界、オブジェクト参照、IEquatable / IDuplicateCheckable の扱いが揃っていない。
   - 影響: 複合キーやテストダブル引数キーで型違い・特殊値・配列値の取り違えや実行時エラーが起きる。ObjectList / ObjectSet の値契約を整理しても、キー生成側が共通化されていないと同じ判定を複数箇所へ重複実装することになる。
   - 対応案: Lib_Common に型付きの値キー生成関数を追加し、文字列・数値・Boolean・Empty・Null・CVErr、配列の次元/境界/要素、オブジェクト参照、IEquatable / IDuplicateCheckable の利用ポリシーを表現できるようにする。既存の GetMultiKey や UnitTestUtils のキー生成は段階的にこの関数へ寄せる。
+
+- [ ] [bug] Lib_Common.GetMultiKey のキー衝突と特殊値変換を修正する
+  - 詳細: `GetMultiKey` は引数を `Variant` で受ける一方、内部の `pGetMultiKeyEscape(ByVal DictionaryKey As String)` で文字列へ暗黙変換してから連結するため、`1` と `"1"`、`True` と `"True"` のように型が異なる値が同じキーになり得る。
+  - 詳細: `Null` や `CVErr(...)` は文字列への暗黙変換で実行時エラーになり、複合キー生成そのものが失敗し得る。
+  - 影響: 複数引数を Dictionary キーにする呼び出し側で、値の型差による取り違えや、Excel エラー値・Null を含むデータでの失敗が起こる。
+  - 対応案: 値の型タグと特殊値表現を含むキー生成へ変更し、文字列・数値・Boolean・Empty・Null・CVErr を含む複合キーの衝突テストを追加する。
 
 - [ ] [bug] ObjectList / ObjectSet の検索・削除 API で要素型を検査する
   - 詳細: `ObjectList.Exists` / `GetIndexByItem` / `RemoveItem` は特殊値チェックだけで `pCheckItemType` を通さず、プリミティブ比較では `ItemObject1 = ItemObject2` の暗黙変換に任せている。そのため数値 `1` のリストに文字列 `"1"` を渡すと同一扱いになり得る。
@@ -143,12 +144,6 @@
   - 詳細: `IsInteger` / `IsLong` は `IsNumeric` 後に `CInt(Value)` / `CLng(Value)` を直接呼ぶため、`"32768"`、`"2147483648"`、`"1E+20"` のような範囲外の数値文字列で False を返す前に Overflow になる。
   - 詳細: `ConcatArray`、`ConvertArray2dTo1d`、`pSortSwap` はオブジェクト要素を扱う場合の `Set` 代入方針が揃っていない。`IsContainsIn` もオブジェクト配列で同一性・`IEquatable`・`IDuplicateCheckable` のどれを使うか未定義。
   - 対応案: 値変換は上下限と整数性を変換前に判定し、配列ユーティリティはオブジェクト要素の保持・比較方針を `ObjectList` / `ObjectSet` と揃える。数値境界、昇順/降順、空配列、オブジェクト配列のテストを `Test_Lib_Common.bas` に追加する。
-
-- [ ] [bug] Lib_Common.GetMultiKey のキー衝突と特殊値変換を修正する
-  - 詳細: `GetMultiKey` は引数を `Variant` で受ける一方、内部の `pGetMultiKeyEscape(ByVal DictionaryKey As String)` で文字列へ暗黙変換してから連結するため、`1` と `"1"`、`True` と `"True"` のように型が異なる値が同じキーになり得る。
-  - 詳細: `Null` や `CVErr(...)` は文字列への暗黙変換で実行時エラーになり、複合キー生成そのものが失敗し得る。
-  - 影響: 複数引数を Dictionary キーにする呼び出し側で、値の型差による取り違えや、Excel エラー値・Null を含むデータでの失敗が起こる。
-  - 対応案: 値の型タグと特殊値表現を含むキー生成へ変更し、文字列・数値・Boolean・Empty・Null・CVErr を含む複合キーの衝突テストを追加する。
 
 - [ ] [bug] 状態管理系小クラスの戻り値・境界値をテスト可能にする
   - 詳細: `Counter.Initialize` は `If CountStep = 0 Then` で既存プロパティを確認しており、引数 `CountStepNumber:=0` を検出できない。

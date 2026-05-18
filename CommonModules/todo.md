@@ -20,11 +20,6 @@
   - 影響: 呼び出し側が「この集合は String 専用」「このリストは IFoo 実装だけを受け付ける」といった契約を先に固定できず、初回要素や空状態に依存して API の失敗条件が変わる。
   - 対応案: 既存互換の自動型判断モードは残しつつ、初期化時に型・インターフェイス・特殊値許可方針を明示できるモードを追加する。Add / Exists / RemoveItem / Update / Sort の入口で同じ型契約を使うテストを追加する。
 
-- [ ] [spec] Lib_Common に型付き値キー生成関数を追加する
-  - 詳細: 現状は ObjectSet.pGetKey、UnitTestUtils.pGetKey、WorkbookServiceTestDouble.pBuildComponentNamesKey などが個別にキー化しており、型タグ、エスケープ、特殊値、配列境界、オブジェクト参照、IEquatable / IDuplicateCheckable の扱いが揃っていない。
-  - 影響: 複合キーやテストダブル引数キーで型違い・特殊値・配列値の取り違えや実行時エラーが起きる。ObjectList / ObjectSet の値契約を整理しても、キー生成側が共通化されていないと同じ判定を複数箇所へ重複実装することになる。
-  - 対応案: Lib_Common に型付きの値キー生成関数を追加し、文字列・数値・Boolean・Empty・Null・CVErr、配列の次元/境界/要素、オブジェクト参照、IEquatable / IDuplicateCheckable の利用ポリシーを表現できるようにする。既存の GetMultiKey や UnitTestUtils のキー生成は段階的にこの関数へ寄せる。
-
 - [ ] [bug] Lib_Common.GetMultiKey のキー衝突と特殊値変換を修正する
   - 詳細: `GetMultiKey` は引数を `Variant` で受ける一方、内部の `pGetMultiKeyEscape(ByVal DictionaryKey As String)` で文字列へ暗黙変換してから連結するため、`1` と `"1"`、`True` と `"True"` のように型が異なる値が同じキーになり得る。
   - 詳細: `Null` や `CVErr(...)` は文字列への暗黙変換で実行時エラーになり、複合キー生成そのものが失敗し得る。

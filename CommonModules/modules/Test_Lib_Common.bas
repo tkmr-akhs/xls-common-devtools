@@ -982,3 +982,205 @@ Public Sub Test_GetLeafFromPath_UrlExtension_IgnoresPathSuffix(ByVal Assert As U
     If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
     Assert.Equals ".xlsm", actual_value
 End Sub
+
+Public Sub Test_GetTypeString_PrimitiveObjectAndArray_ReturnsTypePrefix(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim long_arr(0 To 1) As Long
+
+    Dim matrix(1 To 2, 1 To 3) As String
+
+    Dim variant_arr As Variant
+    variant_arr = Array("A", "B")
+
+    Dim item_obj As Test_ObjectSetEquatableDouble
+    Set item_obj = New Test_ObjectSetEquatableDouble
+
+    ' Act / Assert
+    Assert.Equals "String", GetTypeString("A")
+    Assert.Equals "Long", GetTypeString(CLng(1))
+    Assert.Equals "Long[]", GetTypeString(long_arr)
+    Assert.Equals "Long[]", GetTypeString(long_arr, IncludeArrayRank:=True)
+    Assert.Equals "Long[0:1]", GetTypeString(long_arr, IncludeArrayBounds:=True)
+    Assert.Equals "String[,]", GetTypeString(matrix, IncludeArrayRank:=True)
+    Assert.Equals "String[1:2,1:3]", GetTypeString(matrix, IncludeArrayBounds:=True)
+    Assert.Equals "Variant[]", GetTypeString(variant_arr)
+    Assert.Equals "Variant[0:1]", GetTypeString(variant_arr, IncludeArrayBounds:=True)
+    Assert.Equals "Object@Test_ObjectSetEquatableDouble", GetTypeString(item_obj)
+    Assert.Equals "IEquatable@Test_ObjectSetEquatableDouble", GetTypeString(item_obj, G_TYPED_VALUE_STRING_OBJECT_I_EQUATABLE)
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+End Sub
+
+Public Sub Test_GetTypedValueString_PrimitiveValues_ReturnsTypedStrings(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act / Assert
+    Assert.Equals "String(A\,B\(C\)\\D)", GetTypedValueString("A,B(C)\D")
+    Assert.Equals "String(A\tB)", GetTypedValueString("A" & vbTab & "B")
+    Assert.Equals "Long(1)", GetTypedValueString(CLng(1))
+    Assert.Equals "String(1)", GetTypedValueString(CStr(1))
+    Assert.NotEquals GetTypedValueString(CLng(1)), GetTypedValueString(CStr(1))
+    Assert.Equals "Boolean(True)", GetTypedValueString(CBool(True))
+    Assert.Equals "Null()", GetTypedValueString(Null)
+    Assert.Equals "Empty()", GetTypedValueString(Empty)
+    Assert.Equals "Error(2042)", GetTypedValueString(CVErr(2042))
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+End Sub
+
+Public Sub Test_GetTypedValueString_PrimitiveArrays_ReturnsArrayTypeAndBounds(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim string_arr(1 To 2) As String
+    string_arr(1) = "A"
+    string_arr(2) = "B"
+
+    Dim long_arr(0 To 1) As Long
+    long_arr(0) = 1
+    long_arr(1) = 2
+
+    Dim variant_arr As Variant
+    variant_arr = Array("1", CLng(1), Empty, Null, CVErr(2042))
+
+    ' Act / Assert
+    Assert.Equals "String[1:2](A,B)", GetTypedValueString(string_arr)
+    Assert.Equals "Long[0:1](1,2)", GetTypedValueString(long_arr)
+    Assert.Equals "Variant[0:4](String(1),Long(1),Empty(),Null(),Error(2042))", GetTypedValueString(variant_arr)
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+End Sub
+
+Public Sub Test_GetTypedValueString_MultidimensionalArrays_ReturnsNestedItems(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim matrix(1 To 2, 1 To 3) As String
+    matrix(1, 1) = "A"
+    matrix(1, 2) = "B"
+    matrix(1, 3) = "C"
+    matrix(2, 1) = "D"
+    matrix(2, 2) = "E"
+    matrix(2, 3) = "F"
+
+    Dim cube(1 To 2, 1 To 2, 1 To 2) As Long
+    cube(1, 1, 1) = 111
+    cube(1, 1, 2) = 112
+    cube(1, 2, 1) = 121
+    cube(1, 2, 2) = 122
+    cube(2, 1, 1) = 211
+    cube(2, 1, 2) = 212
+    cube(2, 2, 1) = 221
+    cube(2, 2, 2) = 222
+
+    ' Act / Assert
+    Assert.Equals "String[1:2,1:3]((A,B,C),(D,E,F))", GetTypedValueString(matrix)
+    Assert.Equals "Long[1:2,1:2,1:2](((111,112),(121,122)),((211,212),(221,222)))", GetTypedValueString(cube)
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+End Sub
+
+Public Sub Test_GetTypedValueString_JaggedArray_ReturnsRecursiveArrayItems(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim jagged_arr(0 To 1) As Variant
+    jagged_arr(0) = Array("A", "B")
+    jagged_arr(1) = Array("C", "D")
+
+    ' Act
+    Dim actual_value As String
+    actual_value = GetTypedValueString(jagged_arr)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Variant[0:1](Variant[0:1](String(A),String(B)),Variant[0:1](String(C),String(D)))", actual_value
+End Sub
+
+Public Sub Test_GetTypedValueString_EmptyArrays_ReturnsArrayTypeOnly(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim long_arr() As Long
+
+    Dim variant_arr As Variant
+    variant_arr = Array()
+
+    ' Act / Assert
+    Assert.Equals "Long[]()", GetTypedValueString(long_arr)
+    Assert.Equals "Variant[0:-1]()", GetTypedValueString(variant_arr)
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+End Sub
+
+Public Sub Test_GetTypedValueString_IEquatableObject_ReturnsIdentityString(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim item_obj As Test_ObjectSetEquatableDouble
+    Set item_obj = New Test_ObjectSetEquatableDouble
+    item_obj.IdentityKey = "A" & vbTab & "B@(C)"
+
+    ' Act
+    Dim actual_value As String
+    actual_value = GetTypedValueString(item_obj, G_TYPED_VALUE_STRING_OBJECT_I_EQUATABLE)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "IEquatable@Test_ObjectSetEquatableDouble(A\tB\@\(C\))", actual_value
+End Sub
+
+Public Sub Test_GetTypedValueString_IDuplicateCheckableObject_ReturnsDuplicateKey(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim item_obj As Test_ObjectSetDupCheckDouble
+    Set item_obj = New Test_ObjectSetDupCheckDouble
+    item_obj.DuplicateKey = "Key=1"
+
+    ' Act
+    Dim actual_value As String
+    actual_value = GetTypedValueString(item_obj, G_TYPED_VALUE_STRING_OBJECT_DUPLICATE_CHECKABLE)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "IDuplicateCheckable@Test_ObjectSetDupCheckDouble(Key\=1)", actual_value
+End Sub
+
+Public Sub Test_GetTypedValueString_IEquatableArray_ReturnsPolicyAndDeclaredArrayType(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim first_item As Test_ObjectSetEquatableDouble
+    Set first_item = New Test_ObjectSetEquatableDouble
+    first_item.IdentityKey = "A"
+
+    Dim second_item As Test_ObjectSetEquatableDouble
+    Set second_item = New Test_ObjectSetEquatableDouble
+    second_item.IdentityKey = "B"
+
+    Dim item_arr(0 To 1) As IEquatable
+    Set item_arr(0) = first_item
+    Set item_arr(1) = second_item
+
+    ' Act
+    Dim actual_value As String
+    actual_value = GetTypedValueString(item_arr, G_TYPED_VALUE_STRING_OBJECT_I_EQUATABLE)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "IEquatable@IEquatable[0:1](IEquatable@Test_ObjectSetEquatableDouble(A),IEquatable@Test_ObjectSetEquatableDouble(B))", actual_value
+End Sub
+
+Public Sub Test_GetTypedValueString_IEquatableModeWithUnsupportedObject_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim item_obj As Object
+    Set item_obj = CreateObject("Scripting.Dictionary")
+
+    ' Act
+    Dim actual_value As String
+    actual_value = GetTypedValueString(item_obj, G_TYPED_VALUE_STRING_OBJECT_I_EQUATABLE)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Function GetTypedValueString", Err.Source
+End Sub

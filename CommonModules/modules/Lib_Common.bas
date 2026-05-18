@@ -2221,29 +2221,25 @@ End Function
 '* @return 連結されたキー文字列
 '*
 '* @details
-'* 指定された複数のキーを連結し、1 つの文字列として返します。
+'* 指定された複数のキーを型情報付き文字列へ変換し、1 つの文字列として返します。
 '* キーに使用される区切り文字はタブ文字 (`vbTab`) です。
+'* 各キー内のタブ文字は GetTypedValueString でエスケープされます。
 Public Function GetMultiKey(ByVal DictionaryKey1 As Variant, ParamArray DictionaryKeys() As Variant) As String
     Dim result_value As String
-    
-    ' 一つ目のキーで初期化
-    result_value = pGetMultiKeyEscape(CStr(DictionaryKey1))
-    
+
+    result_value = GetTypedValueString(DictionaryKey1)
+
     ' 他関数に ParamArray を引数で渡すために Variant 型に明示的に変換する
     Dim key_arr As Variant
     key_arr = DictionaryKeys
-    
+
     Dim key_enum As IEnumerator
     Set key_enum = GetArrayEnumerator(key_arr)
     Do While key_enum.MoveNext()
-        ' 残りのキーを連結
-        result_value = result_value & vbTab & pGetMultiKeyEscape(CStr(key_enum.Current))
+        result_value = result_value & vbTab & GetTypedValueString(key_enum.Current)
     Loop
-    
+
     GetMultiKey = result_value
-End Function
-Private Function pGetMultiKeyEscape(ByVal DictionaryKey As String) As String
-    pGetMultiKeyEscape = Replace(Replace(DictionaryKey, "\", "\\"), vbTab, "\t")
 End Function
 
 '* 文字列の配列の diff を取ります。

@@ -20,12 +20,6 @@
   - 影響: 呼び出し側が「この集合は String 専用」「このリストは IFoo 実装だけを受け付ける」といった契約を先に固定できず、初回要素や空状態に依存して API の失敗条件が変わる。
   - 対応案: 既存互換の自動型判断モードは残しつつ、初期化時に型・インターフェイス・特殊値許可方針を明示できるモードを追加する。Add / Exists / RemoveItem / Update / Sort の入口で同じ型契約を使うテストを追加する。
 
-- [ ] [bug] Lib_Common.GetMultiKey のキー衝突と特殊値変換を修正する
-  - 詳細: `GetMultiKey` は引数を `Variant` で受ける一方、内部の `pGetMultiKeyEscape(ByVal DictionaryKey As String)` で文字列へ暗黙変換してから連結するため、`1` と `"1"`、`True` と `"True"` のように型が異なる値が同じキーになり得る。
-  - 詳細: `Null` や `CVErr(...)` は文字列への暗黙変換で実行時エラーになり、複合キー生成そのものが失敗し得る。
-  - 影響: 複数引数を Dictionary キーにする呼び出し側で、値の型差による取り違えや、Excel エラー値・Null を含むデータでの失敗が起こる。
-  - 対応案: 値の型タグと特殊値表現を含むキー生成へ変更し、文字列・数値・Boolean・Empty・Null・CVErr を含む複合キーの衝突テストを追加する。
-
 - [ ] [bug] ObjectList / ObjectSet の検索・削除 API で要素型を検査する
   - 詳細: `ObjectList.Exists` / `GetIndexByItem` / `RemoveItem` は特殊値チェックだけで `pCheckItemType` を通さず、プリミティブ比較では `ItemObject1 = ItemObject2` の暗黙変換に任せている。そのため数値 `1` のリストに文字列 `"1"` を渡すと同一扱いになり得る。
   - 詳細: `ObjectSet.Exists` / `GetContains` / `RemoveItem` も追加時と同じ型検査を通さず、`IDuplicateCheckable` / `IEquatable` のキー生成経路では型違いの値が実装詳細由来の実行時エラーになる可能性がある。

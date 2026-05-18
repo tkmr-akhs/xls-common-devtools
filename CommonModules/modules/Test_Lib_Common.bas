@@ -1110,6 +1110,67 @@ Public Sub Test_GetTypedValueString_EmptyArrays_ReturnsArrayTypeOnly(ByVal Asser
     If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
 End Sub
 
+Public Sub Test_GetMultiKey_DifferentPrimitiveTypes_ReturnsDifferentKeys(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act / Assert
+    Assert.NotEquals GetMultiKey(CLng(1)), GetMultiKey(CStr(1))
+    Assert.NotEquals GetMultiKey(CBool(True)), GetMultiKey(CStr("True"))
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+End Sub
+
+Public Sub Test_GetMultiKey_Null_ReturnsTypedKey(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim actual_value As String
+    actual_value = GetMultiKey(Null)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Null()", actual_value
+End Sub
+
+Public Sub Test_GetMultiKey_ErrorValue_ReturnsTypedKey(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim actual_value As String
+    actual_value = GetMultiKey(CVErr(2042))
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Error(2042)", actual_value
+End Sub
+
+Public Sub Test_GetMultiKey_TabInValue_UsesTypedValueEscaping(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim actual_value As String
+    actual_value = GetMultiKey("A" & vbTab & "B", CLng(1))
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "String(A\tB)" & vbTab & "Long(1)", actual_value
+End Sub
+
+Public Sub Test_GetMultiKey_ArrayValue_ReturnsTypedArrayKey(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim variant_arr As Variant
+    variant_arr = Array("A", "B")
+
+    ' Act
+    Dim actual_value As String
+    actual_value = GetMultiKey(variant_arr)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Variant[0:1](String(A),String(B))", actual_value
+End Sub
+
 Public Sub Test_GetTypedValueString_IEquatableObject_ReturnsIdentityString(ByVal Assert As UnitTestAssert)
     On Error Resume Next
 

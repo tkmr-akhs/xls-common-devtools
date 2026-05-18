@@ -26,11 +26,6 @@
   - 影響: `New_RangeBoundsFromAddress` / `WorksheetRangeBounds.InitializeFromAddress` で、正しくクォートされたアドレスを拒否したり、不正なアドレスを別セルとして受け付けたりする。`WorksheetRangeBounds.ToString` が生成したシート名付きアドレスとの往復も、シート名に `!` を含む場合に破綻する。
   - 対応案: `!` はクォート外の区切りだけを検出するパーサーで扱い、`$` は列記号直前と行番号直前だけを許可する。`'入力!確認'!A1`、`'O''Brien'!$A$1`、`A$B1`、`$$A$1`、`A1$` のテストを追加する。
 
-- [ ] [bug] ExcelA1ColumnAddress / RangeAddress の列番号上限と 0 入力を検証する
-  - 詳細: `ExcelA1ColumnAddress(0)` はコメントではエラーと読めるが、実装はループに入らず空文字列を返す。`RangeAddress` の A1 列生成経路も上限チェックがなく、`StartColumn:=G_COL_MAX + 1` のような入力で Excel 上は無効な `XFE1` などのアドレス文字列を生成し得る。
-  - 影響: 列番号計算の誤りを基盤ヘルパーが早期検出せず、空文字列や Excel 範囲として無効なアドレスが後続の `Range(...)`、数式生成、ログ出力へ流れる。原因箇所が列番号生成ではなく、後段の Excel 操作エラーとして見える。
-  - 対応案: `ExcelA1ColumnAddress` と `RangeAddress` の列番号入口で `1 <= Column <= G_COL_MAX` を検証する。`0`、負数、`G_COL_MAX`、`G_COL_MAX + 1`、相対参照の基準列込み境界のテストを追加する。
-
 - [ ] [spec] ObjectList / ObjectSet に明示型指定モードを追加する
   - 詳細: 現状の ObjectList / ObjectSet は初回追加要素から型や比較契約を自動判断するが、空コレクション、Nothing、配列、プリミティブとオブジェクトの混在、IEquatable / IDuplicateCheckable 実装有無によって、検索・削除・更新時の型判定方針が曖昧になる。
   - 影響: 呼び出し側が「この集合は String 専用」「このリストは IFoo 実装だけを受け付ける」といった契約を先に固定できず、初回要素や空状態に依存して API の失敗条件が変わる。

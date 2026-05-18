@@ -3608,18 +3608,21 @@ Private Function pA1columnAddressCore(ByVal ColumnIndex As Long, ByVal IsAbsolut
 End Function
 
 Private Function pA1RowAddressCore(ByVal RowIndex As Long, ByVal IsAbsolute As Boolean, ByVal ReferenceRow As Long) As String
+    Dim actual_row As Double
     If IsAbsolute Then
-        If RowIndex < 1 Then
-            Err.Raise Number:=vbObjectError + 1, Source:="Function RangeAddress", Description:="列インデックスが範囲外です。(" & RowIndex & ")"
+        actual_row = RowIndex
+        If actual_row < 1 Or G_ROW_MAX < actual_row Then
+            Err.Raise Number:=vbObjectError + 1, Source:="Function RangeAddress", Description:="行インデックスが範囲外です。(" & RowIndex & ")"
         End If
         
-        pA1RowAddressCore = "$" & CStr(RowIndex)
+        pA1RowAddressCore = "$" & CStr(CLng(actual_row))
     Else
-        If ReferenceRow + RowIndex < 1 Then
-            Err.Raise Number:=vbObjectError + 1, Source:="Function RangeAddress", Description:="行インデックスが範囲外です。(" & ReferenceRow & " + " & RowIndex & " = " & (ReferenceRow + RowIndex) & ")"
+        actual_row = CDbl(ReferenceRow) + CDbl(RowIndex)
+        If actual_row < 1 Or G_ROW_MAX < actual_row Then
+            Err.Raise Number:=vbObjectError + 1, Source:="Function RangeAddress", Description:="行インデックスが範囲外です。(" & ReferenceRow & " + " & RowIndex & " = " & CStr(actual_row) & ")"
         End If
         
-        pA1RowAddressCore = CStr(ReferenceRow + RowIndex)
+        pA1RowAddressCore = CStr(CLng(actual_row))
     End If
 End Function
 

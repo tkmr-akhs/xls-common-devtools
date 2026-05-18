@@ -322,6 +322,52 @@ Public Sub Test_RangeAddress_A1RelativeColumnOverMax_RaisesError(ByVal Assert As
     Assert.Equals "Function RangeAddress", Err.Source
 End Sub
 
+Public Sub Test_RangeAddress_A1MaxRow_ReturnsMaxRow(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim actual_value As String
+    actual_value = RangeAddress( _
+            StartRow:=G_ROW_MAX, _
+            StartColumn:=1, _
+            AddressType:="A1")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "A1048576", actual_value
+End Sub
+
+Public Sub Test_RangeAddress_A1RowOverMax_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim actual_value As String
+    actual_value = RangeAddress( _
+            StartRow:=G_ROW_MAX + 1, _
+            StartColumn:=1, _
+            AddressType:="A1")
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Function RangeAddress", Err.Source
+End Sub
+
+Public Sub Test_RangeAddress_A1RelativeRowOverMax_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim actual_value As String
+    actual_value = RangeAddress( _
+            StartRow:=G_ROW_MAX, _
+            StartColumn:=1, _
+            ReferenceRow:=1, _
+            AddressType:="A1")
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Function RangeAddress", Err.Source
+End Sub
+
 Public Sub Test_RangeAddressShapeFunctions_ExpectedValues(ByVal Assert As UnitTestAssert)
     On Error Resume Next
 

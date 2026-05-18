@@ -15,6 +15,11 @@
 
 ## 高優先度
 
+- [ ] [bug] Lib_UnitTest の論理行読み取りでコメント直後のテストを取りこぼさない
+  - 詳細: `pReadLogicalLine` は行末が空白 + `_` で終わる物理行を常に継続行として連結するため、コメント行が ` _` で終わった直後に `Public Sub Test_...` があると、コメントと宣言が 1 つの論理行として扱われ、`pRunAllTest` のテスト抽出正規表現に一致しない。
+  - 影響: 署名自体は正しいテストが `UNIT_TEST_SHEET` に出ず、実行もされない。結果シートでは全件 OK に見えるため、テストが増えたつもりでも未実行のまま残る。
+  - 対応案: 継続行判定ではコメント行を除外し、VBA の実際の行継続規則に合わせる。コメント ` _` の直後にあるテスト、複数行の `Sub Test_...` 宣言、通常コメントのテスト抽出を追加する。
+
 - [ ] [bug] Excel アドレス解析でクォート済みの `!` と不正な `$` 配置を正しく扱う
   - 詳細: `SplitExcelAddress` はクォートを解釈する前に `Split(AddressString, "!")` するため、`'入力!確認'!A1` のように `!` を含むシート名を、クォート済みでも不正なアドレスとして扱う。`WorkbookService.pRaiseIfInvalidWorksheetName` は `!` を禁止しておらず、`ExcelBookAndSheetAddress` も `!` をクォート対象としているため、生成側と解析側の契約がずれている。
   - 詳細: `SplitA1RangeAddress` は `pSplitA1AddressToken` で `Replace(AddressToken, "$", "")` してから解析するため、`A$B1`、`$$A$1`、`A1$` のような Excel A1 形式として不正な `$` 配置を、`AB1` や `A1` として受け入れ得る。
@@ -70,10 +75,28 @@
 
 ## 中優先度
 
+- [ ] [bug] ProgressStatus.SetForLoop の開始値が既定 TotalValue を超えるループを受け付けない
+  - 詳細: `SetForLoop` は `StartValue = StartIndex - 1` を先に実行し、その後で `pTotalValue = FinishIndex` を直接代入する。`StartValue` の setter は更新前の `TotalValue` と比較するため、既定の `TotalValue:=100` の状態で `SetForLoop(FinishIndex:=2000, StartIndex:=1000)` のような妥当なループ範囲を指定しても、開始値が終了値以上としてエラーになる。
+  - 詳細: `pNextUpdate` は `Integer` だが、`StartValue` setter と初期化処理で `StartValue - 1` を代入しているため、開始インデックスが大きいループでは進捗表示前に Overflow し得る。
+  - 影響: 行番号や配列インデックスなど、100 を超える途中位置から処理を開始する実務ループで `ProgressStatus` を使えない。呼び出し側が進捗用に 0 始まりへ再計算する必要が出る。
+  - 対応案: `SetForLoop` では開始値と終了値を一括で検証・設定し、`TotalValue` setter を迂回しない。`pNextUpdate` はループの絶対値ではなく 0～100 の進捗率として保持する。`StartIndex:=0`、`StartIndex:=1000`、`FinishIndex < StartIndex`、大きな行番号のテストを追加する。
+
+- [ ] [bug] UserInputSheet.GetItemRange の最終行・最終列付近の空値範囲を明示的に扱う
+  - 詳細: `GetItemRange` は使用範囲の 1 列目を項目名列、右側を値範囲として扱うために `used_range.TransformAbsolute(Column:=used_range.Column + 1)` を呼ぶ。使用範囲が最終列 `G_COL_MAX` の 1 列だけの場合、値範囲が存在しないだけなのに開始列上限超過のエラーになる。
+  - 詳細: 第二項目の値範囲を取る経路でも、見出しセルが最終行 `G_ROW_MAX` にあると `first_col.TransformAbsolute(Row:=found_cells(0).Row + 1)` が開始行上限超過になる。
+  - 影響: 設定表としては値行・値列が存在しないケースを `Nothing` または空範囲として扱えばよい場面で、`WorksheetRangeBounds` の境界エラーが利用者側へ露出する。設定表の末尾に見出しだけが残った場合の診断もしづらい。
+  - 対応案: 右側の列や下側の行が存在しないことを `TransformAbsolute` 前に判定し、戻り値を `Nothing` にするか空範囲にするかを仕様化する。最終列 1 列だけの表、最終行の第一項目、最終行の第二項目、値なし見出しのテストを追加する。
+
 - [ ] [bug] FileSystemServiceTestDouble.CreateDirectory の既定戻り値を実装契約へ合わせる
   - 詳細: `FileSystemService.CreateDirectory` は対象ディレクトリが既に存在する場合に `False` を返し、親ディレクトリがなく `Recursive:=False` の場合は明示エラーにする。一方で `FileSystemServiceTestDouble.CreateDirectory` は `CreateDirectory_Values` に登録がない限り常に `True` を返し、`IsDirectory_Values` や親ディレクトリ有無を見ない。
   - 影響: 呼び出し側の「既存ディレクトリなら作成しない」「親がないなら失敗する」という分岐をテストダブルで検証できず、実ファイルシステムでは no-op やエラーになる処理を、単体テストでは作成成功として通してしまう。
   - 対応案: 未登録時の既定動作を実装に近づけるか、既定は未設定エラーにしてテストごとに戻り値を明示する。既存ディレクトリ、親なし、通常作成、登録済み戻り値のテストを追加する。
+
+- [ ] [bug] FileSystemServiceTestDouble.GetAbsolutePath の未登録時戻り値を絶対パス契約に合わせる
+  - 詳細: `IFileSystemService.GetAbsolutePath` は相対パスを `WorkbookService.GetThisWorkbookDirectoryPath` 基準の絶対パスへ変換する契約だが、`FileSystemServiceTestDouble.GetAbsolutePath` は `GetAbsolutePath_Values` に登録がない場合に入力文字列をそのまま返す。
+  - 影響: 呼び出し側が `GetAbsolutePath("data\in.txt")` の戻り値を絶対パスとして扱う処理でも、単体テストでは相対パスのまま後続処理に渡せてしまう。実装サービスとテストダブルで相対パス、`.`、`..`、区切り文字正規化の挙動差を見逃す。
+  - 対応案: 既定の基準ディレクトリを持たせて実装と同じ正規化を行うか、未登録時は明示エラーにしてテストごとに戻り値を登録させる。相対パス、絶対パス、`.`、`..`、ルート相対パスのテストダブル動作を追加する。
+
 - [ ] [ref] WorksheetService.CopyCell / CopyRange の配列数式コピー失敗時の復元処理を明示する
   - 詳細: `pCopyCellCore` の配列数式経路は、`src_cell.FormulaArray` を退避した後に `src_cell = formula_str` でコピー元を通常数式へ一時変更し、後続処理の後で `src_cell.FormulaArray = formula_str` へ戻している。既存の失敗系テストではコピー元破壊は再現していないが、復元責務がコード上は通常数式経路ほど明示されていない。
   - 影響: 現時点では実害未確認だが、将来の配列数式コピー処理の変更や別の失敗経路追加時に、コピー元・コピー先の復元契約を読み取りづらい。
@@ -234,6 +257,11 @@
   - 対応案: `GetEnumerator(Optional EnumerateType..., Optional ColumnDirection..., Optional Descending As Boolean = False)` に拡張するか、`GetDescendingEnumerator` のような別 API を追加する。既存呼び出し互換を保つ引数順に注意する。
 
 ## 低優先度
+
+- [ ] [ux] UnitTestAssert に許容誤差付きの数値比較を追加する
+  - 詳細: `EqualsNumeric` / `NotEqualsNumeric` は数値型の違いだけを無視し、値比較は `ExpectedValue = ActualValue` の完全一致に依存している。`0.1 + 0.2` と `0.3` のような浮動小数点計算結果を検証する場合、実装側ではなくアサーション側の表現限界で失敗し得る。
+  - 影響: Double / Single を扱う共通モジュールや利用プロジェクトのテストで、呼び出し側が毎回丸めや差分計算を手書きする必要がある。失敗メッセージも「どれだけずれたか」を直接示せない。
+  - 対応案: `EqualsNumericWithin` / `NotEqualsNumericWithin` のような許容誤差付き API、または既存 API への任意の `Tolerance` 引数を追加する。絶対誤差、必要なら相対誤差の扱いを仕様化し、境界値と失敗メッセージのテストを追加する。
 
 - [ ] [spec] WorksheetService.Find の空文字検索契約を決める
   - 詳細: `Find(What:="")` は入口で拒否しておらず、そのまま Excel の `Range.Find` へ渡している。Excel 側の空文字検索は空白セルや直前の検索状態の影響を受けやすく、対象がシート全体の場合に意図せず大量の結果を返す可能性がある。

@@ -240,6 +240,88 @@ Public Sub Test_RangeAddress_ColumnRangeMixedAbsoluteFlags_CanMakeOnlyFinishColu
     Assert.Equals "C:$D", actual_value
 End Sub
 
+Public Sub Test_ExcelA1ColumnAddress_MaxColumn_ReturnsXFD(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim actual_value As String
+    actual_value = ExcelA1ColumnAddress(G_COL_MAX)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "XFD", actual_value
+End Sub
+
+Public Sub Test_ExcelA1ColumnAddress_Zero_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim actual_value As String
+    actual_value = ExcelA1ColumnAddress(0)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Function ExcelA1ColumnAddress", Err.Source
+End Sub
+
+Public Sub Test_ExcelA1ColumnAddress_OverMax_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim actual_value As String
+    actual_value = ExcelA1ColumnAddress(G_COL_MAX + 1)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Function ExcelA1ColumnAddress", Err.Source
+End Sub
+
+Public Sub Test_RangeAddress_A1MaxColumn_ReturnsXFD(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim actual_value As String
+    actual_value = RangeAddress( _
+            StartRow:=1, _
+            StartColumn:=G_COL_MAX, _
+            AddressType:="A1")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "XFD1", actual_value
+End Sub
+
+Public Sub Test_RangeAddress_A1ColumnOverMax_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim actual_value As String
+    actual_value = RangeAddress( _
+            StartRow:=1, _
+            StartColumn:=G_COL_MAX + 1, _
+            AddressType:="A1")
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Function RangeAddress", Err.Source
+End Sub
+
+Public Sub Test_RangeAddress_A1RelativeColumnOverMax_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim actual_value As String
+    actual_value = RangeAddress( _
+            StartRow:=1, _
+            StartColumn:=G_COL_MAX, _
+            ReferenceColumn:=1, _
+            AddressType:="A1")
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Function RangeAddress", Err.Source
+End Sub
+
 Public Sub Test_RangeAddressShapeFunctions_ExpectedValues(ByVal Assert As UnitTestAssert)
     On Error Resume Next
 

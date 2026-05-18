@@ -1767,7 +1767,7 @@ Public Function IsEmptyArray(ByVal TargetArray As Variant) As Boolean
         IsEmptyArray = False
         Exit Function
     End If
-    
+
     Dim result_value As Boolean
     result_value = False
     
@@ -3143,7 +3143,7 @@ Public Function SubtractUnsignLong(ByVal ValueA As Long, ByVal ValueB As Long) A
         Err.Raise vbObjectError + 1, "Function SubtractUnsignLong", "第 1 引数より第 2 引数のほうが大きく、計算結果が負になります。(a: " & Hex(ValueA) & ", b: " & Hex(ValueB) & ")"
         Exit Function
     End If
-    
+
     Dim result_value As Long
     Dim lng_1 As Long
     Dim lng_2 As Long
@@ -3549,7 +3549,7 @@ Public Function RangeAddress( _
     Else
         is_cell_range = False
     End If
-    
+
     Dim result_value As String
     result_value = ExcelBookAndSheetAddress(BookName, SheetName)
     
@@ -3589,18 +3589,21 @@ Public Function RangeAddress( _
 End Function
 
 Private Function pA1columnAddressCore(ByVal ColumnIndex As Long, ByVal IsAbsolute As Boolean, ByVal ReferenceColumn As Long) As String
+    Dim actual_column As Double
     If IsAbsolute Then
-        If ColumnIndex < 1 Then
-            Err.Raise Number:=vbObjectError + 1, Source:="Function RangeAddress", Description:="行インデックスが範囲外です。(" & ColumnIndex & ")"
+        actual_column = ColumnIndex
+        If actual_column < 1 Or G_COL_MAX < actual_column Then
+            Err.Raise Number:=vbObjectError + 1, Source:="Function RangeAddress", Description:="列インデックスが範囲外です。(" & ColumnIndex & ")"
         End If
         
-        pA1columnAddressCore = "$" & ExcelA1ColumnAddress(ColumnIndex)
+        pA1columnAddressCore = "$" & ExcelA1ColumnAddress(CLng(actual_column))
     Else
-        If ReferenceColumn + ColumnIndex < 1 Then
-            Err.Raise Number:=vbObjectError + 1, Source:="Function RangeAddress", Description:="行インデックスが範囲外です。(" & ReferenceColumn & " + " & ColumnIndex & " = " & (ReferenceColumn + ColumnIndex) & ")"
+        actual_column = CDbl(ReferenceColumn) + CDbl(ColumnIndex)
+        If actual_column < 1 Or G_COL_MAX < actual_column Then
+            Err.Raise Number:=vbObjectError + 1, Source:="Function RangeAddress", Description:="列インデックスが範囲外です。(" & ReferenceColumn & " + " & ColumnIndex & " = " & CStr(actual_column) & ")"
         End If
         
-        pA1columnAddressCore = ExcelA1ColumnAddress(ReferenceColumn + ColumnIndex)
+        pA1columnAddressCore = ExcelA1ColumnAddress(CLng(actual_column))
     End If
 End Function
 
@@ -3681,16 +3684,20 @@ End Function
 
 '* 列番号を A1 形式の列名 (例: A, B, ... Z, AA, AB...) に変換します。
 '*
-'* @param ColumnIndex 列番号 (1 以上の値)
+'* @param ColumnIndex 列番号 (1 以上 G_COL_MAX 以下の値)
 '* @return 列番号に対応する A1 形式の列名
 '*
 '* @details
 '* 指定された列番号を基に、Excel の A1 形式の列名を生成します。
-'* 列番号が負または 0 の場合、エラーになります。
+'* 列番号が 1 未満または G_COL_MAX を超える場合、エラーになります。
 Public Function ExcelA1ColumnAddress(ByVal ColumnIndex As Long) As String
+    If ColumnIndex < 1 Or G_COL_MAX < ColumnIndex Then
+        Err.Raise Number:=vbObjectError + 1, Source:="Function ExcelA1ColumnAddress", Description:="列インデックスが範囲外です。(" & ColumnIndex & ")"
+    End If
+
     Dim result_value As String
     Dim temp_num As Long
-    
+
     Do While ColumnIndex > 0
         temp_num = (ColumnIndex - 1) Mod 26
         result_value = Chr(temp_num + 65) & result_value

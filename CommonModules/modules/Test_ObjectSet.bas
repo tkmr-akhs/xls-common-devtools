@@ -244,6 +244,152 @@ Public Sub Test_ConvertToStringArray_ArrayItem_ReturnsTypedValueKey(ByVal Assert
     Assert.Equals "Variant[0:0](String(alpha))", actual_arr(0)
 End Sub
 
+Public Sub Test_ConvertToStringArray_ModernCVErr_ReturnsErrorString(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_set As ObjectSet
+    Set obj_set = New ObjectSet
+    Call obj_set.Add(CVErr(xlErrSpill))
+
+    ' Act
+    Dim actual_arr() As String
+    actual_arr = obj_set.ConvertToStringArray()
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "#SPILL!", actual_arr(0)
+End Sub
+
+Public Sub Test_ConvertToArray_ArrayItem_ReturnsArrayItem(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_set As ObjectSet
+    Set obj_set = New ObjectSet
+
+    Dim item_arr As Variant
+    item_arr = Array(CLng(1), CStr("alpha"))
+    Call obj_set.Add(item_arr)
+
+    ' Act
+    Dim actual_arr() As Variant
+    actual_arr = obj_set.ConvertToArray()
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.EqualsNumeric 0, LBound(actual_arr)
+    Assert.EqualsNumeric 0, UBound(actual_arr)
+    Assert.IsTrue IsArray(actual_arr(0))
+    Assert.Equals "Variant[0:1](Long(1),String(alpha))", GetTypedValueKey(actual_arr(0))
+End Sub
+
+Public Sub Test_GetContains_ArrayItem_ReturnsStoredArray(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_set As ObjectSet
+    Set obj_set = New ObjectSet
+
+    Dim stored_arr As Variant
+    stored_arr = Array(CLng(1), CStr("alpha"))
+    Call obj_set.Add(stored_arr)
+
+    Dim search_arr As Variant
+    search_arr = Array(CLng(1), CStr("alpha"))
+
+    ' Act
+    Dim actual_item As Variant
+    actual_item = obj_set.GetContains(search_arr)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.IsTrue IsArray(actual_item)
+    Assert.Equals "Variant[0:1](Long(1),String(alpha))", GetTypedValueKey(actual_item)
+End Sub
+
+Public Sub Test_RemoveItem_ArrayItem_RemovesMatchingTypedValues(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_set As ObjectSet
+    Set obj_set = New ObjectSet
+
+    Dim stored_arr As Variant
+    stored_arr = Array(CLng(1), CStr("alpha"))
+    Call obj_set.Add(stored_arr)
+
+    Dim other_arr As Variant
+    other_arr = Array(CLng(2), CStr("beta"))
+    Call obj_set.Add(other_arr)
+
+    Dim search_arr As Variant
+    search_arr = Array(CLng(1), CStr("alpha"))
+
+    ' Act
+    Dim actual_item As Variant
+    actual_item = obj_set.RemoveItem(search_arr)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.IsTrue IsArray(actual_item)
+    Assert.Equals "Variant[0:1](Long(1),String(alpha))", GetTypedValueKey(actual_item)
+    Assert.EqualsNumeric 1, obj_set.Count
+    Assert.Equals "Variant[0:1](Long(2),String(beta))", GetTypedValueKey(obj_set.Item(0))
+End Sub
+
+Public Sub Test_AddList_ArrayItems_AddsUniqueItems(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_list As ObjectList
+    Set obj_list = New ObjectList
+
+    Dim first_arr As Variant
+    first_arr = Array(CLng(1), CStr("alpha"))
+    Call obj_list.Add(first_arr)
+
+    Dim duplicate_arr As Variant
+    duplicate_arr = Array(CLng(1), CStr("alpha"))
+    Call obj_list.Add(duplicate_arr)
+
+    Dim obj_set As ObjectSet
+    Set obj_set = New ObjectSet
+
+    ' Act
+    Call obj_set.AddList(obj_list, ErrorIfExists:=False)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.EqualsNumeric 1, obj_set.Count
+    Assert.IsTrue IsArray(obj_set.Item(0))
+    Assert.Equals "Variant[0:1](Long(1),String(alpha))", GetTypedValueKey(obj_set.Item(0))
+End Sub
+
+Public Sub Test_AddOther_ArrayItems_AddsUniqueItems(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim src_set As ObjectSet
+    Set src_set = New ObjectSet
+
+    Dim first_arr As Variant
+    first_arr = Array(CLng(1), CStr("alpha"))
+    Call src_set.Add(first_arr)
+
+    Dim dst_set As ObjectSet
+    Set dst_set = New ObjectSet
+
+    ' Act
+    Call dst_set.AddOther(src_set, ErrorIfExists:=False)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.EqualsNumeric 1, dst_set.Count
+    Assert.IsTrue IsArray(dst_set.Item(0))
+    Assert.Equals "Variant[0:1](Long(1),String(alpha))", GetTypedValueKey(dst_set.Item(0))
+End Sub
+
 Public Sub Test_Add_DuplicateEquatableWithErrorIgnored_ReturnsFalseAndKeepsExistingItem(ByVal Assert As UnitTestAssert)
     On Error Resume Next
 
@@ -717,6 +863,152 @@ Public Sub Test_Update_EquatableSameIdentity_ReplacesStoredObject(ByVal Assert A
     Assert.Equals replacement_item, actual_item
     Assert.EqualsNumeric 1, obj_set.Count
     Assert.IsTrue obj_set.Exists(first_item)
+End Sub
+
+Public Sub Test_Update_ReferenceKeyMismatch_RaisesObjectSetKeyMismatchError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_set As ObjectSet
+    Set obj_set = New ObjectSet
+
+    Dim first_item As ObjectSet
+    Set first_item = New ObjectSet
+
+    Dim replacement_item As ObjectSet
+    Set replacement_item = New ObjectSet
+
+    Call obj_set.Add(first_item)
+
+    ' Act
+    Call obj_set.Update(0, replacement_item)
+
+    Dim actual_source As String
+    actual_source = Err.Source
+
+    Dim actual_description As String
+    actual_description = Err.Description
+
+    Dim actual_item As ObjectSet
+    Set actual_item = obj_set.Item(0)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Err.Clear
+    Assert.Equals "Class ObjectSet", actual_source
+    Assert.IsTrue 0 < InStr(1, actual_description, "キーが違います", vbBinaryCompare)
+    Assert.IsTrue 0 < InStr(1, actual_description, "old_key: Object@ObjectSet(", vbBinaryCompare)
+    Assert.IsTrue 0 < InStr(1, actual_description, " / new_key: Object@ObjectSet(", vbBinaryCompare)
+    Assert.Equals first_item, actual_item
+    Assert.EqualsNumeric 1, obj_set.Count
+End Sub
+
+Public Sub Test_Update_EquatableKeyMismatch_RaisesObjectSetKeyMismatchError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_set As ObjectSet
+    Set obj_set = New ObjectSet
+
+    Dim first_item As Test_ObjectSetEquatableDouble
+    Set first_item = New Test_ObjectSetEquatableDouble
+    first_item.IdentityKey = "first-id"
+
+    Dim replacement_item As Test_ObjectSetEquatableDouble
+    Set replacement_item = New Test_ObjectSetEquatableDouble
+    replacement_item.IdentityKey = "other-id"
+
+    Call obj_set.Add(first_item)
+
+    ' Act
+    Call obj_set.Update(0, replacement_item)
+
+    Dim actual_source As String
+    actual_source = Err.Source
+
+    Dim actual_description As String
+    actual_description = Err.Description
+
+    Dim actual_item As Test_ObjectSetEquatableDouble
+    Set actual_item = obj_set.Item(0)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Err.Clear
+    Assert.Equals "Class ObjectSet", actual_source
+    Assert.IsTrue 0 < InStr(1, actual_description, "キーが違います", vbBinaryCompare)
+    Assert.IsTrue 0 < InStr(1, actual_description, "old_key: IEquatable@Test_ObjectSetEquatableDouble(first-id)", vbBinaryCompare)
+    Assert.IsTrue 0 < InStr(1, actual_description, "new_key: IEquatable@Test_ObjectSetEquatableDouble(other-id)", vbBinaryCompare)
+    Assert.Equals first_item, actual_item
+    Assert.EqualsNumeric 1, obj_set.Count
+End Sub
+
+Public Sub Test_Update_DuplicateCheckableKeyMismatch_RaisesObjectSetKeyMismatchError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_set As ObjectSet
+    Set obj_set = New ObjectSet
+
+    Dim first_item As Test_ObjectSetDupCheckDouble
+    Set first_item = New Test_ObjectSetDupCheckDouble
+    first_item.DuplicateKey = "first-key"
+
+    Dim replacement_item As Test_ObjectSetDupCheckDouble
+    Set replacement_item = New Test_ObjectSetDupCheckDouble
+    replacement_item.DuplicateKey = "other-key"
+
+    Call obj_set.Add(first_item)
+
+    ' Act
+    Call obj_set.Update(0, replacement_item)
+
+    Dim actual_source As String
+    actual_source = Err.Source
+
+    Dim actual_description As String
+    actual_description = Err.Description
+
+    Dim actual_item As Test_ObjectSetDupCheckDouble
+    Set actual_item = obj_set.Item(0)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Err.Clear
+    Assert.Equals "Class ObjectSet", actual_source
+    Assert.IsTrue 0 < InStr(1, actual_description, "キーが違います", vbBinaryCompare)
+    Assert.IsTrue 0 < InStr(1, actual_description, "old_key: IDuplicateCheckable@Test_ObjectSetDupCheckDouble(first-key)", vbBinaryCompare)
+    Assert.IsTrue 0 < InStr(1, actual_description, "new_key: IDuplicateCheckable@Test_ObjectSetDupCheckDouble(other-key)", vbBinaryCompare)
+    Assert.Equals first_item, actual_item
+    Assert.EqualsNumeric 1, obj_set.Count
+End Sub
+
+Public Sub Test_Update_CVErrKeyMismatch_RaisesObjectSetKeyMismatchError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_set As ObjectSet
+    Set obj_set = New ObjectSet
+    Call obj_set.Add(CVErr(xlErrNA))
+
+    ' Act
+    Call obj_set.Update(0, CVErr(xlErrValue))
+
+    Dim actual_source As String
+    actual_source = Err.Source
+
+    Dim actual_description As String
+    actual_description = Err.Description
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Err.Clear
+    Assert.Equals "Class ObjectSet", actual_source
+    Assert.IsTrue 0 < InStr(1, actual_description, "キーが違います", vbBinaryCompare)
+    Assert.IsTrue 0 < InStr(1, actual_description, "old_key: " & GetTypedValueKey(CVErr(xlErrNA)), vbBinaryCompare)
+    Assert.IsTrue 0 < InStr(1, actual_description, "new_key: " & GetTypedValueKey(CVErr(xlErrValue)), vbBinaryCompare)
+    Assert.Equals CVErr(xlErrNA), obj_set.Item(0)
+    Assert.EqualsNumeric 1, obj_set.Count
 End Sub
 
 Public Sub Test_GetContains_Nothing_ReturnsNothingItem(ByVal Assert As UnitTestAssert)
@@ -1309,6 +1601,136 @@ Public Sub Test_Update_CVErrWithSameError_DoesNotRaise(ByVal Assert As UnitTestA
     If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
     Assert.EqualsNumeric 1, obj_set.Count
     Assert.IsTrue IsError(obj_set.Item(0))
+End Sub
+
+Public Sub Test_Exists_CVErr_ReturnsTrueForSameError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_set As ObjectSet
+    Set obj_set = New ObjectSet
+    Call obj_set.Add(CVErr(xlErrNA))
+
+    ' Act
+    Dim actual_exists As Boolean
+    actual_exists = obj_set.Exists(CVErr(xlErrNA))
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.IsTrue actual_exists
+End Sub
+
+Public Sub Test_Exists_Empty_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_set As ObjectSet
+    Set obj_set = New ObjectSet
+
+    ' Act
+    Dim actual_exists As Boolean
+    actual_exists = False
+    actual_exists = obj_set.Exists(Empty)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Err.Clear
+    Assert.IsFalse actual_exists
+    Assert.EqualsNumeric 0, obj_set.Count
+End Sub
+
+Public Sub Test_Exists_Null_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_set As ObjectSet
+    Set obj_set = New ObjectSet
+
+    ' Act
+    Dim actual_exists As Boolean
+    actual_exists = False
+    actual_exists = obj_set.Exists(Null)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Err.Clear
+    Assert.IsFalse actual_exists
+    Assert.EqualsNumeric 0, obj_set.Count
+End Sub
+
+Public Sub Test_GetContains_CVErr_ReturnsStoredError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_set As ObjectSet
+    Set obj_set = New ObjectSet
+    Call obj_set.Add(CVErr(xlErrNA))
+
+    ' Act
+    Dim actual_item As Variant
+    actual_item = obj_set.GetContains(CVErr(xlErrNA))
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals CVErr(xlErrNA), actual_item
+End Sub
+
+Public Sub Test_RemoveItem_CVErr_RemovesSameError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_set As ObjectSet
+    Set obj_set = New ObjectSet
+    Call obj_set.Add(CVErr(xlErrNA))
+    Call obj_set.Add(CVErr(xlErrValue))
+
+    ' Act
+    Dim actual_item As Variant
+    actual_item = obj_set.RemoveItem(CVErr(xlErrNA))
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals CVErr(xlErrNA), actual_item
+    Assert.EqualsNumeric 1, obj_set.Count
+    Assert.Equals CVErr(xlErrValue), obj_set.Item(0)
+End Sub
+
+Public Sub Test_RemoveItem_Empty_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_set As ObjectSet
+    Set obj_set = New ObjectSet
+
+    ' Act
+    Dim actual_item As Variant
+    actual_item = Empty
+    actual_item = obj_set.RemoveItem(Empty)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Err.Clear
+    Assert.IsTrue IsEmpty(actual_item)
+    Assert.EqualsNumeric 0, obj_set.Count
+End Sub
+
+Public Sub Test_RemoveItem_Null_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_set As ObjectSet
+    Set obj_set = New ObjectSet
+
+    ' Act
+    Dim actual_item As Variant
+    actual_item = Empty
+    actual_item = obj_set.RemoveItem(Null)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Err.Clear
+    Assert.IsTrue IsEmpty(actual_item)
+    Assert.EqualsNumeric 0, obj_set.Count
 End Sub
 
 Public Sub Test_ConvertToStringArray_CVErr_ReturnsErrorString(ByVal Assert As UnitTestAssert)

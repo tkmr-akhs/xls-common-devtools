@@ -1321,6 +1321,124 @@ Public Sub Test_Exists_CVErr_ReturnsTrueForSameError(ByVal Assert As UnitTestAss
     Assert.IsTrue actual_exists
 End Sub
 
+Public Sub Test_Exists_Empty_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_list As ObjectList
+    Set obj_list = New ObjectList
+
+    ' Act
+    Dim actual_exists As Boolean
+    actual_exists = False
+    actual_exists = obj_list.Exists(Empty)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Err.Clear
+    Assert.IsFalse actual_exists
+    Assert.EqualsNumeric 0, obj_list.Count
+End Sub
+
+Public Sub Test_Exists_Null_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_list As ObjectList
+    Set obj_list = New ObjectList
+
+    ' Act
+    Dim actual_exists As Boolean
+    actual_exists = False
+    actual_exists = obj_list.Exists(Null)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Err.Clear
+    Assert.IsFalse actual_exists
+    Assert.EqualsNumeric 0, obj_list.Count
+End Sub
+
+Public Sub Test_RemoveItem_CVErr_RemovesSameError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_list As ObjectList
+    Set obj_list = New ObjectList
+    Call obj_list.Add(CVErr(xlErrNA))
+    Call obj_list.Add(CVErr(xlErrValue))
+
+    ' Act
+    Dim actual_removed As Boolean
+    actual_removed = obj_list.RemoveItem(CVErr(xlErrNA))
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.IsTrue actual_removed
+    Assert.EqualsNumeric 1, obj_list.Count
+    Assert.Equals CVErr(xlErrValue), obj_list.Item(0)
+End Sub
+
+Public Sub Test_RemoveItem_Empty_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_list As ObjectList
+    Set obj_list = New ObjectList
+
+    ' Act
+    Dim actual_removed As Boolean
+    actual_removed = False
+    actual_removed = obj_list.RemoveItem(Empty)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Err.Clear
+    Assert.IsFalse actual_removed
+    Assert.EqualsNumeric 0, obj_list.Count
+End Sub
+
+Public Sub Test_RemoveItem_Null_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_list As ObjectList
+    Set obj_list = New ObjectList
+
+    ' Act
+    Dim actual_removed As Boolean
+    actual_removed = False
+    actual_removed = obj_list.RemoveItem(Null)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Err.Clear
+    Assert.IsFalse actual_removed
+    Assert.EqualsNumeric 0, obj_list.Count
+End Sub
+
+Public Sub Test_RemoveDuplicate_CVErr_RemovesDuplicateSameError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_list As ObjectList
+    Set obj_list = New ObjectList
+    Call obj_list.Add(CVErr(xlErrNA))
+    Call obj_list.Add(CVErr(xlErrNA))
+    Call obj_list.Add(CVErr(xlErrValue))
+
+    ' Act
+    Dim actual_removed As Boolean
+    actual_removed = obj_list.RemoveDuplicate()
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.IsTrue actual_removed
+    Assert.EqualsNumeric 2, obj_list.Count
+    Assert.Equals CVErr(xlErrNA), obj_list.Item(0)
+    Assert.Equals CVErr(xlErrValue), obj_list.Item(1)
+End Sub
+
 Public Sub Test_ConvertToStringArray_CVErr_ReturnsErrorString(ByVal Assert As UnitTestAssert)
     On Error Resume Next
 
@@ -1336,6 +1454,23 @@ Public Sub Test_ConvertToStringArray_CVErr_ReturnsErrorString(ByVal Assert As Un
     ' Assert
     If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
     Assert.Equals "#N/A", actual_arr(0)
+End Sub
+
+Public Sub Test_ConvertToStringArray_ModernCVErr_ReturnsErrorString(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_list As ObjectList
+    Set obj_list = New ObjectList
+    Call obj_list.Add(CVErr(xlErrSpill))
+
+    ' Act
+    Dim actual_arr() As String
+    actual_arr = obj_list.ConvertToStringArray()
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "#SPILL!", actual_arr(0)
 End Sub
 
 Public Sub Test_ConvertToStringArray_ArrayItem_ReturnsTypedValueKey(ByVal Assert As UnitTestAssert)
@@ -1402,4 +1537,112 @@ Public Sub Test_Exists_ArrayItemWithDifferentElementType_ReturnsFalse(ByVal Asse
     ' Assert
     If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
     Assert.IsFalse actual_exists
+End Sub
+
+Public Sub Test_RemoveItem_ArrayItem_RemovesMatchingTypedValues(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_list As ObjectList
+    Set obj_list = New ObjectList
+
+    Dim first_arr As Variant
+    first_arr = Array(CLng(1), CStr("alpha"))
+    Call obj_list.Add(first_arr)
+
+    Dim other_arr As Variant
+    other_arr = Array(CLng(2), CStr("beta"))
+    Call obj_list.Add(other_arr)
+
+    Dim search_arr As Variant
+    search_arr = Array(CLng(1), CStr("alpha"))
+
+    ' Act
+    Dim actual_removed As Boolean
+    actual_removed = obj_list.RemoveItem(search_arr)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.IsTrue actual_removed
+    Assert.EqualsNumeric 1, obj_list.Count
+    Assert.IsTrue IsArray(obj_list.Item(0))
+    Assert.Equals "Variant[0:1](Long(2),String(beta))", GetTypedValueKey(obj_list.Item(0))
+End Sub
+
+Public Sub Test_RemoveDuplicate_ArrayItem_RemovesDuplicateTypedValues(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_list As ObjectList
+    Set obj_list = New ObjectList
+
+    Dim first_arr As Variant
+    first_arr = Array(CLng(1), CStr("alpha"))
+    Call obj_list.Add(first_arr)
+
+    Dim duplicate_arr As Variant
+    duplicate_arr = Array(CLng(1), CStr("alpha"))
+    Call obj_list.Add(duplicate_arr)
+
+    Dim other_arr As Variant
+    other_arr = Array(CStr(1), CStr("alpha"))
+    Call obj_list.Add(other_arr)
+
+    ' Act
+    Dim actual_removed As Boolean
+    actual_removed = obj_list.RemoveDuplicate()
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.IsTrue actual_removed
+    Assert.EqualsNumeric 2, obj_list.Count
+    Assert.Equals "Variant[0:1](Long(1),String(alpha))", GetTypedValueKey(obj_list.Item(0))
+    Assert.Equals "Variant[0:1](String(1),String(alpha))", GetTypedValueKey(obj_list.Item(1))
+End Sub
+
+Public Sub Test_ConvertToArray_ArrayItem_ReturnsArrayItem(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_list As ObjectList
+    Set obj_list = New ObjectList
+
+    Dim item_arr As Variant
+    item_arr = Array(CLng(1), CStr("alpha"))
+    Call obj_list.Add(item_arr)
+
+    ' Act
+    Dim actual_arr() As Variant
+    actual_arr = obj_list.ConvertToArray()
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.EqualsNumeric 0, LBound(actual_arr)
+    Assert.EqualsNumeric 0, UBound(actual_arr)
+    Assert.IsTrue IsArray(actual_arr(0))
+    Assert.Equals "Variant[0:1](Long(1),String(alpha))", GetTypedValueKey(actual_arr(0))
+End Sub
+
+Public Sub Test_AddSet_ArrayItems_AppendsItems(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_set As ObjectSet
+    Set obj_set = New ObjectSet
+
+    Dim item_arr As Variant
+    item_arr = Array(CLng(1), CStr("alpha"))
+    Call obj_set.Add(item_arr)
+
+    Dim obj_list As ObjectList
+    Set obj_list = New ObjectList
+
+    ' Act
+    Call obj_list.AddSet(obj_set)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.EqualsNumeric 1, obj_list.Count
+    Assert.IsTrue IsArray(obj_list.Item(0))
+    Assert.Equals "Variant[0:1](Long(1),String(alpha))", GetTypedValueKey(obj_list.Item(0))
 End Sub

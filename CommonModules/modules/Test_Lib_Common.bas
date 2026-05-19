@@ -1012,6 +1012,147 @@ Public Sub Test_GetTypeString_PrimitiveObjectAndArray_ReturnsTypePrefix(ByVal As
     If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
 End Sub
 
+Public Sub Test_ExcelErrorToString_AllExcelErrorValues_ReturnsErrorText(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim error_values As Variant
+    error_values = Array( _
+            CVErr(xlErrDiv0), _
+            CVErr(xlErrNA), _
+            CVErr(xlErrName), _
+            CVErr(xlErrNull), _
+            CVErr(xlErrNum), _
+            CVErr(xlErrRef), _
+            CVErr(xlErrValue), _
+            CVErr(xlErrGettingData), _
+            CVErr(xlErrSpill), _
+            CVErr(xlErrConnect), _
+            CVErr(xlErrBlocked), _
+            CVErr(xlErrUnknown), _
+            CVErr(xlErrField), _
+            CVErr(xlErrCalc))
+
+    Dim error_texts As Variant
+    error_texts = Array( _
+            "#DIV/0!", _
+            "#N/A", _
+            "#NAME?", _
+            "#NULL!", _
+            "#NUM!", _
+            "#REF!", _
+            "#VALUE!", _
+            "#GETTING_DATA", _
+            "#SPILL!", _
+            "#CONNECT!", _
+            "#BLOCKED!", _
+            "#UNKNOWN!", _
+            "#FIELD!", _
+            "#CALC!")
+
+    ' Act / Assert
+    Dim error_idx As Long
+    For error_idx = LBound(error_values) To UBound(error_values)
+        Assert.Equals CStr(error_texts(error_idx)), ExcelErrorToString(error_values(error_idx))
+    Next error_idx
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+End Sub
+
+Public Sub Test_ExcelErrorToString_NonErrorValue_RaisesError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim actual_value As String
+    actual_value = ExcelErrorToString("#N/A")
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Function ExcelErrorToString", Err.Source
+    Err.Clear
+End Sub
+
+Public Sub Test_TryConvertExcelErrorStringToCVErr_AllExcelErrorTexts_ReturnsErrorValues(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim error_texts As Variant
+    error_texts = Array( _
+            "#DIV/0!", _
+            "#N/A", _
+            "#NAME?", _
+            "#NULL!", _
+            "#NUM!", _
+            "#REF!", _
+            "#VALUE!", _
+            "#GETTING_DATA", _
+            "#SPILL!", _
+            "#CONNECT!", _
+            "#BLOCKED!", _
+            "#UNKNOWN!", _
+            "#FIELD!", _
+            "#CALC!")
+
+    Dim error_values As Variant
+    error_values = Array( _
+            CVErr(xlErrDiv0), _
+            CVErr(xlErrNA), _
+            CVErr(xlErrName), _
+            CVErr(xlErrNull), _
+            CVErr(xlErrNum), _
+            CVErr(xlErrRef), _
+            CVErr(xlErrValue), _
+            CVErr(xlErrGettingData), _
+            CVErr(xlErrSpill), _
+            CVErr(xlErrConnect), _
+            CVErr(xlErrBlocked), _
+            CVErr(xlErrUnknown), _
+            CVErr(xlErrField), _
+            CVErr(xlErrCalc))
+
+    ' Act / Assert
+    Dim error_idx As Long
+    For error_idx = LBound(error_texts) To UBound(error_texts)
+        Dim actual_error As Variant
+        Dim actual_result As Boolean
+        actual_result = TryConvertExcelErrorStringToCVErr(CStr(error_texts(error_idx)), actual_error)
+
+        Assert.IsTrue actual_result
+        Assert.Equals error_values(error_idx), actual_error
+    Next error_idx
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+End Sub
+
+Public Sub Test_TryConvertExcelErrorStringToCVErr_LowerCase_ReturnsErrorValue(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Act
+    Dim actual_error As Variant
+    Dim actual_result As Boolean
+    actual_result = TryConvertExcelErrorStringToCVErr("#div/0!", actual_error)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.IsTrue actual_result
+    Assert.Equals CVErr(xlErrDiv0), actual_error
+End Sub
+
+Public Sub Test_TryConvertExcelErrorStringToCVErr_UnknownText_ReturnsFalseAndEmpty(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim actual_error As Variant
+    actual_error = CVErr(xlErrNA)
+
+    ' Act
+    Dim actual_result As Boolean
+    actual_result = TryConvertExcelErrorStringToCVErr("#ERRNO_2045!", actual_error)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.IsFalse actual_result
+    Assert.IsTrue IsEmpty(actual_error)
+End Sub
+
 Public Sub Test_GetTypedValueKey_PrimitiveValues_ReturnsTypedKeys(ByVal Assert As UnitTestAssert)
     On Error Resume Next
 

@@ -151,7 +151,7 @@ Public Function ConvertToStringArray() As String()
             End If
         Else
             If IsError(pDict(dict_key)) Then
-                result_value(item_idx) = pConvertErrorToString(pDict(dict_key))
+                result_value(item_idx) = ExcelErrorToString(pDict(dict_key))
             ElseIf IsArray(pDict(dict_key)) Then
                 result_value(item_idx) = GetTypedValueKey(pDict(dict_key))
             Else
@@ -551,24 +551,6 @@ Private Sub pCheckUnsupportedSpecialValue(ByVal ItemObject As Variant)
     If IsEmpty(ItemObject) Then Err.Raise vbObjectError + 1, "Class ObjectSet", "Empty は要素として使用できません。"
     If IsNull(ItemObject) Then Err.Raise vbObjectError + 1, "Class ObjectSet", "Null は要素として使用できません。"
 End Sub
-
-Private Function pConvertErrorToString(ByVal ErrorValue As Variant) As String
-    Dim error_texts As Dictionary
-    Set error_texts = New Dictionary
-    Call error_texts.Add(CVErr(xlErrNull), "#NULL!")
-    Call error_texts.Add(CVErr(xlErrDiv0), "#DIV/0!")
-    Call error_texts.Add(CVErr(xlErrValue), "#VALUE!")
-    Call error_texts.Add(CVErr(xlErrRef), "#REF!")
-    Call error_texts.Add(CVErr(xlErrName), "#NAME?")
-    Call error_texts.Add(CVErr(xlErrNum), "#NUM!")
-    Call error_texts.Add(CVErr(xlErrNA), "#N/A")
-
-    If error_texts.Exists(ErrorValue) Then
-        pConvertErrorToString = error_texts(ErrorValue)
-    Else
-        pConvertErrorToString = "Unknown error"
-    End If
-End Function
 
 Private Function pErrorValuesEqual(ByVal ErrorValue1 As Variant, ByVal ErrorValue2 As Variant) As Boolean
     Dim error_values As Dictionary

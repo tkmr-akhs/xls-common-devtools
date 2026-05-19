@@ -15,21 +15,6 @@
 
 ## 高優先度
 
-- [ ] [bug] ObjectList / ObjectSet の配列要素サポート有無を実装と揃える
-  - 詳細: `ObjectList.pCheckUnsupportedSpecialValue` と `ObjectSet.pCheckUnsupportedSpecialValue` は配列を許可しているが、`ObjectList.pItemsEqual` は配列同士を `ItemObject1 = ItemObject2` で比較し、`ConvertToStringArray` でも配列を `String` 要素へ直接代入するため型不一致になり得る。`ObjectSet.pGetKey` も配列をそのまま Dictionary キーに渡す経路がある。
-  - 影響: 配列要素を追加できるように見える一方で、存在判定、削除、重複削除、文字列化、集合追加のどこかで実行時エラーになる。Range 値や分割結果を要素として扱う利用者が、どの操作まで安全か判断できない。
-  - 対応案: 配列要素をサポート外として追加時に明示エラーにするか、次元・境界・要素を含む比較/キー化/文字列化仕様を実装する。`ObjectList` と `ObjectSet` の配列追加、Exists、RemoveItem、RemoveDuplicate、ConvertToStringArray、Add のテストを追加する。
-
-- [ ] [bug] ObjectSet.Update のキー不一致エラーでオブジェクトキーを安全に表示する
-  - 詳細: `Update` は旧キーと新キーが異なる場合に `old_key` / `new_key` をそのまま文字列連結してエラー説明を作る。参照同一性をキーにするオブジェクト集合で別インスタンスへ更新しようとすると、意図した `Class ObjectSet` のキー不一致エラーではなく、オブジェクトの文字列変換エラーになり得る。
-  - 影響: 更新禁止条件そのものは検出しているのに、呼び出し側には原因が読めるエラーが返らない。`Enumerator.Update` 経由で `ObjectSet` を更新する場合も診断しづらい。
-  - 対応案: キー表示用の安全な文字列化ヘルパーを追加し、オブジェクトは `TypeName` と `ObjPtr`、`Nothing`、`CVErr` などを型付きで表示する。オブジェクト参照キー、`IEquatable` キー、`CVErr` キーの不一致テストを追加する。
-
-- [ ] [bug] ObjectList / ObjectSet の特殊 Variant 値の扱いを固定する
-  - 詳細: `ObjectList.pItemsEqual` はプリミティブ比較で `ItemObject1 = ItemObject2` を直接 Boolean に代入するため、`Null` や `CVErr(...)` で比較自体が失敗し得る。`ObjectSet` は `Null` / `CVErr(...)` / `Empty` を Dictionary キーとして渡す経路があり、`ConvertToStringArray` でも特殊値の文字列化方針がない。
-  - 影響: Excel Range から読んだ値や外部入力をそのまま基盤コレクションへ入れると、追加、存在判定、削除、重複除去、文字列化のどこで失敗するかが値によって変わる。
-  - 対応案: `Null`、`Empty`、`CVErr(...)` をサポートするか明示エラーにするかを決め、`ObjectList` / `ObjectSet` / `Enumerator` の取得・比較・文字列化テストを追加する。
-
 - [ ] [bug] ObjectList / ObjectSet の Sort で Nothing 要素を明示的に扱う
   - 詳細: `ObjectList` / `ObjectSet` は `Nothing` を通常要素として許可するが、`ObjectList.Sort` は `pIsComparable` / `pIsDuplicateCheckable` / `pIsStringable` の比較経路で `Me.Item(...)` を各インターフェイス変数へ `Set` するため、`Nothing` 要素を含むとオブジェクト変数未設定の実行時エラーになり得る。どの位置に並べるか、または Sort 対象外とするかの契約もない。
   - 影響: 集合・リストとしては追加、存在判定、削除できる `Nothing` が、ソート時だけ不安定に失敗する。`ObjectSet.Sort` は内部で `ObjectList.Sort` を使うため同じ影響を受ける。
@@ -62,6 +47,10 @@
 
 ## 中優先度
 
+- [ ] [bug] DebugInformation.FinishTask の名前指定成功時に True を返す
+  - 詳細: `FinishTask(TaskName:="...")` は対象タスクが見つかった場合に `pFinishTaskCore` でスタックを巻き戻すが、戻り値 `FinishTask` へ `True` を代入しないまま終了する。引数なしで最後のタスクを終了する経路だけは `True` を返すため、名前指定時だけ成功しても既定値の `False` になる。
+  - 影響: 呼び出し側が戻り値でタスク終了の成否を判定すると、実際には終了済みなのに失敗扱いになり、二重終了や不要なエラー処理へ進み得る。`BuildCurrentMessage` などのスタック状態は更新済みなので、戻り値と状態が食い違う。
+  - 対応案: 名前指定成功時のループ後に `FinishTask = True` を代入する。先頭・中間・末尾の名前指定終了、存在しない名前、空スタックのテストを追加する。
 - [ ] [bug] ProgressStatus.SetForLoop の開始値が既定 TotalValue を超えるループを受け付けない
   - 詳細: `SetForLoop` は `StartValue = StartIndex - 1` を先に実行し、その後で `pTotalValue = FinishIndex` を直接代入する。`StartValue` の setter は更新前の `TotalValue` と比較するため、既定の `TotalValue:=100` の状態で `SetForLoop(FinishIndex:=2000, StartIndex:=1000)` のような妥当なループ範囲を指定しても、開始値が終了値以上としてエラーになる。
   - 詳細: `pNextUpdate` は `Integer` だが、`StartValue` setter と初期化処理で `StartValue - 1` を代入しているため、開始インデックスが大きいループでは進捗表示前に Overflow し得る。
@@ -245,6 +234,10 @@
 
 ## 低優先度
 
+- [ ] [ux] DebugInformation のメッセージ行プレフィックスを実装意図どおり表示する
+  - 詳細: `pBuildMessageByIndex` は `result_value` が空でない場合に `pBuildMessageByIndex = "*" & result_value` を代入するが、直後に `pBuildMessageByIndex = result_value` で上書きしている。現在は `BuildMessageLines` / `BuildCurrentMessage` の各行に、意図したと思われる `*` プレフィックスが付かない。
+  - 影響: デバッグ情報の見た目がコメントや実装意図とずれ、複数行のタスク情報をログやエラー説明に埋め込んだときに境界を読み取りにくい。
+  - 対応案: 戻り値代入を 1 箇所にし、プレフィックスを付けるか付けないかの表示仕様をテストで固定する。`Message` あり、タスク 1 件、タスク複数件、`LocationOnly:=True` の出力を確認する。
 - [ ] [ux] UnitTestAssert に許容誤差付きの数値比較を追加する
   - 詳細: `EqualsNumeric` / `NotEqualsNumeric` は数値型の違いだけを無視し、値比較は `ExpectedValue = ActualValue` の完全一致に依存している。`0.1 + 0.2` と `0.3` のような浮動小数点計算結果を検証する場合、実装側ではなくアサーション側の表現限界で失敗し得る。
   - 影響: Double / Single を扱う共通モジュールや利用プロジェクトのテストで、呼び出し側が毎回丸めや差分計算を手書きする必要がある。失敗メッセージも「どれだけずれたか」を直接示せない。

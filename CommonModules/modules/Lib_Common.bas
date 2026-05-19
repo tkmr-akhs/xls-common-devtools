@@ -457,6 +457,108 @@ Public Sub HandleError( _
     End If
 End Sub
 
+'* Excel エラー値を Excel 表示文字列へ変換します。
+'*
+'* @param ErrorValue Excel エラー値。
+'* @return Excel エラー表示文字列。
+'*
+'* @details
+'* `CVErr(...)` で表される Excel エラー値を、セル表示や数式リテラルで使える文字列へ変換します。
+'* 未知のエラー値はエラー番号を含む `#ERRNO_xxx!` として返します。
+Public Function ExcelErrorToString(ByVal ErrorValue As Variant) As String
+    If Not IsError(ErrorValue) Then
+        Err.Raise vbObjectError + 1, "Function ExcelErrorToString", "Excel エラー値ではありません。(" & TypeName(ErrorValue) & ")"
+    End If
+
+    Dim result_value As String
+    Select Case ErrorValue
+     Case CVErr(xlErrDiv0)
+        result_value = "#DIV/0!"
+     Case CVErr(xlErrNA)
+        result_value = "#N/A"
+     Case CVErr(xlErrName)
+        result_value = "#NAME?"
+     Case CVErr(xlErrNull)
+        result_value = "#NULL!"
+     Case CVErr(xlErrNum)
+        result_value = "#NUM!"
+     Case CVErr(xlErrRef)
+        result_value = "#REF!"
+     Case CVErr(xlErrValue)
+        result_value = "#VALUE!"
+     Case CVErr(xlErrGettingData)
+        result_value = "#GETTING_DATA"
+     Case CVErr(xlErrSpill)
+        result_value = "#SPILL!"
+     Case CVErr(xlErrConnect)
+        result_value = "#CONNECT!"
+     Case CVErr(xlErrBlocked)
+        result_value = "#BLOCKED!"
+     Case CVErr(xlErrUnknown)
+        result_value = "#UNKNOWN!"
+     Case CVErr(xlErrField)
+        result_value = "#FIELD!"
+     Case CVErr(xlErrCalc)
+        result_value = "#CALC!"
+     Case Else
+        result_value = "#ERRNO_" & CStr(CLng(ErrorValue)) & "!"
+    End Select
+
+    ExcelErrorToString = result_value
+End Function
+
+'* Excel エラー表示文字列を Excel エラー値へ変換します。
+'*
+'* @param Expression Excel エラー表示文字列。
+'* @param ErrorValue [出力] 変換できた場合の Excel エラー値。
+'* @return 変換できた場合は True、それ以外は False。
+'*
+'* @details
+'* 既知の Excel エラー表示文字列だけを `CVErr(...)` へ変換します。大小文字は区別しません。
+'* 未知の文字列では `ErrorValue` に `Empty` を明示代入して False を返します。
+Public Function TryConvertExcelErrorStringToCVErr( _
+        ByVal Expression As String, _
+        ByRef ErrorValue As Variant) As Boolean
+
+    Dim result_value As Boolean
+    result_value = True
+
+    Select Case UCase$(Expression)
+     Case "#DIV/0!"
+        ErrorValue = CVErr(xlErrDiv0)
+     Case "#N/A"
+        ErrorValue = CVErr(xlErrNA)
+     Case "#NAME?"
+        ErrorValue = CVErr(xlErrName)
+     Case "#NULL!"
+        ErrorValue = CVErr(xlErrNull)
+     Case "#NUM!"
+        ErrorValue = CVErr(xlErrNum)
+     Case "#REF!"
+        ErrorValue = CVErr(xlErrRef)
+     Case "#VALUE!"
+        ErrorValue = CVErr(xlErrValue)
+     Case "#GETTING_DATA"
+        ErrorValue = CVErr(xlErrGettingData)
+     Case "#SPILL!"
+        ErrorValue = CVErr(xlErrSpill)
+     Case "#CONNECT!"
+        ErrorValue = CVErr(xlErrConnect)
+     Case "#BLOCKED!"
+        ErrorValue = CVErr(xlErrBlocked)
+     Case "#UNKNOWN!"
+        ErrorValue = CVErr(xlErrUnknown)
+     Case "#FIELD!"
+        ErrorValue = CVErr(xlErrField)
+     Case "#CALC!"
+        ErrorValue = CVErr(xlErrCalc)
+     Case Else
+        ErrorValue = Empty
+        result_value = False
+    End Select
+
+    TryConvertExcelErrorStringToCVErr = result_value
+End Function
 ' #############################################################################
 '
 ' GUI 関連

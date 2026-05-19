@@ -252,7 +252,7 @@ Public Sub WriteCell( _
         If TypeConvert Then
             ' å^ïœä∑Ç∑ÇÈèÍçá
             Dim err_val As Variant
-            If pTryConvertErrorStringToCVErr(Expression, err_val) Then
+            If TryConvertExcelErrorStringToCVErr(Expression, err_val) Then
                 target_cell.Value = err_val  ' CVErr(...) ÇÉZÉbÉg
                 Exit Sub
             End If
@@ -529,7 +529,7 @@ End Function
 
 Private Function pGetFormulaLiteral(ByVal Value As Variant) As String
     If IsError(Value) Then
-        pGetFormulaLiteral = pConvertErrorToString(Value)
+        pGetFormulaLiteral = ExcelErrorToString(Value)
         Exit Function
     End If
     If IsEmpty(Value) Or IsNull(Value) Then
@@ -562,90 +562,6 @@ Private Function pGetFormulaNumber(ByVal NumberValue As Double) As String
         result_value = "-0" & Mid$(result_value, 2)
     End If
     pGetFormulaNumber = result_value
-End Function
-
-Private Function pTryConvertErrorStringToCVErr(ByVal Expression As String, ByRef ErrorValue As Variant) As Boolean
-    Select Case UCase(Expression)
-     Case "#DIV/0!"
-        ErrorValue = CVErr(xlErrDiv0)
-        pTryConvertErrorStringToCVErr = True
-     Case "#N/A"
-        ErrorValue = CVErr(xlErrNA)
-        pTryConvertErrorStringToCVErr = True
-     Case "#NAME?"
-        ErrorValue = CVErr(xlErrName)
-        pTryConvertErrorStringToCVErr = True
-     Case "#NULL!"
-        ErrorValue = CVErr(xlErrNull)
-        pTryConvertErrorStringToCVErr = True
-     Case "#NUM!"
-        ErrorValue = CVErr(xlErrNum)
-        pTryConvertErrorStringToCVErr = True
-     Case "#REF!"
-        ErrorValue = CVErr(xlErrRef)
-        pTryConvertErrorStringToCVErr = True
-     Case "#VALUE!"
-        ErrorValue = CVErr(xlErrValue)
-        pTryConvertErrorStringToCVErr = True
-     Case "#GETTING_DATA"
-        ErrorValue = CVErr(xlErrGettingData)
-        pTryConvertErrorStringToCVErr = True
-     Case "#SPILL!"
-        ErrorValue = CVErr(xlErrSpill)
-        pTryConvertErrorStringToCVErr = True
-     Case "#CONNECT!"
-        ErrorValue = CVErr(xlErrConnect)
-        pTryConvertErrorStringToCVErr = True
-     Case "#BLOCKED!"
-        ErrorValue = CVErr(xlErrBlocked)
-        pTryConvertErrorStringToCVErr = True
-     Case "#UNKNOWN!"
-        ErrorValue = CVErr(xlErrUnknown)
-        pTryConvertErrorStringToCVErr = True
-     Case "#FIELD!"
-        ErrorValue = CVErr(xlErrField)
-        pTryConvertErrorStringToCVErr = True
-     Case "#CALC!"
-        ErrorValue = CVErr(xlErrCalc)
-        pTryConvertErrorStringToCVErr = True
-     Case Else
-        pTryConvertErrorStringToCVErr = False
-    End Select
-End Function
-
-Private Function pConvertErrorToString(ByVal ErrValue As Variant) As String
-    Select Case ErrValue
-     Case CVErr(xlErrDiv0)
-        pConvertErrorToString = "#DIV/0!"
-     Case CVErr(xlErrNA)
-        pConvertErrorToString = "#N/A"
-     Case CVErr(xlErrName)
-        pConvertErrorToString = "#NAME?"
-     Case CVErr(xlErrNull)
-        pConvertErrorToString = "#NULL!"
-     Case CVErr(xlErrNum)
-        pConvertErrorToString = "#NUM!"
-     Case CVErr(xlErrRef)
-        pConvertErrorToString = "#REF!"
-     Case CVErr(xlErrValue)
-        pConvertErrorToString = "#VALUE!"
-     Case CVErr(xlErrGettingData)
-        pConvertErrorToString = "#GETTING_DATA"
-     Case CVErr(xlErrSpill)
-        pConvertErrorToString = "#SPILL!"
-     Case CVErr(xlErrConnect)
-        pConvertErrorToString = "#CONNECT!"
-     Case CVErr(xlErrBlocked)
-        pConvertErrorToString = "#BLOCKED!"
-     Case CVErr(xlErrUnknown)
-        pConvertErrorToString = "#UNKNOWN!"
-     Case CVErr(xlErrField)
-        pConvertErrorToString = "#FIELD!"
-     Case CVErr(xlErrCalc)
-        pConvertErrorToString = "#CALC!"
-     Case Else
-        pConvertErrorToString = "#ERRNO_" & CStr(CLng(ErrValue)) & "!"
-    End Select
 End Function
 
 '
@@ -749,7 +665,7 @@ End Function
 
 Private Sub pReadCellValue(ByVal TargetCell As Range, ByRef Expression As String, ByRef NumberFormat As String)
     If IsError(TargetCell.Value) Then
-        Expression = pConvertErrorToString(TargetCell.Value)
+        Expression = ExcelErrorToString(TargetCell.Value)
     Else
         Expression = CStr(TargetCell.Value)
     End If
@@ -778,7 +694,7 @@ Private Sub pReadCellText(ByVal TargetCell As Range, ByRef Expression As String,
 
         If result_string <> "" And Replace(result_string, "#", "") = "" Then
             If IsError(TargetCell.Value) Then
-                result_string = pConvertErrorToString(TargetCell.Value)
+                result_string = ExcelErrorToString(TargetCell.Value)
             Else
                 result_string = CStr(TargetCell.Value)
             End If

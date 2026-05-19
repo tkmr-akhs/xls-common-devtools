@@ -184,12 +184,14 @@ Public Function ConvertToStringArray() As String()
                     Set stringable_obj = Item(item_idx)
                     result_value(item_idx) = stringable_obj.ToString()
                 Else
-                    result_value(item_idx) = TypeName(Item(item_idx))
+                    result_value(item_idx) = GetTypeString(Item(item_idx))
                 End If
             End If
         Else
             If IsError(Item(item_idx)) Then
                 result_value(item_idx) = pConvertErrorToString(Item(item_idx))
+            ElseIf IsArray(Item(item_idx)) Then
+                result_value(item_idx) = GetTypedValueKey(Item(item_idx))
             Else
                 result_value(item_idx) = Item(item_idx)
             End If
@@ -353,22 +355,27 @@ End Sub
 '* - このリストの要素が IEquatable であれば、Equals の結果に基づいて処理します。
 '* - IEquotable かつ IDuplicateCheckable の場合は、IDuplicateCheckable としての扱いが優先されます。
 Public Function RemoveItem(ByVal ItemObject As Variant) As Boolean
-    Call pCheckUnsupportedSpecialValue(ItemObject)
+    Dim result_value As Boolean
+    result_value = False
+
+    If Not pCanSearchItem(ItemObject) Then
+        RemoveItem = result_value
+        Exit Function
+    End If
 
     Dim item_idx As Long
-    Dim is_removed As Boolean
+    item_idx = 0
 
-    is_removed = False
     Do While item_idx < pCount
         If pCheckRemoveItem(Item(item_idx), ItemObject) Then
             Call Remove(item_idx)
-            is_removed = True
+            result_value = True
         Else
             item_idx = item_idx + 1
         End If
     Loop
 
-    RemoveItem = is_removed
+    RemoveItem = result_value
 End Function
 
 Private Function pCheckRemoveItem(ByVal ItemObject1 As Variant, ByVal ItemObject2 As Variant) As Boolean
@@ -402,6 +409,14 @@ Private Function pItemsEqual(ByVal ItemObject1 As Variant, ByVal ItemObject2 As 
         End If
     Else
         If IsObject(ItemObject1) Or IsObject(ItemObject2) Then Exit Function
+        If IsArray(ItemObject1) Or IsArray(ItemObject2) Then
+            If IsArray(ItemObject1) And IsArray(ItemObject2) Then
+                pItemsEqual = (GetTypedValueKey(ItemObject1) = GetTypedValueKey(ItemObject2))
+                Exit Function
+            End If
+            pItemsEqual = False
+            Exit Function
+        End If
         If IsError(ItemObject1) Or IsError(ItemObject2) Then
             If IsError(ItemObject1) And IsError(ItemObject2) Then
                 pItemsEqual = pErrorValuesEqual(ItemObject1, ItemObject2)
@@ -483,11 +498,17 @@ End Function
 '* @details
 '* 等しいものを探しインデックスを返します。
 Public Function GetIndexByItem(ByVal ItemObject As Variant, Optional ByVal StartIndex As Long = -1, Optional ByVal Reverse As Variant = False) As Long
-    Call pCheckUnsupportedSpecialValue(ItemObject)
+    Dim result_value As Long
+    result_value = -1
+
+    If Not pCanSearchItem(ItemObject) Then
+        GetIndexByItem = result_value
+        Exit Function
+    End If
 
     If Count <= 0 _
             Or pCount <= StartIndex And Not Reverse Then
-        GetIndexByItem = -1
+        GetIndexByItem = result_value
         Exit Function
     End If
 
@@ -514,7 +535,9 @@ Public Function GetIndexByItem(ByVal ItemObject As Variant, Optional ByVal Start
         idx_limit = pCount - 1
     End If
 
-    GetIndexByItem = pGetIndexByItemCore(ItemObject, StartIndex, idx_limit, idx_step)
+    result_value = pGetIndexByItemCore(ItemObject, StartIndex, idx_limit, idx_step)
+
+    GetIndexByItem = result_value
 End Function
 
 Private Function pGetIndexByItemCore(ByVal ItemObject As Variant, ByVal StartIndex As Long, ByVal IndexLimit As Long, ByVal IndexStep As Long) As Long
@@ -537,15 +560,23 @@ End Function
 '* @details
 '* 等しいものが含まれるかを確認します。
 Public Function Exists(ByVal ItemObject As Variant) As Boolean
-    Call pCheckUnsupportedSpecialValue(ItemObject)
+    Dim result_value As Boolean
+    result_value = False
+
+    If Not pCanSearchItem(ItemObject) Then
+        Exists = result_value
+        Exit Function
+    End If
 
     Dim item_idx As Long
     item_idx = pGetIndexByItemCore(ItemObject, 0, pCount - 1, 1)
     If 0 <= item_idx Then
-        Exists = True
+        result_value = True
     Else
-        Exists = False
+        result_value = False
     End If
+
+    Exists = result_value
 End Function
 
 '* このリストの中身をソートします。
@@ -700,7 +731,7 @@ Private Sub pInitializeItemType(ByVal ItemObject As Variant)
     If item_is_obj Then
         pIsObject = True
         If Not ItemObject Is Nothing Then
-            pTypeName = TypeName(ItemObject)
+            pTypeName = GetTypeString(ItemObject)
             If TypeOf ItemObject Is IComparable Then
                 pIsComparable = True
             End If
@@ -719,10 +750,42 @@ Private Sub pInitializeItemType(ByVal ItemObject As Variant)
             Err.Raise vbObjectError + 1, "Class ObjectList", "最初の要素はオブジェクト型でしたが、新しい要素はオブジェクト型ではありません。(" & pTypeName & ")"
         Else
             ' プリミティブ型
-            pTypeName = TypeName(ItemObject)
+            pTypeName = GetTypeString(ItemObject)
         End If
     End If
 End Sub
+
+Private Function pCanSearchItem(ByVal ItemObject As Variant) As Boolean
+    Dim result_value As Boolean
+    result_value = False
+
+    Call pCheckUnsupportedSpecialValue(ItemObject)
+
+    If pTypeName <> "" Then
+        Call pCheckItemType(ItemObject)
+        result_value = True
+        pCanSearchItem = result_value
+        Exit Function
+    End If
+
+    If Not pIsObject Then
+        pCanSearchItem = result_value
+        Exit Function
+    End If
+
+    If Not IsObject(ItemObject) Then
+        pCanSearchItem = result_value
+        Exit Function
+    End If
+
+    If ItemObject Is Nothing Then
+        result_value = True
+    Else
+        result_value = False
+    End If
+
+    pCanSearchItem = result_value
+End Function
 
 Private Sub pCheckItemType(ByVal ItemObject As Variant)
     Call pCheckUnsupportedSpecialValue(ItemObject)
@@ -734,8 +797,8 @@ Private Sub pCheckItemType(ByVal ItemObject As Variant)
         If ItemObject Is Nothing Then Exit Sub
     End If
 
-    If TypeName(ItemObject) <> pTypeName Then
-        Err.Raise vbObjectError + 1, "Class ObjectList", "最初に設定された要素と型が異なります。(list: " & pTypeName & ", item: " & TypeName(ItemObject) & ")"
+    If GetTypeString(ItemObject) <> pTypeName Then
+        Err.Raise vbObjectError + 1, "Class ObjectList", "最初に設定された要素と型が異なります。(list: " & pTypeName & ", item: " & GetTypeString(ItemObject) & ")"
     End If
 End Sub
 

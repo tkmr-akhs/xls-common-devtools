@@ -1012,23 +1012,50 @@ Public Sub Test_GetTypeString_PrimitiveObjectAndArray_ReturnsTypePrefix(ByVal As
     If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
 End Sub
 
-Public Sub Test_GetTypedValueString_PrimitiveValues_ReturnsTypedStrings(ByVal Assert As UnitTestAssert)
+Public Sub Test_GetTypedValueKey_PrimitiveValues_ReturnsTypedKeys(ByVal Assert As UnitTestAssert)
     On Error Resume Next
 
     ' Act / Assert
-    Assert.Equals "String(A\,B\(C\)\\D)", GetTypedValueString("A,B(C)\D")
-    Assert.Equals "String(A\tB)", GetTypedValueString("A" & vbTab & "B")
-    Assert.Equals "Long(1)", GetTypedValueString(CLng(1))
-    Assert.Equals "String(1)", GetTypedValueString(CStr(1))
-    Assert.NotEquals GetTypedValueString(CLng(1)), GetTypedValueString(CStr(1))
-    Assert.Equals "Boolean(True)", GetTypedValueString(CBool(True))
-    Assert.Equals "Null()", GetTypedValueString(Null)
-    Assert.Equals "Empty()", GetTypedValueString(Empty)
-    Assert.Equals "Error(2042)", GetTypedValueString(CVErr(2042))
+    Assert.Equals "String(A\,B\(C\)\\D)", GetTypedValueKey("A,B(C)\D")
+    Assert.Equals "String(A\tB)", GetTypedValueKey("A" & vbTab & "B")
+    Assert.Equals "Long(1)", GetTypedValueKey(CLng(1))
+    Assert.Equals "String(1)", GetTypedValueKey(CStr(1))
+    Assert.NotEquals GetTypedValueKey(CLng(1)), GetTypedValueKey(CStr(1))
+    Assert.Equals "Boolean(True)", GetTypedValueKey(CBool(True))
+    Assert.Equals "Currency(1)", GetTypedValueKey(CCur(1))
+    Assert.Equals "Null()", GetTypedValueKey(Null)
+    Assert.Equals "Empty()", GetTypedValueKey(Empty)
+    Assert.Equals "Error(2042)", GetTypedValueKey(CVErr(2042))
     If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
 End Sub
 
-Public Sub Test_GetTypedValueString_PrimitiveArrays_ReturnsArrayTypeAndBounds(ByVal Assert As UnitTestAssert)
+Public Sub Test_GetValueKey_PrimitiveValues_ReturnsPrimitiveKeys(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim date_value As Date
+    date_value = DateSerial(2026, 1, 2) + TimeSerial(3, 4, 5)
+
+    ' Act / Assert
+    Assert.Equals "Primitive(1)", GetValueKey(CByte(1))
+    Assert.Equals "Primitive(1)", GetValueKey(CInt(1))
+    Assert.Equals "Primitive(1)", GetValueKey(CLng(1))
+    Assert.Equals "Primitive(1)", GetValueKey(CStr(1))
+    Assert.Equals "Primitive(1.5)", GetValueKey(CSng(1.5))
+    Assert.Equals "Primitive(1.5)", GetValueKey(CDbl(1.5))
+    Assert.Equals "Primitive(True)", GetValueKey(CBool(True))
+    Assert.Equals "Primitive(True)", GetValueKey(CStr("True"))
+    Assert.Equals "Primitive(2026-01-02T03\:04\:05)", GetValueKey(date_value)
+    Assert.Equals "Currency(1)", GetValueKey(CCur(1))
+    Assert.Equals "Null()", GetValueKey(Null)
+    Assert.Equals "Empty()", GetValueKey(Empty)
+    Assert.Equals "Error(2042)", GetValueKey(CVErr(2042))
+    Assert.NotEquals GetValueKey(CCur(1)), GetValueKey(CLng(1))
+    Assert.Equals GetValueKey(date_value), GetValueKey(CStr("2026-01-02T03:04:05"))
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+End Sub
+
+Public Sub Test_GetTypedValueKey_PrimitiveArrays_ReturnsArrayTypeAndBounds(ByVal Assert As UnitTestAssert)
     On Error Resume Next
 
     ' Arrange
@@ -1044,13 +1071,40 @@ Public Sub Test_GetTypedValueString_PrimitiveArrays_ReturnsArrayTypeAndBounds(By
     variant_arr = Array("1", CLng(1), Empty, Null, CVErr(2042))
 
     ' Act / Assert
-    Assert.Equals "String[1:2](A,B)", GetTypedValueString(string_arr)
-    Assert.Equals "Long[0:1](1,2)", GetTypedValueString(long_arr)
-    Assert.Equals "Variant[0:4](String(1),Long(1),Empty(),Null(),Error(2042))", GetTypedValueString(variant_arr)
+    Assert.Equals "String[1:2](A,B)", GetTypedValueKey(string_arr)
+    Assert.Equals "Long[0:1](1,2)", GetTypedValueKey(long_arr)
+    Assert.Equals "Variant[0:4](String(1),Long(1),Empty(),Null(),Error(2042))", GetTypedValueKey(variant_arr)
     If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
 End Sub
 
-Public Sub Test_GetTypedValueString_MultidimensionalArrays_ReturnsNestedItems(ByVal Assert As UnitTestAssert)
+Public Sub Test_GetValueKey_PrimitiveArrays_ReturnsPrimitiveArrayType(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim string_arr(1 To 2) As String
+    string_arr(1) = "A"
+    string_arr(2) = "B"
+
+    Dim byte_arr(0 To 1) As Byte
+    byte_arr(0) = 1
+    byte_arr(1) = 2
+
+    Dim long_arr(0 To 1) As Long
+    long_arr(0) = 1
+    long_arr(1) = 2
+
+    Dim variant_arr As Variant
+    variant_arr = Array(CByte(1), CLng(1), CStr(1), CCur(1), Empty, Null, CVErr(2042))
+
+    ' Act / Assert
+    Assert.Equals "Primitive[1:2](A,B)", GetValueKey(string_arr)
+    Assert.Equals "Primitive[0:1](1,2)", GetValueKey(byte_arr)
+    Assert.Equals "Primitive[0:1](1,2)", GetValueKey(long_arr)
+    Assert.Equals "Variant[0:6](Primitive(1),Primitive(1),Primitive(1),Currency(1),Empty(),Null(),Error(2042))", GetValueKey(variant_arr)
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+End Sub
+
+Public Sub Test_GetTypedValueKey_MultidimensionalArrays_ReturnsNestedItems(ByVal Assert As UnitTestAssert)
     On Error Resume Next
 
     ' Arrange
@@ -1073,12 +1127,12 @@ Public Sub Test_GetTypedValueString_MultidimensionalArrays_ReturnsNestedItems(By
     cube(2, 2, 2) = 222
 
     ' Act / Assert
-    Assert.Equals "String[1:2,1:3]((A,B,C),(D,E,F))", GetTypedValueString(matrix)
-    Assert.Equals "Long[1:2,1:2,1:2](((111,112),(121,122)),((211,212),(221,222)))", GetTypedValueString(cube)
+    Assert.Equals "String[1:2,1:3]((A,B,C),(D,E,F))", GetTypedValueKey(matrix)
+    Assert.Equals "Long[1:2,1:2,1:2](((111,112),(121,122)),((211,212),(221,222)))", GetTypedValueKey(cube)
     If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
 End Sub
 
-Public Sub Test_GetTypedValueString_JaggedArray_ReturnsRecursiveArrayItems(ByVal Assert As UnitTestAssert)
+Public Sub Test_GetTypedValueKey_JaggedArray_ReturnsRecursiveArrayItems(ByVal Assert As UnitTestAssert)
     On Error Resume Next
 
     ' Arrange
@@ -1088,14 +1142,14 @@ Public Sub Test_GetTypedValueString_JaggedArray_ReturnsRecursiveArrayItems(ByVal
 
     ' Act
     Dim actual_value As String
-    actual_value = GetTypedValueString(jagged_arr)
+    actual_value = GetTypedValueKey(jagged_arr)
 
     ' Assert
     If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
     Assert.Equals "Variant[0:1](Variant[0:1](String(A),String(B)),Variant[0:1](String(C),String(D)))", actual_value
 End Sub
 
-Public Sub Test_GetTypedValueString_EmptyArrays_ReturnsArrayTypeOnly(ByVal Assert As UnitTestAssert)
+Public Sub Test_GetTypedValueKey_EmptyArrays_ReturnsArrayTypeOnly(ByVal Assert As UnitTestAssert)
     On Error Resume Next
 
     ' Arrange
@@ -1105,73 +1159,104 @@ Public Sub Test_GetTypedValueString_EmptyArrays_ReturnsArrayTypeOnly(ByVal Asser
     variant_arr = Array()
 
     ' Act / Assert
-    Assert.Equals "Long[]()", GetTypedValueString(long_arr)
-    Assert.Equals "Variant[0:-1]()", GetTypedValueString(variant_arr)
+    Assert.Equals "Long[]()", GetTypedValueKey(long_arr)
+    Assert.Equals "Variant[0:-1]()", GetTypedValueKey(variant_arr)
     If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
 End Sub
 
-Public Sub Test_GetMultiKey_DifferentPrimitiveTypes_ReturnsDifferentKeys(ByVal Assert As UnitTestAssert)
+Public Sub Test_GetTypedMultiKey_DifferentPrimitiveTypes_ReturnsDifferentKeys(ByVal Assert As UnitTestAssert)
     On Error Resume Next
 
     ' Act / Assert
-    Assert.NotEquals GetMultiKey(CLng(1)), GetMultiKey(CStr(1))
-    Assert.NotEquals GetMultiKey(CBool(True)), GetMultiKey(CStr("True"))
+    Assert.NotEquals GetTypedMultiKey(CLng(1)), GetTypedMultiKey(CStr(1))
+    Assert.NotEquals GetTypedMultiKey(CBool(True)), GetTypedMultiKey(CStr("True"))
     If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
 End Sub
 
-Public Sub Test_GetMultiKey_Null_ReturnsTypedKey(ByVal Assert As UnitTestAssert)
+Public Sub Test_GetMultiKey_PrimitiveTypes_ReturnsPrimitiveKeys(ByVal Assert As UnitTestAssert)
     On Error Resume Next
+
+    ' Arrange
+    Dim key_arr As Variant
+    key_arr = Array(CByte(1), CLng(1), CStr(1), CBool(True), CStr("True"), CCur(1))
 
     ' Act
     Dim actual_value As String
-    actual_value = GetMultiKey(Null)
+    actual_value = GetMultiKey(key_arr)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Primitive(1)" & vbTab & "Primitive(1)" & vbTab & "Primitive(1)" & vbTab & "Primitive(True)" & vbTab & "Primitive(True)" & vbTab & "Currency(1)", actual_value
+End Sub
+
+Public Sub Test_GetMultiKey_Null_ReturnsStrictKey(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim key_arr As Variant
+    key_arr = Array(Null)
+
+    ' Act
+    Dim actual_value As String
+    actual_value = GetMultiKey(key_arr)
 
     ' Assert
     If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
     Assert.Equals "Null()", actual_value
 End Sub
 
-Public Sub Test_GetMultiKey_ErrorValue_ReturnsTypedKey(ByVal Assert As UnitTestAssert)
+Public Sub Test_GetMultiKey_ErrorValue_ReturnsStrictKey(ByVal Assert As UnitTestAssert)
     On Error Resume Next
+
+    ' Arrange
+    Dim key_arr As Variant
+    key_arr = Array(CVErr(2042))
 
     ' Act
     Dim actual_value As String
-    actual_value = GetMultiKey(CVErr(2042))
+    actual_value = GetMultiKey(key_arr)
 
     ' Assert
     If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
     Assert.Equals "Error(2042)", actual_value
 End Sub
 
-Public Sub Test_GetMultiKey_TabInValue_UsesTypedValueEscaping(ByVal Assert As UnitTestAssert)
+Public Sub Test_GetMultiKey_TabInValue_UsesValueKeyEscaping(ByVal Assert As UnitTestAssert)
     On Error Resume Next
+
+    ' Arrange
+    Dim key_arr As Variant
+    key_arr = Array("A" & vbTab & "B", CLng(1))
 
     ' Act
     Dim actual_value As String
-    actual_value = GetMultiKey("A" & vbTab & "B", CLng(1))
+    actual_value = GetMultiKey(key_arr)
 
     ' Assert
     If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
-    Assert.Equals "String(A\tB)" & vbTab & "Long(1)", actual_value
+    Assert.Equals "Primitive(A\tB)" & vbTab & "Primitive(1)", actual_value
 End Sub
 
-Public Sub Test_GetMultiKey_ArrayValue_ReturnsTypedArrayKey(ByVal Assert As UnitTestAssert)
+Public Sub Test_GetMultiKey_ArrayValue_ReturnsValueArrayKey(ByVal Assert As UnitTestAssert)
     On Error Resume Next
 
     ' Arrange
     Dim variant_arr As Variant
     variant_arr = Array("A", "B")
 
+    Dim key_arr As Variant
+    key_arr = Array(variant_arr)
+
     ' Act
     Dim actual_value As String
-    actual_value = GetMultiKey(variant_arr)
+    actual_value = GetMultiKey(key_arr)
 
     ' Assert
     If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
-    Assert.Equals "Variant[0:1](String(A),String(B))", actual_value
+    Assert.Equals "Variant[0:1](Primitive(A),Primitive(B))", actual_value
 End Sub
 
-Public Sub Test_GetTypedValueString_IEquatableObject_ReturnsIdentityString(ByVal Assert As UnitTestAssert)
+Public Sub Test_GetTypedValueKey_IEquatableObject_ReturnsIdentityString(ByVal Assert As UnitTestAssert)
     On Error Resume Next
 
     ' Arrange
@@ -1181,14 +1266,14 @@ Public Sub Test_GetTypedValueString_IEquatableObject_ReturnsIdentityString(ByVal
 
     ' Act
     Dim actual_value As String
-    actual_value = GetTypedValueString(item_obj, G_TYPED_VALUE_STRING_OBJECT_I_EQUATABLE)
+    actual_value = GetTypedValueKey(item_obj, G_TYPED_VALUE_STRING_OBJECT_I_EQUATABLE)
 
     ' Assert
     If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
     Assert.Equals "IEquatable@Test_ObjectSetEquatableDouble(A\tB\@\(C\))", actual_value
 End Sub
 
-Public Sub Test_GetTypedValueString_IDuplicateCheckableObject_ReturnsDuplicateKey(ByVal Assert As UnitTestAssert)
+Public Sub Test_GetTypedValueKey_IDuplicateCheckableObject_ReturnsDuplicateKey(ByVal Assert As UnitTestAssert)
     On Error Resume Next
 
     ' Arrange
@@ -1198,14 +1283,14 @@ Public Sub Test_GetTypedValueString_IDuplicateCheckableObject_ReturnsDuplicateKe
 
     ' Act
     Dim actual_value As String
-    actual_value = GetTypedValueString(item_obj, G_TYPED_VALUE_STRING_OBJECT_DUPLICATE_CHECKABLE)
+    actual_value = GetTypedValueKey(item_obj, G_TYPED_VALUE_STRING_OBJECT_DUPLICATE_CHECKABLE)
 
     ' Assert
     If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
     Assert.Equals "IDuplicateCheckable@Test_ObjectSetDupCheckDouble(Key\=1)", actual_value
 End Sub
 
-Public Sub Test_GetTypedValueString_IEquatableArray_ReturnsPolicyAndDeclaredArrayType(ByVal Assert As UnitTestAssert)
+Public Sub Test_GetTypedValueKey_IEquatableArray_ReturnsPolicyAndDeclaredArrayType(ByVal Assert As UnitTestAssert)
     On Error Resume Next
 
     ' Arrange
@@ -1223,14 +1308,14 @@ Public Sub Test_GetTypedValueString_IEquatableArray_ReturnsPolicyAndDeclaredArra
 
     ' Act
     Dim actual_value As String
-    actual_value = GetTypedValueString(item_arr, G_TYPED_VALUE_STRING_OBJECT_I_EQUATABLE)
+    actual_value = GetTypedValueKey(item_arr, G_TYPED_VALUE_STRING_OBJECT_I_EQUATABLE)
 
     ' Assert
     If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
     Assert.Equals "IEquatable@IEquatable[0:1](IEquatable@Test_ObjectSetEquatableDouble(A),IEquatable@Test_ObjectSetEquatableDouble(B))", actual_value
 End Sub
 
-Public Sub Test_GetTypedValueString_IEquatableModeWithUnsupportedObject_RaisesError(ByVal Assert As UnitTestAssert)
+Public Sub Test_GetTypedValueKey_IEquatableModeWithUnsupportedObject_RaisesError(ByVal Assert As UnitTestAssert)
     On Error Resume Next
 
     ' Arrange
@@ -1239,9 +1324,9 @@ Public Sub Test_GetTypedValueString_IEquatableModeWithUnsupportedObject_RaisesEr
 
     ' Act
     Dim actual_value As String
-    actual_value = GetTypedValueString(item_obj, G_TYPED_VALUE_STRING_OBJECT_I_EQUATABLE)
+    actual_value = GetTypedValueKey(item_obj, G_TYPED_VALUE_STRING_OBJECT_I_EQUATABLE)
 
     ' Assert
     If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
-    Assert.Equals "Function GetTypedValueString", Err.Source
+    Assert.Equals "Function GetTypedValueKey", Err.Source
 End Sub

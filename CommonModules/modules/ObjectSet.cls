@@ -146,12 +146,14 @@ Public Function ConvertToStringArray() As String()
                     Set stringable_obj = pDict(dict_key)
                     result_value(item_idx) = stringable_obj.ToString()
                 Else
-                    result_value(item_idx) = TypeName(pDict(dict_key))
+                    result_value(item_idx) = GetTypeString(pDict(dict_key))
                 End If
             End If
         Else
             If IsError(pDict(dict_key)) Then
                 result_value(item_idx) = pConvertErrorToString(pDict(dict_key))
+            ElseIf IsArray(pDict(dict_key)) Then
+                result_value(item_idx) = GetTypedValueKey(pDict(dict_key))
             Else
                 result_value(item_idx) = pDict(dict_key)
             End If
@@ -292,24 +294,48 @@ End Function
 '* @details
 '* 指定された要素と重複と判断される要素を削除します。オプションで、要素が存在しない場合の挙動を指定できます。
 Public Function RemoveItem(ByVal ItemObject As Variant, Optional ByVal IgnoreNotExists As Boolean = True) As Variant
+    If Not pCanSearchItem(ItemObject) Then
+        If Not IgnoreNotExists Then
+            Err.Raise vbObjectError + 1, "Class ObjectSet", "存在しない要素を削除しようとしました。"
+        End If
+        If pIsObject Or IsObject(ItemObject) Then
+            Set RemoveItem = Nothing
+            Exit Function
+        Else
+            RemoveItem = Empty
+            Exit Function
+        End If
+    End If
+
     Dim key_var As Variant
     Call pGetKey(key_var, ItemObject)
-    
+
     If Not pDict.Exists(key_var) Then
         If Not IgnoreNotExists Then
             Err.Raise vbObjectError + 1, "Class ObjectSet", "存在しない要素を削除しようとしました。"
         End If
-        If pIsObject Then Set RemoveItem = Nothing
+        If pIsObject Or IsObject(ItemObject) Then
+            Set RemoveItem = Nothing
+            Exit Function
+        Else
+            RemoveItem = Empty
+            Exit Function
+        End If
+    End If
+
+    If pIsObject Then
+        Dim result_obj As Object
+        Set result_obj = pDict(key_var)
+        Call pDict.Remove(key_var)
+        Set RemoveItem = result_obj
         Exit Function
     End If
-    
-    If pIsObject Then
-        Set RemoveItem = pDict(key_var)
-    Else
-        RemoveItem = pDict(key_var)
-    End If
-    
+
+    Dim result_value As Variant
+    result_value = pDict(key_var)
     Call pDict.Remove(key_var)
+
+    RemoveItem = result_value
 End Function
 
 '* 集合のすべての要素を削除します。
@@ -334,9 +360,19 @@ End Sub
 '* @details
 '* 指定されたオブジェクトと重複している要素が含まれるかを確認します。
 Public Function Exists(ByVal ItemObject As Variant) As Boolean
+    Dim result_value As Boolean
+    result_value = False
+
+    If Not pCanSearchItem(ItemObject) Then
+        Exists = result_value
+        Exit Function
+    End If
+
     Dim key_var As Variant
     Call pGetKey(key_var, ItemObject)
-    Exists = pDict.Exists(key_var)
+    result_value = pDict.Exists(key_var)
+
+    Exists = result_value
 End Function
 
 '* 引数と重複するとみなされる要素を返します。
@@ -347,21 +383,40 @@ End Function
 '* @details
 '* 引数と重複するとみなされる要素を返します。要素が存在しない場合は Nothing を返します。
 Public Function GetContains(ByVal ItemObject As Variant) As Variant
+    If Not pCanSearchItem(ItemObject) Then
+        If pIsObject Or IsObject(ItemObject) Then
+            Set GetContains = Nothing
+            Exit Function
+        Else
+            GetContains = Empty
+            Exit Function
+        End If
+    End If
+
     Dim key_var As Variant
     Call pGetKey(key_var, ItemObject)
-    
+
     If Not pDict.Exists(key_var) Then
-        If pIsObject Then
+        If pIsObject Or IsObject(ItemObject) Then
             Set GetContains = Nothing
+            Exit Function
+        Else
+            GetContains = Empty
+            Exit Function
         End If
+    End If
+
+    If pIsObject Then
+        Dim result_obj As Object
+        Set result_obj = pDict(key_var)
+        Set GetContains = result_obj
         Exit Function
     End If
-    
-    If pIsObject Then
-        Set GetContains = pDict(key_var)
-    Else
-        GetContains = pDict(key_var)
-    End If
+
+    Dim result_value As Variant
+    result_value = pDict(key_var)
+
+    GetContains = result_value
 End Function
 
 '* この集合の中身をソートします。
@@ -404,7 +459,7 @@ Private Sub pInitializeItemType(ByVal ItemObject As Variant)
     If item_is_obj Then
         pIsObject = True
         If Not ItemObject Is Nothing Then
-            pTypeName = TypeName(ItemObject)
+            pTypeName = GetTypeString(ItemObject)
             If TypeOf ItemObject Is IComparable Then
                 pIsComparable = True
             End If
@@ -423,10 +478,42 @@ Private Sub pInitializeItemType(ByVal ItemObject As Variant)
             Err.Raise vbObjectError + 1, "Class ObjectSet", "最初の要素はオブジェクト型でしたが、新しい要素はオブジェクト型ではありません。(" & pTypeName & ")"
         Else
             ' プリミティブ型
-            pTypeName = TypeName(ItemObject)
+            pTypeName = GetTypeString(ItemObject)
         End If
     End If
 End Sub
+
+Private Function pCanSearchItem(ByVal ItemObject As Variant) As Boolean
+    Dim result_value As Boolean
+    result_value = False
+
+    Call pCheckUnsupportedSpecialValue(ItemObject)
+
+    If pTypeName <> "" Then
+        Call pCheckItemType(ItemObject)
+        result_value = True
+        pCanSearchItem = result_value
+        Exit Function
+    End If
+
+    If Not pIsObject Then
+        pCanSearchItem = result_value
+        Exit Function
+    End If
+
+    If Not IsObject(ItemObject) Then
+        pCanSearchItem = result_value
+        Exit Function
+    End If
+
+    If ItemObject Is Nothing Then
+        result_value = True
+    Else
+        result_value = False
+    End If
+
+    pCanSearchItem = result_value
+End Function
 
 Private Sub pCheckItemType(ByVal ItemObject As Variant)
     Call pCheckUnsupportedSpecialValue(ItemObject)
@@ -438,34 +525,24 @@ Private Sub pCheckItemType(ByVal ItemObject As Variant)
         If ItemObject Is Nothing Then Exit Sub
     End If
     
-    If TypeName(ItemObject) <> pTypeName Then
-        Err.Raise vbObjectError + 1, "Class ObjectSet", "最初に設定された要素と型が異なります。(list: " & pTypeName & ", item: " & TypeName(ItemObject) & ")"
+    If GetTypeString(ItemObject) <> pTypeName Then
+        Err.Raise vbObjectError + 1, "Class ObjectSet", "最初に設定された要素と型が異なります。(list: " & pTypeName & ", item: " & GetTypeString(ItemObject) & ")"
     End If
 End Sub
 
 Private Sub pGetKey(ByRef ObjectKey As Variant, ByVal ObjectItem As Variant)
     Call pCheckUnsupportedSpecialValue(ObjectItem)
 
-    If IsObject(ObjectItem) Then
-        If ObjectItem Is Nothing Then
-            Set ObjectKey = ObjectItem
-            Exit Sub
-        End If
-    End If
-    
+    Dim object_mode As Long
     If pIsDuplicateCheckable Then
-        Dim objset_item As IDuplicateCheckable
-        Set objset_item = ObjectItem
-        ObjectKey = objset_item.GetKey()
+        object_mode = G_TYPED_VALUE_STRING_OBJECT_DUPLICATE_CHECKABLE
     ElseIf pIsEquatable Then
-        Dim eq_item As IEquatable
-        Set eq_item = ObjectItem
-        ObjectKey = eq_item.GetIdentityString
-    ElseIf IsObject(ObjectItem) Then
-        Set ObjectKey = ObjectItem
+        object_mode = G_TYPED_VALUE_STRING_OBJECT_I_EQUATABLE
     Else
-        ObjectKey = ObjectItem
+        object_mode = G_TYPED_VALUE_STRING_OBJECT_REFERENCE
     End If
+
+    ObjectKey = GetTypedValueKey(ObjectItem, object_mode)
 End Sub
 
 Private Sub pCheckUnsupportedSpecialValue(ByVal ItemObject As Variant)
@@ -499,28 +576,10 @@ Private Function pErrorValuesEqual(ByVal ErrorValue1 As Variant, ByVal ErrorValu
     Call error_values.Add(ErrorValue1, True)
     pErrorValuesEqual = error_values.Exists(ErrorValue2)
 End Function
+
 Private Function pKeyEquals(ByVal ItemKey1 As Variant, ByVal ItemKey2 As Variant) As Boolean
-    If IsObject(ItemKey1) Then
-        If IsObject(ItemKey2) Then
-            If ItemKey1 Is ItemKey2 Then
-                pKeyEquals = True
-                Exit Function
-            End If
-        End If
-    Else
-        If Not IsObject(ItemKey2) Then
-            If IsError(ItemKey1) Or IsError(ItemKey2) Then
-                If IsError(ItemKey1) And IsError(ItemKey2) Then
-                    pKeyEquals = pErrorValuesEqual(ItemKey1, ItemKey2)
-                End If
-                Exit Function
-            End If
-            If ItemKey1 = ItemKey2 Then
-                pKeyEquals = True
-                Exit Function
-            End If
-        End If
-    End If
-    
-    pKeyEquals = False
+    Dim result_value As Boolean
+    result_value = (CStr(ItemKey1) = CStr(ItemKey2))
+
+    pKeyEquals = result_value
 End Function

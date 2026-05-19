@@ -617,6 +617,222 @@ Public Sub Test_Exists_ReturnsTrueForExistingItem(ByVal Assert As UnitTestAssert
     Assert.ErrorNotRaised 0, Err.Number, Err.Source, Err.Description
 End Sub
 
+Public Sub Test_GetIndexByItem_EmptyList_DoesNotInitializeType(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_list As ObjectList
+    Set obj_list = New ObjectList
+
+    ' Act
+    Dim actual_idx As Long
+    actual_idx = obj_list.GetIndexByItem("1")
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.EqualsNumeric -1, actual_idx
+
+    Call obj_list.Add(CLng(1))
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.EqualsNumeric 1, obj_list.Count
+    Assert.EqualsNumeric 1, obj_list.Item(0)
+End Sub
+
+Public Sub Test_ExistsAndGetIndexByItem_EmptyListNothing_DoesNotInitializeType(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_list As ObjectList
+    Set obj_list = New ObjectList
+
+    Dim nothing_item As Test_ObjectSetEquatableDouble
+    Set nothing_item = Nothing
+
+    ' Act
+    Dim actual_exists As Boolean
+    actual_exists = obj_list.Exists(nothing_item)
+
+    Dim actual_idx As Long
+    actual_idx = obj_list.GetIndexByItem(nothing_item)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.IsFalse actual_exists
+    Assert.EqualsNumeric -1, actual_idx
+
+    Call obj_list.Add(CLng(1))
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.EqualsNumeric 1, obj_list.Count
+    Assert.EqualsNumeric 1, obj_list.Item(0)
+End Sub
+
+Public Sub Test_ExistsGetIndexAndRemoveItem_NothingOnlyNothing_FindsAndRemovesNothing(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_list As ObjectList
+    Set obj_list = New ObjectList
+
+    Dim nothing_item As Test_ObjectSetEquatableDouble
+    Set nothing_item = Nothing
+
+    Call obj_list.Add(nothing_item)
+
+    ' Act
+    Dim actual_exists As Boolean
+    actual_exists = obj_list.Exists(nothing_item)
+
+    Dim actual_idx As Long
+    actual_idx = obj_list.GetIndexByItem(nothing_item)
+
+    Dim actual_removed As Boolean
+    actual_removed = obj_list.RemoveItem(nothing_item)
+
+    Dim actual_exists_after_remove As Boolean
+    actual_exists_after_remove = obj_list.Exists(nothing_item)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.IsTrue actual_exists
+    Assert.EqualsNumeric 0, actual_idx
+    Assert.IsTrue actual_removed
+    Assert.EqualsNumeric 0, obj_list.Count
+    Assert.IsFalse actual_exists_after_remove
+End Sub
+
+Public Sub Test_GetIndexByItem_NothingOnlyNonNothing_ReturnsMissingAndDoesNotInitializeType(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_list As ObjectList
+    Set obj_list = New ObjectList
+
+    Dim nothing_item As Test_ObjectSetEquatableDouble
+    Call obj_list.Add(nothing_item)
+
+    Dim search_item As Test_ObjectSetEquatableDouble
+    Set search_item = New Test_ObjectSetEquatableDouble
+    search_item.IdentityKey = "search-id"
+
+    ' Act
+    Dim actual_idx As Long
+    actual_idx = obj_list.GetIndexByItem(search_item)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.EqualsNumeric -1, actual_idx
+
+    Call obj_list.Add(search_item)
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.EqualsNumeric 2, obj_list.Count
+    Assert.Equals search_item, obj_list.Item(1)
+End Sub
+
+Public Sub Test_Exists_PrimitiveTypeMismatch_RaisesTypeError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_list As ObjectList
+    Set obj_list = New ObjectList
+    Call obj_list.Add(CLng(1))
+
+    ' Act
+    Dim actual_exists As Boolean
+    actual_exists = obj_list.Exists(CStr(1))
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Class ObjectList", Err.Source
+    Err.Clear
+    Assert.EqualsNumeric 1, obj_list.Count
+    Assert.EqualsNumeric 1, obj_list.Item(0)
+End Sub
+
+Public Sub Test_RemoveItem_PrimitiveTypeMismatch_RaisesTypeErrorAndKeepsItems(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_list As ObjectList
+    Set obj_list = New ObjectList
+    Call obj_list.Add(CLng(1))
+
+    ' Act
+    Dim actual_removed As Boolean
+    actual_removed = obj_list.RemoveItem(CStr(1))
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Class ObjectList", Err.Source
+    Err.Clear
+    Assert.EqualsNumeric 1, obj_list.Count
+    Assert.EqualsNumeric 1, obj_list.Item(0)
+End Sub
+
+Public Sub Test_Exists_PrimitiveSetThenNothing_RaisesTypeError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_list As ObjectList
+    Set obj_list = New ObjectList
+    Call obj_list.Add(CLng(1))
+
+    Dim nothing_item As Test_ObjectSetEquatableDouble
+    Set nothing_item = Nothing
+
+    ' Act
+    Dim actual_exists As Boolean
+    actual_exists = obj_list.Exists(nothing_item)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Class ObjectList", Err.Source
+    Err.Clear
+    Assert.EqualsNumeric 1, obj_list.Count
+    Assert.EqualsNumeric 1, obj_list.Item(0)
+End Sub
+
+Public Sub Test_RemoveItem_PrimitiveSetThenNothing_RaisesTypeErrorAndKeepsItems(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_list As ObjectList
+    Set obj_list = New ObjectList
+    Call obj_list.Add(CLng(1))
+
+    Dim nothing_item As Test_ObjectSetEquatableDouble
+    Set nothing_item = Nothing
+
+    ' Act
+    Dim actual_removed As Boolean
+    actual_removed = obj_list.RemoveItem(nothing_item)
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Class ObjectList", Err.Source
+    Err.Clear
+    Assert.EqualsNumeric 1, obj_list.Count
+    Assert.EqualsNumeric 1, obj_list.Item(0)
+End Sub
+
+Public Sub Test_GetIndexByItem_ObjectTypeMismatch_RaisesTypeError(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_list As ObjectList
+    Set obj_list = New ObjectList
+
+    Dim first_item As Collection
+    Set first_item = New Collection
+    Call obj_list.Add(first_item)
+
+    ' Act
+    Dim actual_idx As Long
+    actual_idx = obj_list.GetIndexByItem(CLng(1))
+
+    ' Assert
+    If Not Assert.ErrorRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Class ObjectList", Err.Source
+End Sub
 ' ----------------------------------------------------------------------------
 ' Comparison contract
 ' ----------------------------------------------------------------------------
@@ -734,6 +950,27 @@ Public Sub Test_GetIndexByItem_Nothing_ReturnsNothingIndex(ByVal Assert As UnitT
     ' Assert
     If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
     Assert.EqualsNumeric 1, actual_idx
+End Sub
+
+Public Sub Test_Exists_Nothing_ReturnsTrueForStoredNothing(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_list As ObjectList
+    Set obj_list = New ObjectList
+
+    Dim nothing_item As Test_ObjectSetEquatableDouble
+    Set nothing_item = Nothing
+
+    Call obj_list.Add(nothing_item)
+
+    ' Act
+    Dim actual_exists As Boolean
+    actual_exists = obj_list.Exists(nothing_item)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.IsTrue actual_exists
 End Sub
 
 Public Sub Test_Exists_Equatable_ReturnsTrueForIdentityMatch(ByVal Assert As UnitTestAssert)
@@ -1101,7 +1338,7 @@ Public Sub Test_ConvertToStringArray_CVErr_ReturnsErrorString(ByVal Assert As Un
     Assert.Equals "#N/A", actual_arr(0)
 End Sub
 
-Public Sub Test_ConvertToStringArray_ArrayItem_RaisesTypeMismatch(ByVal Assert As UnitTestAssert)
+Public Sub Test_ConvertToStringArray_ArrayItem_ReturnsTypedValueKey(ByVal Assert As UnitTestAssert)
     On Error Resume Next
 
     ' Arrange
@@ -1117,11 +1354,11 @@ Public Sub Test_ConvertToStringArray_ArrayItem_RaisesTypeMismatch(ByVal Assert A
     actual_arr = obj_list.ConvertToStringArray()
 
     ' Assert
-    If Not Assert.ErrorRaised(13, Err.Number, Err.Source, Err.Description) Then Exit Sub
-    Err.Clear
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.Equals "Variant[0:0](String(alpha))", actual_arr(0)
 End Sub
 
-Public Sub Test_Exists_ArrayItem_RaisesTypeMismatch(ByVal Assert As UnitTestAssert)
+Public Sub Test_Exists_ArrayItem_ReturnsTrueForSameTypedValues(ByVal Assert As UnitTestAssert)
     On Error Resume Next
 
     ' Arrange
@@ -1129,17 +1366,40 @@ Public Sub Test_Exists_ArrayItem_RaisesTypeMismatch(ByVal Assert As UnitTestAsse
     Set obj_list = New ObjectList
 
     Dim item_arr As Variant
-    item_arr = Array("alpha")
+    item_arr = Array(CLng(1), CStr("alpha"))
     Call obj_list.Add(item_arr)
 
     Dim search_arr As Variant
-    search_arr = Array("alpha")
+    search_arr = Array(CLng(1), CStr("alpha"))
 
     ' Act
     Dim actual_exists As Boolean
     actual_exists = obj_list.Exists(search_arr)
 
     ' Assert
-    If Not Assert.ErrorRaised(13, Err.Number, Err.Source, Err.Description) Then Exit Sub
-    Err.Clear
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.IsTrue actual_exists
+End Sub
+
+Public Sub Test_Exists_ArrayItemWithDifferentElementType_ReturnsFalse(ByVal Assert As UnitTestAssert)
+    On Error Resume Next
+
+    ' Arrange
+    Dim obj_list As ObjectList
+    Set obj_list = New ObjectList
+
+    Dim item_arr As Variant
+    item_arr = Array(CLng(1))
+    Call obj_list.Add(item_arr)
+
+    Dim search_arr As Variant
+    search_arr = Array(CStr(1))
+
+    ' Act
+    Dim actual_exists As Boolean
+    actual_exists = obj_list.Exists(search_arr)
+
+    ' Assert
+    If Not Assert.ErrorNotRaised(0, Err.Number, Err.Source, Err.Description) Then Exit Sub
+    Assert.IsFalse actual_exists
 End Sub

@@ -38,13 +38,13 @@ Public Const G_ALIGNMENT_NO_CHANGE As Long = -2147483648#
 '* ファイルシステムのパス区切り文字
 Public Const G_FS_PATH_SEP As String = "\"
 
-'* GetTypedValueString でオブジェクト参照をキー化することを表す値
+'* GetTypedValueKey / GetValueKey でオブジェクト参照をキー化することを表す値
 Public Const G_TYPED_VALUE_STRING_OBJECT_REFERENCE As Long = 0
 
-'* GetTypedValueString で IEquatable.GetIdentityString をキー化することを表す値
+'* GetTypedValueKey / GetValueKey で IEquatable.GetIdentityString をキー化することを表す値
 Public Const G_TYPED_VALUE_STRING_OBJECT_I_EQUATABLE As Long = 1
 
-'* GetTypedValueString で IDuplicateCheckable.GetKey をキー化することを表す値
+'* GetTypedValueKey / GetValueKey で IDuplicateCheckable.GetKey をキー化することを表す値
 Public Const G_TYPED_VALUE_STRING_OBJECT_DUPLICATE_CHECKABLE As Long = 2
 
 Private Const C_LONG_MAX As Long = 2147483647#
@@ -1857,81 +1857,142 @@ Public Function GetTypeString( _
         Optional ByVal IncludeArrayBounds As Boolean = False, _
         Optional ByVal IncludeArrayRank As Boolean = False) As String
 
-    If IsArray(Value) Then
-        GetTypeString = pGetArrayTypeName(Value, ObjectMode, IncludeArrayBounds, IncludeArrayRank)
-    ElseIf IsObject(Value) Then
-        If Value Is Nothing Then
-            GetTypeString = "Nothing"
-        Else
-            GetTypeString = pGetObjectModeName(ObjectMode) & "@" & TypeName(Value)
-        End If
-    Else
-        GetTypeString = TypeName(Value)
-    End If
+    Dim result_value As String
+    result_value = pGetTypeStringCore(Value, ObjectMode, IncludeArrayBounds, IncludeArrayRank, False, "Function GetTypeString")
+
+    GetTypeString = result_value
 End Function
 
-'* 値を型情報付きの文字列へ変換します。
+Private Function pGetTypeStringCore( _
+        ByVal Value As Variant, _
+        ByVal ObjectMode As Long, _
+        ByVal IncludeArrayBounds As Boolean, _
+        ByVal IncludeArrayRank As Boolean, _
+        ByVal UsePrimitiveTypeName As Boolean, _
+        ByVal ErrorSource As String) As String
+
+    Dim result_value As String
+    If IsArray(Value) Then
+        result_value = pGetArrayTypeName(Value, ObjectMode, IncludeArrayBounds, IncludeArrayRank, UsePrimitiveTypeName, ErrorSource)
+    ElseIf IsObject(Value) Then
+        If Value Is Nothing Then
+            result_value = "Nothing"
+        Else
+            result_value = pGetObjectModeName(ObjectMode, ErrorSource) & "@" & TypeName(Value)
+        End If
+    Else
+        result_value = TypeName(Value)
+        If UsePrimitiveTypeName And pIsPrimitiveValueKeyTypeName(result_value) Then result_value = "Primitive"
+    End If
+
+    pGetTypeStringCore = result_value
+End Function
+
+'* 値を型情報付きのキー文字列へ変換します。
 '*
-'* @param Value 文字列化する値。
+'* @param Value キー化する値。
 '* @param ObjectMode オブジェクトのキー化方法。
-'* @return 型情報付きの値文字列。
+'* @return 型情報付きのキー文字列。
 '*
 '* @details
 '* Dictionary などのキーとして使用するための内部表現を返します。
 '* スカラー値、特殊値、配列の次元/境界/要素、オブジェクトの識別方法を含めて文字列化します。
-Public Function GetTypedValueString( _
+'* スカラー値も型名で区別します。
+Public Function GetTypedValueKey( _
         ByVal Value As Variant, _
         Optional ByVal ObjectMode As Long = G_TYPED_VALUE_STRING_OBJECT_REFERENCE) As String
 
-    If IsArray(Value) Then
-        GetTypedValueString = pGetTypedArrayString(Value, ObjectMode)
-    ElseIf IsObject(Value) Then
-        GetTypedValueString = pGetTypedObjectString(Value, ObjectMode)
-    Else
-        GetTypedValueString = GetTypeString(Value) & "(" & pGetScalarValueString(Value) & ")"
-    End If
+    Dim result_value As String
+    result_value = pGetValueKeyCore(Value, ObjectMode, False, "Function GetTypedValueKey")
+
+    GetTypedValueKey = result_value
 End Function
 
-Private Function pGetTypedArrayString(ByVal TargetArray As Variant, ByVal ObjectMode As Long) As String
+'* 値をキー文字列へ変換します。
+'*
+'* @param Value キー化する値。
+'* @param ObjectMode オブジェクトのキー化方法。
+'* @return キー文字列。
+'*
+'* @details
+'* `GetTypedValueKey` と同じ規則でキー化しますが、Error / Currency / Variant / Null / Empty / オブジェクト型を除くプリミティブ値は Primitive として同一視します。
+Public Function GetValueKey( _
+        ByVal Value As Variant, _
+        Optional ByVal ObjectMode As Long = G_TYPED_VALUE_STRING_OBJECT_REFERENCE) As String
+
+    Dim result_value As String
+    result_value = pGetValueKeyCore(Value, ObjectMode, True, "Function GetValueKey")
+
+    GetValueKey = result_value
+End Function
+
+Private Function pGetValueKeyCore( _
+        ByVal Value As Variant, _
+        ByVal ObjectMode As Long, _
+        ByVal UsePrimitiveTypeName As Boolean, _
+        ByVal ErrorSource As String) As String
+
+    Dim result_value As String
+    If IsArray(Value) Then
+        result_value = pGetArrayValueKeyString(Value, ObjectMode, UsePrimitiveTypeName, ErrorSource)
+    ElseIf IsObject(Value) Then
+        result_value = pGetObjectValueKeyString(Value, ObjectMode, ErrorSource)
+    Else
+        result_value = pGetTypeStringCore(Value, ObjectMode, False, False, UsePrimitiveTypeName, ErrorSource) _
+                & "(" & pGetScalarValueKeyString(Value) & ")"
+    End If
+
+    pGetValueKeyCore = result_value
+End Function
+
+Private Function pGetArrayValueKeyString( _
+        ByVal TargetArray As Variant, _
+        ByVal ObjectMode As Long, _
+        ByVal UsePrimitiveTypeName As Boolean, _
+        ByVal ErrorSource As String) As String
+
     Dim lbound_arr() As Long
     Dim ubound_arr() As Long
     Dim dim_count As Long
     dim_count = pGetArrayBoundsCore(lbound_arr, ubound_arr, TargetArray)
 
     Dim array_prefix As String
-    array_prefix = GetTypeString(TargetArray, ObjectMode, IncludeArrayBounds:=True)
+    array_prefix = pGetTypeStringCore(TargetArray, ObjectMode, True, False, UsePrimitiveTypeName, ErrorSource)
 
+    Dim result_value As String
     If dim_count = 0 Then
-        pGetTypedArrayString = array_prefix & "()"
-        Exit Function
+        result_value = array_prefix & "()"
+    Else
+        Dim total_count As Long
+        total_count = pGetArrayItemCount(lbound_arr, ubound_arr, dim_count)
+
+        If total_count = 0 Then
+            result_value = array_prefix & "()"
+        Else
+            Dim item_type_name As String
+            item_type_name = pGetArrayItemTypeName(TypeName(TargetArray))
+
+            Dim flat_items() As Variant
+            Call pFlattenArray(flat_items, TargetArray, total_count)
+
+            Dim index_arr() As Long
+            ReDim index_arr(0 To dim_count - 1)
+
+            result_value = array_prefix & "(" _
+                    & pGetArrayItemsString(flat_items, lbound_arr, ubound_arr, index_arr, 0, item_type_name, ObjectMode, UsePrimitiveTypeName, ErrorSource) & ")"
+        End If
     End If
 
-    Dim total_count As Long
-    total_count = pGetArrayItemCount(lbound_arr, ubound_arr, dim_count)
-
-    If total_count = 0 Then
-        pGetTypedArrayString = array_prefix & "()"
-        Exit Function
-    End If
-
-    Dim item_type_name As String
-    item_type_name = pGetArrayItemTypeName(TypeName(TargetArray))
-
-    Dim flat_items() As Variant
-    Call pFlattenArray(flat_items, TargetArray, total_count)
-
-    Dim index_arr() As Long
-    ReDim index_arr(0 To dim_count - 1)
-
-    pGetTypedArrayString = array_prefix & "(" _
-            & pGetArrayItemsString(flat_items, lbound_arr, ubound_arr, index_arr, 0, item_type_name, ObjectMode) & ")"
+    pGetArrayValueKeyString = result_value
 End Function
 
 Private Function pGetArrayTypeName( _
         ByVal TargetArray As Variant, _
         ByVal ObjectMode As Long, _
         ByVal IncludeArrayBounds As Boolean, _
-        ByVal IncludeArrayRank As Boolean) As String
+        ByVal IncludeArrayRank As Boolean, _
+        ByVal UsePrimitiveTypeName As Boolean, _
+        ByVal ErrorSource As String) As String
 
     Dim lbound_arr() As Long
     Dim ubound_arr() As Long
@@ -1942,11 +2003,13 @@ Private Function pGetArrayTypeName( _
     item_type_name = pGetArrayItemTypeName(TypeName(TargetArray))
 
     Dim result_value As String
-    If pIsObjectArrayType(item_type_name) Then
+    If UsePrimitiveTypeName And pIsPrimitiveValueKeyTypeName(item_type_name) Then
+        result_value = "Primitive"
+    ElseIf pIsObjectArrayType(item_type_name) Then
         Dim object_array_type_name As String
         object_array_type_name = item_type_name
-        If object_array_type_name = "Object" Then object_array_type_name = pGetObjectModeName(ObjectMode)
-        result_value = pGetObjectModeName(ObjectMode) & "@" & object_array_type_name
+        If object_array_type_name = "Object" Then object_array_type_name = pGetObjectModeName(ObjectMode, ErrorSource)
+        result_value = pGetObjectModeName(ObjectMode, ErrorSource) & "@" & object_array_type_name
     Else
         result_value = item_type_name
     End If
@@ -2013,30 +2076,41 @@ Private Function pGetArrayBoundsCore( _
 End Function
 
 Private Function pGetArrayItemTypeName(ByVal ArrayTypeName As String) As String
+    Dim result_value As String
     If Right$(ArrayTypeName, 2) = "()" Then
-        pGetArrayItemTypeName = Left$(ArrayTypeName, Len(ArrayTypeName) - 2)
+        result_value = Left$(ArrayTypeName, Len(ArrayTypeName) - 2)
     Else
-        pGetArrayItemTypeName = ArrayTypeName
+        result_value = ArrayTypeName
     End If
+
+    pGetArrayItemTypeName = result_value
 End Function
 
 Private Function pIsObjectArrayType(ByVal ItemTypeName As String) As Boolean
+    Dim result_value As Boolean
     Select Case ItemTypeName
-        Case "Boolean", "Byte", "Currency", "Date", "Decimal", "Double", "Integer", "Long", "LongLong", "LongPtr", "Single", "String", "Variant"
-            pIsObjectArrayType = False
+        Case "Boolean", "Byte", "Currency", "Date", "Decimal", "Double", "Integer", "Long", "LongLong", "LongPtr", "Short", "Single", "String", "Variant"
+            result_value = False
         Case Else
-            pIsObjectArrayType = True
+            result_value = True
     End Select
+
+    pIsObjectArrayType = result_value
 End Function
 
 Private Function pIsEmptyArrayBounds(ByRef LBoundArray() As Long, ByRef UBoundArray() As Long, ByVal DimCount As Long) As Boolean
+    Dim result_value As Boolean
+    result_value = False
+
     Dim dim_idx As Long
     For dim_idx = 0 To DimCount - 1
         If UBoundArray(dim_idx) < LBoundArray(dim_idx) Then
-            pIsEmptyArrayBounds = True
-            Exit Function
+            result_value = True
+            Exit For
         End If
     Next dim_idx
+
+    pIsEmptyArrayBounds = result_value
 End Function
 
 Private Function pGetArrayItemCount(ByRef LBoundArray() As Long, ByRef UBoundArray() As Long, ByVal DimCount As Long) As Long
@@ -2087,7 +2161,9 @@ Private Function pGetArrayItemsString( _
         ByRef IndexArray() As Long, _
         ByVal CurrentDim As Long, _
         ByVal ItemTypeName As String, _
-        ByVal ObjectMode As Long) As String
+        ByVal ObjectMode As Long, _
+        ByVal UsePrimitiveTypeName As Boolean, _
+        ByVal ErrorSource As String) As String
 
     Dim result_value As String
     Dim item_idx As Long
@@ -2096,13 +2172,13 @@ Private Function pGetArrayItemsString( _
         For item_idx = LBoundArray(CurrentDim) To UBoundArray(CurrentDim)
             If result_value <> "" Then result_value = result_value & ","
             IndexArray(CurrentDim) = item_idx
-            result_value = result_value & pGetArrayItemString(FlatItems(pGetForEachFlatIndex(IndexArray, LBoundArray, UBoundArray)), ItemTypeName, ObjectMode)
+            result_value = result_value & pGetArrayItemString(FlatItems(pGetForEachFlatIndex(IndexArray, LBoundArray, UBoundArray)), ItemTypeName, ObjectMode, UsePrimitiveTypeName, ErrorSource)
         Next item_idx
     Else
         For item_idx = LBoundArray(CurrentDim) To UBoundArray(CurrentDim)
             If result_value <> "" Then result_value = result_value & ","
             IndexArray(CurrentDim) = item_idx
-            result_value = result_value & "(" & pGetArrayItemsString(FlatItems, LBoundArray, UBoundArray, IndexArray, CurrentDim + 1, ItemTypeName, ObjectMode) & ")"
+            result_value = result_value & "(" & pGetArrayItemsString(FlatItems, LBoundArray, UBoundArray, IndexArray, CurrentDim + 1, ItemTypeName, ObjectMode, UsePrimitiveTypeName, ErrorSource) & ")"
         Next item_idx
     End If
 
@@ -2128,78 +2204,111 @@ Private Function pGetForEachFlatIndex( _
     pGetForEachFlatIndex = result_value
 End Function
 
-Private Function pGetArrayItemString(ByVal ItemValue As Variant, ByVal ItemTypeName As String, ByVal ObjectMode As Long) As String
+Private Function pGetArrayItemString( _
+        ByVal ItemValue As Variant, _
+        ByVal ItemTypeName As String, _
+        ByVal ObjectMode As Long, _
+        ByVal UsePrimitiveTypeName As Boolean, _
+        ByVal ErrorSource As String) As String
+
+    Dim result_value As String
     If ItemTypeName = "Variant" Or pIsObjectArrayType(ItemTypeName) Then
-        pGetArrayItemString = GetTypedValueString(ItemValue, ObjectMode)
+        result_value = pGetValueKeyCore(ItemValue, ObjectMode, UsePrimitiveTypeName, ErrorSource)
     Else
-        pGetArrayItemString = pGetScalarValueString(ItemValue)
+        result_value = pGetScalarValueKeyString(ItemValue)
     End If
+
+    pGetArrayItemString = result_value
 End Function
 
-Private Function pGetTypedObjectString(ByVal Value As Variant, ByVal ObjectMode As Long) As String
+Private Function pGetObjectValueKeyString( _
+        ByVal Value As Variant, _
+        ByVal ObjectMode As Long, _
+        ByVal ErrorSource As String) As String
+
+    Dim result_value As String
     If Value Is Nothing Then
-        pGetTypedObjectString = "Nothing()"
-        Exit Function
-    End If
-
-    Dim object_type_name As String
-    object_type_name = GetTypeString(Value, ObjectMode)
-
-    Select Case ObjectMode
-        Case G_TYPED_VALUE_STRING_OBJECT_REFERENCE
-            pGetTypedObjectString = object_type_name & "(" & Hex$(ObjPtr(Value)) & ")"
-
-        Case G_TYPED_VALUE_STRING_OBJECT_I_EQUATABLE
-            If Not TypeOf Value Is IEquatable Then
-                Err.Raise vbObjectError + 1, "Function GetTypedValueString", "IEquatable ではないオブジェクトを IEquatable モードでキー化しようとしました。(" & object_type_name & ")"
-            End If
-
-            Dim eq_item As IEquatable
-            Set eq_item = Value
-            pGetTypedObjectString = object_type_name & "(" & pEscapeTypedValueString(eq_item.GetIdentityString()) & ")"
-
-        Case G_TYPED_VALUE_STRING_OBJECT_DUPLICATE_CHECKABLE
-            If Not TypeOf Value Is IDuplicateCheckable Then
-                Err.Raise vbObjectError + 1, "Function GetTypedValueString", "IDuplicateCheckable ではないオブジェクトを IDuplicateCheckable モードでキー化しようとしました。(" & object_type_name & ")"
-            End If
-
-            Dim dup_item As IDuplicateCheckable
-            Set dup_item = Value
-            pGetTypedObjectString = object_type_name & "(" & pEscapeTypedValueString(dup_item.GetKey()) & ")"
-
-        Case Else
-            Err.Raise vbObjectError + 1, "Function GetTypedValueString", "未対応のオブジェクト キー化モードです。(" & CStr(ObjectMode) & ")"
-    End Select
-End Function
-
-Private Function pGetObjectModeName(ByVal ObjectMode As Long) As String
-    Select Case ObjectMode
-        Case G_TYPED_VALUE_STRING_OBJECT_REFERENCE
-            pGetObjectModeName = "Object"
-        Case G_TYPED_VALUE_STRING_OBJECT_I_EQUATABLE
-            pGetObjectModeName = "IEquatable"
-        Case G_TYPED_VALUE_STRING_OBJECT_DUPLICATE_CHECKABLE
-            pGetObjectModeName = "IDuplicateCheckable"
-        Case Else
-            Err.Raise vbObjectError + 1, "Function GetTypedValueString", "未対応のオブジェクト キー化モードです。(" & CStr(ObjectMode) & ")"
-    End Select
-End Function
-
-Private Function pGetScalarValueString(ByVal Value As Variant) As String
-    If IsError(Value) Then
-        pGetScalarValueString = CStr(CLng(Value))
-    ElseIf IsNull(Value) Or IsEmpty(Value) Then
-        pGetScalarValueString = ""
-    ElseIf VarType(Value) = vbDate Then
-        pGetScalarValueString = pEscapeTypedValueString(Format$(Value, "yyyy-mm-dd\Thh:nn:ss"))
-    ElseIf VarType(Value) = vbString Then
-        pGetScalarValueString = pEscapeTypedValueString(CStr(Value))
+        result_value = "Nothing()"
     Else
-        pGetScalarValueString = pEscapeTypedValueString(CStr(Value))
+        Dim object_type_name As String
+        object_type_name = pGetTypeStringCore(Value, ObjectMode, False, False, False, ErrorSource)
+
+        Select Case ObjectMode
+            Case G_TYPED_VALUE_STRING_OBJECT_REFERENCE
+                result_value = object_type_name & "(" & Hex$(ObjPtr(Value)) & ")"
+
+            Case G_TYPED_VALUE_STRING_OBJECT_I_EQUATABLE
+                If Not TypeOf Value Is IEquatable Then
+                    Err.Raise vbObjectError + 1, ErrorSource, "IEquatable ではないオブジェクトを IEquatable モードでキー化しようとしました。(" & object_type_name & ")"
+                End If
+
+                Dim eq_item As IEquatable
+                Set eq_item = Value
+                result_value = object_type_name & "(" & pEscapeValueKeyString(eq_item.GetIdentityString()) & ")"
+
+            Case G_TYPED_VALUE_STRING_OBJECT_DUPLICATE_CHECKABLE
+                If Not TypeOf Value Is IDuplicateCheckable Then
+                    Err.Raise vbObjectError + 1, ErrorSource, "IDuplicateCheckable ではないオブジェクトを IDuplicateCheckable モードでキー化しようとしました。(" & object_type_name & ")"
+                End If
+
+                Dim dup_item As IDuplicateCheckable
+                Set dup_item = Value
+                result_value = object_type_name & "(" & pEscapeValueKeyString(dup_item.GetKey()) & ")"
+
+            Case Else
+                Err.Raise vbObjectError + 1, ErrorSource, "未対応のオブジェクト キー化モードです。(" & CStr(ObjectMode) & ")"
+        End Select
     End If
+
+    pGetObjectValueKeyString = result_value
 End Function
 
-Private Function pEscapeTypedValueString(ByVal Expression As String) As String
+Private Function pGetObjectModeName(ByVal ObjectMode As Long, ByVal ErrorSource As String) As String
+    Dim result_value As String
+    Select Case ObjectMode
+        Case G_TYPED_VALUE_STRING_OBJECT_REFERENCE
+            result_value = "Object"
+        Case G_TYPED_VALUE_STRING_OBJECT_I_EQUATABLE
+            result_value = "IEquatable"
+        Case G_TYPED_VALUE_STRING_OBJECT_DUPLICATE_CHECKABLE
+            result_value = "IDuplicateCheckable"
+        Case Else
+            Err.Raise vbObjectError + 1, ErrorSource, "未対応のオブジェクト キー化モードです。(" & CStr(ObjectMode) & ")"
+    End Select
+
+    pGetObjectModeName = result_value
+End Function
+
+Private Function pGetScalarValueKeyString(ByVal Value As Variant) As String
+    Dim result_value As String
+    If IsError(Value) Then
+        result_value = CStr(CLng(Value))
+    ElseIf IsNull(Value) Or IsEmpty(Value) Then
+        result_value = ""
+    ElseIf VarType(Value) = vbDate Then
+        result_value = pEscapeValueKeyString(Format$(Value, "yyyy-mm-dd\Thh:nn:ss"))
+    ElseIf VarType(Value) = vbString Then
+        result_value = pEscapeValueKeyString(CStr(Value))
+    Else
+        result_value = pEscapeValueKeyString(CStr(Value))
+    End If
+
+    pGetScalarValueKeyString = result_value
+End Function
+
+Private Function pIsPrimitiveValueKeyTypeName(ByVal TypeNameString As String) As Boolean
+    Dim result_value As Boolean
+    Select Case TypeNameString
+        Case "Boolean", "Byte", "Date", "Decimal", "Double", "Integer", "Long", "LongLong", "LongPtr", "Short", "Single", "String"
+            result_value = True
+        Case Else
+            result_value = False
+    End Select
+
+    pIsPrimitiveValueKeyTypeName = result_value
+End Function
+
+Private Function pEscapeValueKeyString(ByVal Expression As String) As String
     Dim result_value As String
     result_value = Replace(Expression, "\", "\\")
     result_value = Replace(result_value, vbTab, "\t")
@@ -2211,37 +2320,93 @@ Private Function pEscapeTypedValueString(ByVal Expression As String) As String
     result_value = Replace(result_value, ":", "\:")
     result_value = Replace(result_value, "@", "\@")
     result_value = Replace(result_value, "=", "\=")
-    pEscapeTypedValueString = result_value
+
+    pEscapeValueKeyString = result_value
 End Function
 
-'* 複数キーを辞書で使用するために、キーを連結して返します。
+'* 複数キーを型情報付きで連結して返します。
 '*
-'* @param DictionaryKey1 最初のキー
-'* @param DictionaryKeys 追加のキー (可変長引数)
-'* @return 連結されたキー文字列
+'* @param DictionaryKey1 最初のキー。
+'* @param DictionaryKeys 追加のキー (可変長引数)。
+'* @return 連結されたキー文字列。
 '*
 '* @details
-'* 指定された複数のキーを型情報付き文字列へ変換し、1 つの文字列として返します。
+'* 指定された複数のキーを `GetTypedValueKey` でキー化し、1 つの文字列として返します。
 '* キーに使用される区切り文字はタブ文字 (`vbTab`) です。
-'* 各キー内のタブ文字は GetTypedValueString でエスケープされます。
-Public Function GetMultiKey(ByVal DictionaryKey1 As Variant, ParamArray DictionaryKeys() As Variant) As String
-    Dim result_value As String
-
-    result_value = GetTypedValueString(DictionaryKey1)
-
-    ' 他関数に ParamArray を引数で渡すために Variant 型に明示的に変換する
+'* 各キー内のタブ文字は `GetTypedValueKey` でエスケープされます。
+Public Function GetTypedMultiKey(ByVal DictionaryKey1 As Variant, ParamArray DictionaryKeys() As Variant) As String
     Dim key_arr As Variant
     key_arr = DictionaryKeys
 
-    Dim key_enum As IEnumerator
-    Set key_enum = GetArrayEnumerator(key_arr)
-    Do While key_enum.MoveNext()
-        result_value = result_value & vbTab & GetTypedValueString(key_enum.Current)
-    Loop
+    Dim result_value As String
+    result_value = pGetParamArrayMultiKeyCore(DictionaryKey1, key_arr, False, "Function GetTypedMultiKey")
+
+    GetTypedMultiKey = result_value
+End Function
+
+'* 複数キー配列を連結して返します。
+'*
+'* @param DictionaryKeys キー配列。
+'* @return 連結されたキー文字列。
+'*
+'* @details
+'* 指定された複数のキーを `GetValueKey` でキー化し、1 つの文字列として返します。
+'* Error / Currency / Variant / Null / Empty / オブジェクト型を除くプリミティブ値は Primitive として同一視します。
+Public Function GetMultiKey(ByVal DictionaryKeys As Variant) As String
+    If Not IsArray(DictionaryKeys) Then
+        Err.Raise vbObjectError + 1, "Function GetMultiKey", "キー配列ではありません。(" & TypeName(DictionaryKeys) & ")"
+    End If
+
+    Dim result_value As String
+    result_value = pGetArrayMultiKeyCore(DictionaryKeys, True, "Function GetMultiKey")
 
     GetMultiKey = result_value
 End Function
 
+Private Function pGetParamArrayMultiKeyCore( _
+        ByVal DictionaryKey1 As Variant, _
+        ByVal DictionaryKeys As Variant, _
+        ByVal UsePrimitiveTypeName As Boolean, _
+        ByVal ErrorSource As String) As String
+
+    Dim result_value As String
+    result_value = pGetValueKeyCore(DictionaryKey1, G_TYPED_VALUE_STRING_OBJECT_REFERENCE, UsePrimitiveTypeName, ErrorSource)
+
+    Dim key_enum As IEnumerator
+    Set key_enum = GetArrayEnumerator(DictionaryKeys)
+    Do While key_enum.MoveNext()
+        result_value = result_value & vbTab & pGetValueKeyCore(key_enum.Current, G_TYPED_VALUE_STRING_OBJECT_REFERENCE, UsePrimitiveTypeName, ErrorSource)
+    Loop
+
+    pGetParamArrayMultiKeyCore = result_value
+End Function
+
+Private Function pGetArrayMultiKeyCore( _
+        ByVal DictionaryKeys As Variant, _
+        ByVal UsePrimitiveTypeName As Boolean, _
+        ByVal ErrorSource As String) As String
+
+    Dim key_enum As IEnumerator
+    Set key_enum = GetArrayEnumerator(DictionaryKeys)
+
+    Dim has_key As Boolean
+    has_key = False
+
+    Dim result_value As String
+    result_value = ""
+
+    Do While key_enum.MoveNext()
+        If has_key Then result_value = result_value & vbTab
+        result_value = result_value & pGetValueKeyCore(key_enum.Current, G_TYPED_VALUE_STRING_OBJECT_REFERENCE, UsePrimitiveTypeName, ErrorSource)
+        has_key = True
+    Loop
+
+    If Not has_key Then
+        Err.Raise vbObjectError + 1, ErrorSource, "キー配列が空です。"
+    End If
+
+    pGetArrayMultiKeyCore = result_value
+End Function
 '* 文字列の配列の diff を取ります。
 '*
 '* @param OldArray [入出力] 古い文字列の配列。ReDim 可能である必要があります。

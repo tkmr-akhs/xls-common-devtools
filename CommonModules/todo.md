@@ -15,17 +15,6 @@
 
 ## 高優先度
 
-- [ ] [spec] ObjectList / ObjectSet に明示型指定モードを追加する
-  - 詳細: 現状の ObjectList / ObjectSet は初回追加要素から型や比較契約を自動判断するが、空コレクション、Nothing、配列、プリミティブとオブジェクトの混在、IEquatable / IDuplicateCheckable 実装有無によって、検索・削除・更新時の型判定方針が曖昧になる。
-  - 影響: 呼び出し側が「この集合は String 専用」「このリストは IFoo 実装だけを受け付ける」といった契約を先に固定できず、初回要素や空状態に依存して API の失敗条件が変わる。
-  - 対応案: 既存互換の自動型判断モードは残しつつ、初期化時に型・インターフェイス・特殊値許可方針を明示できるモードを追加する。Add / Exists / RemoveItem / Update / Sort の入口で同じ型契約を使うテストを追加する。
-
-- [ ] [bug] ObjectList / ObjectSet の検索・削除 API で要素型を検査する
-  - 詳細: `ObjectList.Exists` / `GetIndexByItem` / `RemoveItem` は特殊値チェックだけで `pCheckItemType` を通さず、プリミティブ比較では `ItemObject1 = ItemObject2` の暗黙変換に任せている。そのため数値 `1` のリストに文字列 `"1"` を渡すと同一扱いになり得る。
-  - 詳細: `ObjectSet.Exists` / `GetContains` / `RemoveItem` も追加時と同じ型検査を通さず、`IDuplicateCheckable` / `IEquatable` のキー生成経路では型違いの値が実装詳細由来の実行時エラーになる可能性がある。
-  - 影響: 追加・更新では型を固定しているのに、検索・削除では型違いを False、暗黙一致、実行時エラーのどれにするかが揃わない。コレクション基盤として「同じ要素」の意味が操作ごとに変わる。
-  - 対応案: 検索・削除系 API でも保存済み型との照合を行い、型違いは明示エラーまたは常に不一致のどちらかに統一する。数値と数値文字列、Boolean と数値、IEquatable 実装と非オブジェクト引数のテストを追加する。
-
 - [ ] [bug] ObjectList / ObjectSet の配列要素サポート有無を実装と揃える
   - 詳細: `ObjectList.pCheckUnsupportedSpecialValue` と `ObjectSet.pCheckUnsupportedSpecialValue` は配列を許可しているが、`ObjectList.pItemsEqual` は配列同士を `ItemObject1 = ItemObject2` で比較し、`ConvertToStringArray` でも配列を `String` 要素へ直接代入するため型不一致になり得る。`ObjectSet.pGetKey` も配列をそのまま Dictionary キーに渡す経路がある。
   - 影響: 配列要素を追加できるように見える一方で、存在判定、削除、重複削除、文字列化、集合追加のどこかで実行時エラーになる。Range 値や分割結果を要素として扱う利用者が、どの操作まで安全か判断できない。
@@ -45,6 +34,31 @@
   - 詳細: `ObjectList` / `ObjectSet` は `Nothing` を通常要素として許可するが、`ObjectList.Sort` は `pIsComparable` / `pIsDuplicateCheckable` / `pIsStringable` の比較経路で `Me.Item(...)` を各インターフェイス変数へ `Set` するため、`Nothing` 要素を含むとオブジェクト変数未設定の実行時エラーになり得る。どの位置に並べるか、または Sort 対象外とするかの契約もない。
   - 影響: 集合・リストとしては追加、存在判定、削除できる `Nothing` が、ソート時だけ不安定に失敗する。`ObjectSet.Sort` は内部で `ObjectList.Sort` を使うため同じ影響を受ける。
   - 対応案: `Nothing` の順序を先頭/末尾のどちらかに固定するか、Sort では非対応として入口で明示エラーにする。`Nothing` のみ、`Nothing` と比較可能オブジェクト混在、`ObjectSet.Sort` のテストを追加する。
+
+- [ ] [spec] ObjectList のオブジェクト一致判定と型付きキー利用範囲を決める
+  - 詳細: `ObjectList.pItemsEqual` は、参照同一性、`IDuplicateCheckable.IsDuplicateOf`、`IEquatable.Equals` を順に使って要素同士を比較している。これを単純に `GetTypedValueKey` の比較へ置き換えると、`IsDuplicateOf` / `Equals` が持つ比較対象検証、非対称な実装、将来の比較条件を通らず、`GetKey` / `GetIdentityString` の文字列一致だけで判断する別仕様になる。
+  - 影響: `ObjectList` の「検索・削除・重複除去」と、`ObjectSet` の「集合キー」が同じように見えて、実際には比較メソッドを呼ぶかキー文字列だけを見るかで挙動が変わる。既存の実装クラスが `Equals` / `IsDuplicateOf` に型検査や補助条件を持つ場合、安易な置き換えで互換性を壊す。
+  - 対応案: `ObjectList` の一致判定をメソッド比較のまま維持するのか、`ObjectSet` と同じキー比較へ寄せるのかを仕様化する。寄せる場合は `IDuplicateCheckable` と `IEquatable` の契約コメント、`ObjectList` / `ObjectSet` の優先順位、非同型オブジェクト比較のテストを揃える。
+
+- [ ] [spec] ObjectList のプリミティブ値比較を VBA 比較かキー比較か固定する
+  - 詳細: `ObjectList.pItemsEqual` の非オブジェクト比較は、型検査後に `ItemObject1 = ItemObject2` を使う。これを `GetTypedValueKey` に置き換えると `Long(1)` と `String(1)` のような型差を常に区別し、`GetValueKey` に置き換えると一部プリミティブを `Primitive(1)` として同一視する。どちらも VBA の直接比較とは異なる契約になる。
+  - 影響: `Exists`、`RemoveItem`、`RemoveDuplicate` の結果が、型固定、Variant サブタイプ、数値文字列、日付、Boolean の扱いで変わり得る。現在の自動型判断モードと、将来の明示型指定モードのどちらを優先するかも絡む。
+  - 対応案: `ObjectList` の値比較を、厳密型比較、プリミティブ同一視、VBA 直接比較のどれにするか決める。`Long` / `Integer` / `String` / `Boolean` / `Date` / `Currency` / `Variant` サブタイプの検索・削除・重複除去テストを追加する。
+
+- [ ] [spec] ObjectList.Sort の順序比較とキー文字列生成の責務を分ける
+  - 詳細: `GetTypedValueKey` / `GetValueKey` は同一性や辞書キー用の文字列を作る関数であり、大小比較や並び順を表す関数ではない。`ObjectList.Sort` は `IComparable`、文字列化、既存の比較規則に基づいて順序を決めるため、キー文字列へ無理に寄せると `String(...)`、`Long(...)`、`Object@...` の辞書順がそのまま並び順になる危険がある。
+  - 影響: 同じ値かどうかの判定と、どちらを前に置くかの判定が混ざる。数値、日付、文字列、`IComparable` 実装、`Nothing` 混在時の並び順が、利用者の期待ではなく内部キー表現に引きずられる。
+  - 対応案: Sort は `IComparable` など順序比較専用の契約を使い、キー生成関数は重複判定・辞書キー用途に限定する方針を明記する。必要なら順序用の `GetSortKey` 相当を別仕様として検討し、数値・文字列・日付・オブジェクト・`Nothing` の昇順/降順テストを追加する。
+
+- [ ] [spec] ObjectList / ObjectSet の表示文字列とキー文字列の契約を分ける
+  - 詳細: `ConvertToStringArray` は利用者へ見せる文字列配列であり、現状は `IStringable.ToString`、`"Nothing"`、Excel エラー表示、プリミティブ値の文字列表現を返している。すべてを `GetTypedValueKey` に置き換えると、`String(...)`、`Error(...)`、`Object@Class(...)` のような内部キー表現が表示値として露出する。
+  - 影響: 表示・ログ・デバッグ用の出力と、辞書キー・同一性判定用の出力が同じ関数に見えてしまい、既存利用側の期待する表示文字列を壊す。配列値のように直接文字列化できないものだけキー表現を使う場合も、その境界を明記しないと一貫性が分かりにくい。
+  - 対応案: `ConvertToStringArray` は表示用 API として維持し、キー用途は `GetTypedValueKey` / `GetValueKey` を明示的に呼ぶ設計にする。配列、オブジェクト、`IStringable`、`Nothing`、Excel エラー値、プリミティブ値の表示契約をテストで固定する。
+
+- [ ] [spec] ObjectList / ObjectSet に明示型指定モードを追加する
+  - 詳細: 現状の ObjectList / ObjectSet は初回追加要素から型や比較契約を自動判断するが、空コレクション、Nothing、配列、プリミティブとオブジェクトの混在、IEquatable / IDuplicateCheckable 実装有無によって、検索・削除・更新時の型判定方針が曖昧になる。
+  - 影響: 呼び出し側が「この集合は String 専用」「このリストは IFoo 実装だけを受け付ける」といった契約を先に固定できず、初回要素や空状態に依存して API の失敗条件が変わる。
+  - 対応案: 既存互換の自動型判断モードは残しつつ、初期化時に型・インターフェイス・特殊値許可方針を明示できるモードを追加する。Add / Exists / RemoveItem / Update / Sort の入口で同じ型契約を使うテストを追加する。
 
 ## 中優先度
 
